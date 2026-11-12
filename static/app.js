@@ -1847,14 +1847,16 @@ function setRoutinesPeriod(period) {
 }
 
 function getChoreSubcategory(chore) {
+  // General Chore (explicitly non-routine, or missing both isRoutine and timeOfDay)
+  if (chore.isRoutine === false || (!chore.isRoutine && !chore.timeOfDay)) {
+    const f = (chore.frequency || "Daily").toLowerCase();
+    if (f.includes("need") || f.includes("one") || f.includes("time")) return "As Needed";
+    return "general_chore";
+  }
+
   const f = (chore.frequency || "Daily").toLowerCase();
   if (f.includes("week")) return "Weekly";
   if (f.includes("need") || f.includes("one") || f.includes("time")) return "As Needed";
-
-  // General Chore (explicitly non-routine, or missing both isRoutine and timeOfDay)
-  if (chore.isRoutine === false || (!chore.isRoutine && !chore.timeOfDay)) {
-    return "general_chore";
-  }
 
   const tod = (chore.timeOfDay || "morning").toLowerCase();
   if (tod.includes("afternoon")) return "afternoon";
@@ -1863,10 +1865,20 @@ function getChoreSubcategory(chore) {
 }
 
 function isChoreActiveToday(chore) {
+  // General chores are always active every day
+  if (chore.isRoutine === false) return true;
+
+  // Weekly or As Needed tasks are active throughout the week / until completed
   const f = (chore.frequency || "").toLowerCase();
-  if (f.includes("need") || f.includes("one") || f.includes("time")) return true;
-  if (!chore.daysOfWeek || chore.daysOfWeek.length === 0) return true;
-  if (chore.daysOfWeek.length >= 7) return true;
+  if (f.includes("week") || f.includes("need") || f.includes("one") || f.includes("time")) {
+    return true;
+  }
+
+  // Daily Routines can be restricted to specific days (e.g. Mon-Fri for school routines)
+  if (!chore.daysOfWeek || chore.daysOfWeek.length === 0 || chore.daysOfWeek.length >= 7) {
+    return true;
+  }
+
   const todayShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date().getDay()];
   return chore.daysOfWeek.includes(todayShort);
 }
