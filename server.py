@@ -122,6 +122,8 @@ DEFAULT_SETTINGS = {
     "skylightEmail": "family-hub@local",
     "magicImportEnabled": True,
     "setupCompleted": False,
+    "daytimeScreensaverEnabled": True,
+    "daytimeScreensaverTimeoutMins": 5,
     "googlePhotosAlbumUrl": "",
     "googlePhotosLastSynced": None,
     "googlePhotosCount": 0,

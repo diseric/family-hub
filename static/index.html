@@ -17,17 +17,53 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.23.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.24.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
 <body>
 
-  <!-- Sleep Mode Screen (Tap anywhere to wake) -->
+  <!-- Sleep Mode Screen (Nighttime Black Screen • Tap anywhere to wake) -->
   <div id="sleep-overlay" class="hidden" onclick="wakeScreen()">
     <div class="sleep-content">
       <div id="sleep-clock-text" class="sleep-clock">10:00 PM</div>
       <div class="sleep-hint">🌙 Screen Sleeping • Tap Anywhere to Wake</div>
+    </div>
+  </div>
+
+  <!-- Daytime Google Photos Screensaver Overlay (Tap anywhere to wake) -->
+  <div id="screensaver-overlay" class="hidden" onclick="dismissScreensaver()">
+    <!-- Ambient blurred backdrop -->
+    <img id="screensaver-bg" class="screensaver-ambient" src="" alt="" />
+    
+    <!-- Foreground photo with smooth transitions -->
+    <div class="screensaver-photo-wrapper">
+      <img id="screensaver-img" class="screensaver-photo" src="" alt="Daytime Screensaver" referrerpolicy="no-referrer" />
+    </div>
+
+    <!-- Top info bar: Clock & Weather pill -->
+    <div class="screensaver-topbar">
+      <div class="screensaver-clock-badge">
+        <span id="screensaver-clock" class="screensaver-clock">12:34 PM</span>
+        <span id="screensaver-date" class="screensaver-date">Thursday, Oct 27</span>
+      </div>
+      <div id="screensaver-weather" class="screensaver-weather-badge">
+        <span id="screensaver-weather-icon" class="screensaver-weather-icon">☀️</span>
+        <span id="screensaver-weather-temp" class="screensaver-weather-temp">66°</span>
+        <span id="screensaver-weather-loc" class="screensaver-weather-loc">Seattle, WA</span>
+      </div>
+    </div>
+
+    <!-- Bottom info bar: Caption, album source, and tap-to-wake hint -->
+    <div class="screensaver-bottombar">
+      <div class="screensaver-caption-box">
+        <div id="screensaver-caption" class="screensaver-caption">Family Memories</div>
+        <div id="screensaver-source-pill" class="screensaver-source-pill">📸 Google Photos Album</div>
+      </div>
+      <div class="screensaver-wake-hint">
+        <span class="pulse-dot"></span>
+        <span>Tap anywhere to wake</span>
+      </div>
     </div>
   </div>
 
@@ -1084,6 +1120,52 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
               </select>
             </div>
           </div>
+          <!-- Daytime Google Photos Screensaver Settings -->
+          <div style="background: var(--bg-card); padding: 1rem; border-radius: 10px; border: 1px solid var(--border-subtle); margin-top: 1rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+              <div>
+                <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                  <span>📸 Daytime Photo Screensaver</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                  Display full-screen Google Photos album when idle during daytime hours.
+                </div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="set-screensaver-enabled" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; align-items: center; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border-subtle);">
+              <div>
+                <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Daytime Idle Timeout</label>
+                <select id="set-screensaver-timeout" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; width: 100%;">
+                  <option value="1">1 Minute (Testing)</option>
+                  <option value="2">2 Minutes</option>
+                  <option value="5" selected>5 Minutes (Recommended)</option>
+                  <option value="10">10 Minutes</option>
+                  <option value="15">15 Minutes</option>
+                  <option value="30">30 Minutes</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Google Photos Source</label>
+                <div style="display: flex; gap: 6px;">
+                  <button type="button" class="btn-hub ghost" style="font-size: 0.8rem; padding: 7px 10px; flex: 1;" onclick="openGooglePhotosModal()">
+                    🔗 Album Sync
+                  </button>
+                  <button type="button" class="btn-hub secondary" style="font-size: 0.8rem; padding: 7px 10px;" onclick="triggerScreensaverNow()">
+                    ▶ Preview
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div id="set-screensaver-gphotos-info" style="font-size: 0.78rem; color: #0284c7; margin-top: 8px; background: rgba(2, 132, 199, 0.08); padding: 6px 10px; border-radius: 6px;">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
           <div class="form-group">
             <label>Weather Location (City, State / Country)</label>
             <input type="text" id="set-weather-loc" value="Seattle, WA" required />
@@ -1407,7 +1489,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.23.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.23.0"></script>
+  <!-- Main JavaScript Engine (v2.24.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.24.0"></script>
 </body>
 </html>

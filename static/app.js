@@ -42,6 +42,8 @@ async function init() {
   await loadState();
   startSleepScheduler();
   startPhotoSlideshow();
+  initScreensaverActivityListeners();
+  resetScreensaverIdleTimer();
   requestScreenWakeLock();
 
   // If first-time setup has not been completed, launch the wizard
@@ -275,6 +277,9 @@ function loadSavedTheme() {
 }
 
 function triggerSleep() {
+  if (isScreensaverActive) {
+    dismissScreensaver();
+  }
   const overlay = document.getElementById("sleep-overlay");
   if (overlay) overlay.classList.remove("hidden");
 }
@@ -2813,31 +2818,259 @@ async function deleteFeed(feedId) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. Sleep Mode Scheduler (Automatic Wake/Sleep)
+// 8. Sleep & Daytime Google Photos Screensaver Engine
 // ---------------------------------------------------------------------------
+let screensaverIdleTimer = null;
+let screensaverCycleTimer = null;
+let screensaverClockTimer = null;
+let screensaverIndex = 0;
+let isScreensaverActive = false;
+
+function getScreensaverPhotos() {
+  const s = appState.settings || {};
+  if (appState.photos && appState.photos.length > 0) {
+    // If Google Photos album is connected, prioritize and filter exclusively for Google Photos
+    const gPhotos = appState.photos.filter((p) => p.source === "google_photos");
+    if (gPhotos.length > 0) {
+      return gPhotos.map((p) => ({
+        url: p.url || `/api/photos/file/${p.filename}`,
+        caption: p.caption || "Google Photos Memory",
+        isGooglePhoto: true,
+      }));
+    }
+    // Otherwise fallback to uploaded or local photos
+    return appState.photos.map((p) => ({
+      url: p.url || `/api/photos/file/${p.filename}`,
+      caption: p.caption || "Family Memory",
+      isGooglePhoto: p.source === "google_photos",
+    }));
+  }
+  return FALLBACK_PHOTOS.map((p) => ({ ...p, isGooglePhoto: false }));
+}
+
+function isCurrentlySleepingTime() {
+  const set = appState.settings || {};
+  if (!set.sleepEnabled) return false;
+
+  const now = new Date();
+  const curTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const sleepTime = set.sleepTime || "22:00";
+  const wakeTime = set.wakeTime || "06:30";
+
+  if (sleepTime > wakeTime) {
+    return curTime >= sleepTime || curTime < wakeTime;
+  } else {
+    return curTime >= sleepTime && curTime < wakeTime;
+  }
+}
+
+function initScreensaverActivityListeners() {
+  const events = ["touchstart", "touchend", "pointerdown", "mousedown", "keydown", "scroll"];
+  events.forEach((evt) => {
+    window.addEventListener(evt, () => {
+      onUserScreensaverActivity();
+    }, { passive: true });
+  });
+}
+
+function onUserScreensaverActivity() {
+  if (isScreensaverActive) {
+    dismissScreensaver();
+  }
+  resetScreensaverIdleTimer();
+}
+
+function resetScreensaverIdleTimer() {
+  if (screensaverIdleTimer) {
+    clearTimeout(screensaverIdleTimer);
+    screensaverIdleTimer = null;
+  }
+
+  const set = appState.settings || {};
+  // If daytime screensaver disabled, don't set timer
+  if (set.daytimeScreensaverEnabled === false) return;
+
+  // Don't trigger screensaver if sleeping time (sleep overlay handles it)
+  if (isCurrentlySleepingTime()) return;
+
+  const timeoutMins = parseFloat(set.daytimeScreensaverTimeoutMins) || 5;
+  const timeoutMs = Math.max(0.5, timeoutMins) * 60 * 1000;
+
+  screensaverIdleTimer = setTimeout(() => {
+    checkAndTriggerDaytimeScreensaver();
+  }, timeoutMs);
+}
+
+function checkAndTriggerDaytimeScreensaver() {
+  // If it's night time sleep hours, nighttime blackout overlay handles it
+  if (isCurrentlySleepingTime()) return;
+
+  const sleepOverlay = document.getElementById("sleep-overlay");
+  if (sleepOverlay && !sleepOverlay.classList.contains("hidden")) {
+    return; // Already in sleep mode
+  }
+
+  activateScreensaver();
+}
+
+function updateScreensaverDisplay() {
+  const overlay = document.getElementById("screensaver-overlay");
+  if (!overlay || overlay.classList.contains("hidden")) return;
+
+  // 1. Update Clock & Date
+  const now = new Date();
+  let hours = now.getHours();
+  const mins = String(now.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const displayHours = hours % 12 || 12;
+
+  const clkEl = document.getElementById("screensaver-clock");
+  if (clkEl) clkEl.textContent = `${displayHours}:${mins} ${ampm}`;
+
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dateStr = `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`;
+  const dateEl = document.getElementById("screensaver-date");
+  if (dateEl) dateEl.textContent = dateStr;
+
+  // 2. Update Weather Badge
+  if (appState.weather) {
+    const w = appState.weather;
+    const tempEl = document.getElementById("screensaver-weather-temp");
+    const iconEl = document.getElementById("screensaver-weather-icon");
+    const locEl = document.getElementById("screensaver-weather-loc");
+    if (tempEl) tempEl.textContent = `${w.temp || "--"}°`;
+    if (iconEl) iconEl.textContent = w.icon || "☀️";
+    if (locEl) locEl.textContent = (appState.settings && appState.settings.weatherLocation) || "Home";
+  }
+
+  // 3. Update Photo & Background
+  const photos = getScreensaverPhotos();
+  if (photos.length === 0) return;
+
+  screensaverIndex = (screensaverIndex + 1) % photos.length;
+  const current = photos[screensaverIndex];
+
+  const imgEl = document.getElementById("screensaver-img");
+  const bgEl = document.getElementById("screensaver-bg");
+  const capEl = document.getElementById("screensaver-caption");
+  const sourceEl = document.getElementById("screensaver-source-pill");
+
+  if (imgEl) {
+    imgEl.referrerPolicy = "no-referrer";
+    imgEl.style.opacity = "0.2";
+    if (bgEl) {
+      bgEl.referrerPolicy = "no-referrer";
+      bgEl.style.opacity = "0.2";
+    }
+    setTimeout(() => {
+      imgEl.src = current.url;
+      imgEl.style.opacity = "1";
+      if (bgEl) {
+        bgEl.src = current.url;
+        bgEl.style.opacity = "0.85";
+      }
+    }, 350);
+  }
+
+  if (capEl) capEl.textContent = current.caption || "Family Memory";
+  if (sourceEl) {
+    sourceEl.textContent = current.isGooglePhoto ? "📸 Google Photos Album" : "🖼️ Family Album";
+  }
+}
+
+function activateScreensaver() {
+  const overlay = document.getElementById("screensaver-overlay");
+  if (!overlay) return;
+
+  isScreensaverActive = true;
+  overlay.classList.remove("hidden");
+
+  // Show first photo immediately
+  updateScreensaverDisplay();
+
+  // Start photo cycling interval
+  if (screensaverCycleTimer) clearInterval(screensaverCycleTimer);
+  const intervalSec = (appState.settings && appState.settings.slideshowIntervalSec) || 8;
+  screensaverCycleTimer = setInterval(() => {
+    updateScreensaverDisplay();
+  }, intervalSec * 1000);
+
+  // Update clock every 10 seconds while active
+  if (screensaverClockTimer) clearInterval(screensaverClockTimer);
+  screensaverClockTimer = setInterval(() => {
+    const now = new Date();
+    let hours = now.getHours();
+    const mins = String(now.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours % 12 || 12;
+    const clkEl = document.getElementById("screensaver-clock");
+    if (clkEl) clkEl.textContent = `${displayHours}:${mins} ${ampm}`;
+  }, 10000);
+}
+
+function dismissScreensaver() {
+  const overlay = document.getElementById("screensaver-overlay");
+  if (overlay) overlay.classList.add("hidden");
+
+  isScreensaverActive = false;
+  if (screensaverCycleTimer) {
+    clearInterval(screensaverCycleTimer);
+    screensaverCycleTimer = null;
+  }
+  if (screensaverClockTimer) {
+    clearInterval(screensaverClockTimer);
+    screensaverClockTimer = null;
+  }
+  resetScreensaverIdleTimer();
+}
+
+function triggerScreensaverNow() {
+  closeModal("modal-settings");
+  activateScreensaver();
+}
+
+function renderScreensaverStatusInSettings() {
+  const infoEl = document.getElementById("set-screensaver-gphotos-info");
+  if (!infoEl) return;
+  const s = appState.settings || {};
+  const hasGPhotos = !!s.googlePhotosAlbumUrl;
+  const count = s.googlePhotosCount || 0;
+  if (hasGPhotos) {
+    infoEl.style.display = "block";
+    infoEl.style.color = "#059669";
+    infoEl.style.background = "rgba(16, 185, 129, 0.08)";
+    infoEl.innerHTML = `✅ <strong>Connected Album:</strong> ${count} Google Photos rotating in your daytime screensaver.`;
+  } else {
+    infoEl.style.display = "block";
+    infoEl.style.color = "#0284c7";
+    infoEl.style.background = "rgba(2, 132, 199, 0.08)";
+    infoEl.innerHTML = `ℹ️ <strong>Google Photos:</strong> Tap "Album Sync" to connect your Google Photos shared album URL for family memories.`;
+  }
+}
+
 function startSleepScheduler() {
   function checkSchedule() {
     const set = appState.settings;
-    if (!set.sleepEnabled) return;
-
-    const now = new Date();
-    const curTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    const sleepTime = set.sleepTime || "22:00";
-    const wakeTime = set.wakeTime || "06:30";
+    if (!set || !set.sleepEnabled) return;
 
     const overlay = document.getElementById("sleep-overlay");
     if (!overlay) return;
 
-    // Check if time is between sleepTime and wakeTime
-    let isSleepingTime = false;
-    if (sleepTime > wakeTime) {
-      isSleepingTime = curTime >= sleepTime || curTime < wakeTime;
-    } else {
-      isSleepingTime = curTime >= sleepTime && curTime < wakeTime;
-    }
+    const isSleepingTime = isCurrentlySleepingTime();
 
-    if (isSleepingTime && overlay.classList.contains("hidden")) {
-      overlay.classList.remove("hidden");
+    if (isSleepingTime) {
+      if (isScreensaverActive) {
+        dismissScreensaver();
+      }
+      if (overlay.classList.contains("hidden")) {
+        overlay.classList.remove("hidden");
+      }
+    } else {
+      if (!overlay.classList.contains("hidden")) {
+        overlay.classList.add("hidden");
+        resetScreensaverIdleTimer();
+      }
     }
   }
 
@@ -2847,10 +3080,14 @@ function startSleepScheduler() {
 function wakeScreen() {
   const overlay = document.getElementById("sleep-overlay");
   if (overlay) overlay.classList.add("hidden");
+  resetScreensaverIdleTimer();
 }
 
 function triggerImmediateSleep() {
   closeModal("modal-settings");
+  if (isScreensaverActive) {
+    dismissScreensaver();
+  }
   const overlay = document.getElementById("sleep-overlay");
   if (overlay) overlay.classList.remove("hidden");
 }
@@ -3207,6 +3444,11 @@ function openSettingsModal() {
     const speedEl = document.getElementById("set-slideshow-interval");
     if (speedEl) speedEl.value = String(s.slideshowIntervalSec);
   }
+  const ssEnabledEl = document.getElementById("set-screensaver-enabled");
+  if (ssEnabledEl) ssEnabledEl.checked = s.daytimeScreensaverEnabled !== false;
+  const ssTimeoutEl = document.getElementById("set-screensaver-timeout");
+  if (ssTimeoutEl && s.daytimeScreensaverTimeoutMins) ssTimeoutEl.value = String(s.daytimeScreensaverTimeoutMins);
+  renderScreensaverStatusInSettings();
   renderSettingsMembers();
   renderSettingsFeeds();
   updateSettingsMemberDropdown();
@@ -3642,12 +3884,14 @@ async function saveSettings(e) {
   const skylightEmail = document.getElementById("set-skylight-email").value;
   const splitDefault = document.getElementById("set-split-default") ? document.getElementById("set-split-default").value : "photos";
   const slideshowIntervalSec = document.getElementById("set-slideshow-interval") ? parseInt(document.getElementById("set-slideshow-interval").value, 10) : 8;
+  const daytimeScreensaverEnabled = document.getElementById("set-screensaver-enabled") ? document.getElementById("set-screensaver-enabled").checked : true;
+  const daytimeScreensaverTimeoutMins = document.getElementById("set-screensaver-timeout") ? parseInt(document.getElementById("set-screensaver-timeout").value, 10) : 5;
 
   try {
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceName, wakeTime, sleepTime, weatherLocation, skylightEmail, splitDefault, slideshowIntervalSec }),
+      body: JSON.stringify({ deviceName, wakeTime, sleepTime, weatherLocation, skylightEmail, splitDefault, slideshowIntervalSec, daytimeScreensaverEnabled, daytimeScreensaverTimeoutMins }),
     });
     const data = await res.json();
     if (data.weather) {
@@ -3659,6 +3903,7 @@ async function saveSettings(e) {
   }
   await loadState();
   startPhotoSlideshow();
+  resetScreensaverIdleTimer();
   closeModal("modal-settings");
 }
 
