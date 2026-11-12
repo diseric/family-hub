@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.25.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.26.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -121,6 +121,10 @@
           <span class="nav-icon">🖼️</span>
           <span class="nav-label">Photos</span>
         </button>
+        <button class="nav-item mobile-nav-item" onclick="openSettingsModal()" title="Settings & Sync">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Settings</span>
+        </button>
       </nav>
 
       <!-- Sidebar Bottom Controls -->
@@ -149,19 +153,35 @@
 
       <!-- Top Sub-Header Bar -->
       <header class="hub-topbar">
-        <!-- Live Clock & Weather -->
-        <div class="clock-weather-group">
-          <div>
-            <div id="clock-display" class="live-clock-hub">--:--</div>
-            <div id="date-display" class="live-date-hub">Loading date...</div>
+        <div class="topbar-main-row">
+          <!-- Live Clock & Weather -->
+          <div class="clock-weather-group">
+            <div>
+              <div id="clock-display" class="live-clock-hub">--:--</div>
+              <div id="date-display" class="live-date-hub">Loading date...</div>
+            </div>
+
+            <!-- Weather Chip -->
+            <div id="weather-box" class="weather-chip" onclick="openWeatherModal()" title="View 5-Day Forecast">
+              <span id="weather-icon" class="weather-chip-icon">⛅</span>
+              <span class="weather-chip-temp"><span id="weather-temp">68</span>°</span>
+              <span id="weather-desc" class="weather-chip-desc">Partly Sunny</span>
+              <span id="weather-location" class="weather-chip-loc" style="display:inline-block; font-size:0.8rem; font-weight:700; color:var(--text-secondary); margin-left:4px; padding-left:6px; border-left:1px solid var(--border-subtle);">Seattle</span>
+            </div>
           </div>
 
-          <!-- Weather Chip -->
-          <div id="weather-box" class="weather-chip" onclick="openWeatherModal()" title="View 5-Day Forecast">
-            <span id="weather-icon" class="weather-chip-icon">⛅</span>
-            <span class="weather-chip-temp"><span id="weather-temp">68</span>°</span>
-            <span id="weather-desc" class="weather-chip-desc">Partly Sunny</span>
-            <span id="weather-location" class="weather-chip-loc" style="display:inline-block; font-size:0.8rem; font-weight:700; color:var(--text-secondary); margin-left:4px; padding-left:6px; border-left:1px solid var(--border-subtle);">Seattle</span>
+          <!-- Primary Top-Right Actions -->
+          <div class="topbar-actions">
+            <button class="btn-hub magic" onclick="openMagicImport()" title="AI Schedule Extractor">
+              <span class="desktop-only-inline">🪄 Magic Import</span>
+              <span class="mobile-only-inline">🪄 Magic</span>
+            </button>
+            <button class="btn-hub primary" onclick="openNewEventModal()" title="Add New Event">
+              <span>+ New</span>
+            </button>
+            <button class="btn-hub ghost mobile-header-settings-btn" onclick="openSettingsModal()" title="Settings & Sync">
+              <span>⚙️</span>
+            </button>
           </div>
         </div>
 
@@ -173,16 +193,6 @@
           <button class="view-btn active" data-view="week" onclick="setCalendarView('week')">Week</button>
           <button class="view-btn" data-view="month" onclick="setCalendarView('month')">Month</button>
           <button class="view-btn split-btn" data-view="split" onclick="toggleSplitScreen()">◫ Split Screen</button>
-        </div>
-
-        <!-- Primary Top-Right Actions -->
-        <div class="topbar-actions">
-          <button class="btn-hub magic" onclick="openMagicImport()" title="AI Schedule Extractor">
-            <span>🪄 Magic Import</span>
-          </button>
-          <button class="btn-hub primary" onclick="openNewEventModal()" title="Add New Event">
-            <span>+ New</span>
-          </button>
         </div>
       </header>
 
@@ -1489,7 +1499,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.25.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.25.0"></script>
+  <!-- Main JavaScript Engine (v2.26.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.26.0"></script>
 </body>
 </html>

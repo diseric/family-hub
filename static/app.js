@@ -47,6 +47,15 @@ async function init() {
   requestScreenWakeLock();
   initDragToScroll();
 
+  // On mobile phone screens, default calendar view to Schedule for best vertical readability
+  if (window.innerWidth <= 768 && appState.calendarView === "week") {
+    appState.calendarView = "schedule";
+    document.querySelectorAll(".view-btn:not(.split-btn)").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-view") === "schedule");
+    });
+    renderCalendar();
+  }
+
   // If first-time setup has not been completed, launch the wizard
   if (!appState.settings || !appState.settings.setupCompleted) {
     setTimeout(() => {
@@ -1688,8 +1697,11 @@ function renderChores() {
     return;
   }
 
-  // Ensure 4 columns sit side-by-side cleanly across the screen
-  if (membersToDisplay.length === 4) {
+  // On mobile phone screens (<= 768px), stack 1 column for thumb-friendly mobile reading
+  if (window.innerWidth <= 768) {
+    grid.style.gridTemplateColumns = "1fr";
+    lb.style.gridTemplateColumns = "repeat(2, 1fr)";
+  } else if (membersToDisplay.length === 4) {
     grid.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
     lb.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
   } else if (membersToDisplay.length === 1) {
@@ -1931,7 +1943,9 @@ function renderRewards() {
     return;
   }
 
-  if (membersToDisplay.length === 4) {
+  if (window.innerWidth <= 768) {
+    grid.style.gridTemplateColumns = "1fr";
+  } else if (membersToDisplay.length === 4) {
     grid.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
   } else {
     grid.style.gridTemplateColumns = `repeat(${Math.max(1, membersToDisplay.length)}, minmax(0, 1fr))`;

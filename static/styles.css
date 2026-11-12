@@ -297,6 +297,18 @@ body {
 }
 
 /* Top Sub-Header Bar */
+.topbar-main-row {
+  display: contents;
+}
+.mobile-only-inline,
+.mobile-nav-item,
+.mobile-header-settings-btn {
+  display: none !important;
+}
+.desktop-only-inline {
+  display: inline;
+}
+
 .hub-topbar,
 .skylight-topbar {
   display: flex;
@@ -2379,52 +2391,450 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Mobile & Portrait Responsiveness
+   Mobile & Portrait Phone Responsiveness (Phones & Small Tablets)
    -------------------------------------------------------------------------- */
-@media (max-width: 900px) {
+@media (max-width: 768px) {
+  /* 1. Prevent iOS Safari auto-zoom on input tap */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* 2. Master App Layout */
   .hub-app-container,
   .skylight-app-container {
-    flex-direction: column-reverse;
+    flex-direction: column-reverse !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    width: 100vw !important;
+    overflow: hidden !important;
   }
 
+  /* 3. Sleek Mobile Bottom Navigation Bar */
   .hub-sidebar,
   .skylight-sidebar {
-    width: 100vw;
-    height: 68px;
-    border-right: none;
-    border-top: 1px solid var(--border-subtle);
-    flex-direction: row;
-    padding: 0 0.5rem;
+    width: 100vw !important;
+    height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    min-height: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    border-right: none !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    flex-direction: row !important;
+    padding: 3px 4px calc(3px + env(safe-area-inset-bottom, 0px)) !important;
+    background: var(--bg-sidebar) !important;
+    z-index: 500 !important;
+    flex-shrink: 0 !important;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   }
 
-  .sidebar-brand, .sidebar-bottom {
-    display: none;
+  .sidebar-brand,
+  .sidebar-bottom {
+    display: none !important;
   }
 
   .sidebar-nav {
-    flex-direction: row;
-    justify-content: space-around;
+    flex-direction: row !important;
+    width: 100% !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    gap: 2px !important;
+  }
+
+  /* Hide Photo Frame tab on small phone bottom bar */
+  .nav-item[data-tab="photo-frame"] {
+    display: none !important;
+  }
+
+  .mobile-nav-item {
+    display: flex !important;
+  }
+
+  .mobile-header-settings-btn {
+    display: inline-flex !important;
+    padding: 4px 8px !important;
+    font-size: 1.05rem !important;
+  }
+
+  .desktop-only-inline {
+    display: none !important;
+  }
+
+  .mobile-only-inline {
+    display: inline !important;
   }
 
   .nav-item {
-    width: auto;
-    height: 100%;
-    padding: 0 0.5rem;
+    flex: 1 !important;
+    height: 48px !important;
+    padding: 3px 2px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    gap: 2px !important;
+    min-width: 0 !important;
+    background: transparent !important;
   }
 
+  .nav-item.active {
+    background: var(--bg-pill) !important;
+    color: var(--primary) !important;
+  }
+
+  .nav-item .nav-icon {
+    font-size: 1.25rem !important;
+    line-height: 1 !important;
+  }
+
+  .nav-item .nav-label {
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* 4. Main Display Area */
+  .hub-main,
+  .skylight-main {
+    flex: 1 !important;
+    min-height: 0 !important;
+    height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px)) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    width: 100vw !important;
+  }
+
+  /* 5. Compact Mobile Topbar */
   .hub-topbar,
   .skylight-topbar {
-    flex-wrap: wrap;
-    padding: 0.75rem 1rem;
-    height: auto;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0.5rem 0.75rem !important;
+    min-height: auto !important;
+    gap: 0.4rem !important;
+    background: var(--bg-sidebar) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
   }
 
+  .topbar-main-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 0.4rem !important;
+  }
+
+  .clock-weather-group {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.6rem !important;
+    min-width: 0 !important;
+  }
+
+  .live-clock-hub {
+    font-size: 1.35rem !important;
+  }
+
+  .live-date-hub {
+    font-size: 0.74rem !important;
+  }
+
+  .weather-chip {
+    padding: 0.3rem 0.55rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .weather-chip-icon {
+    font-size: 1.1rem !important;
+  }
+
+  .weather-chip-temp {
+    font-size: 0.95rem !important;
+  }
+
+  .weather-chip-desc {
+    display: none !important;
+  }
+
+  .weather-chip-loc {
+    font-size: 0.75rem !important;
+    margin-left: 2px !important;
+    padding-left: 4px !important;
+  }
+
+  .topbar-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .topbar-actions .btn-hub {
+    padding: 5px 9px !important;
+    font-size: 0.76rem !important;
+  }
+
+  /* Calendar View Switcher: Horizontally scrollable pill bar on mobile */
+  .view-mode-selector {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    display: flex !important;
+    padding: 3px !important;
+    border-radius: var(--radius-pill) !important;
+    gap: 2px !important;
+  }
+
+  .view-mode-selector::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .view-btn {
+    padding: 5px 11px !important;
+    font-size: 0.76rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .view-btn.split-btn {
+    display: none !important; /* Hide Split Screen button on portrait phone */
+  }
+
+  /* 6. Mobile Toolbar Bar (Member Filters & Date Nav) */
+  .hub-toolbar-bar,
+  .skylight-toolbar-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 0.4rem 0.75rem !important;
+    min-height: auto !important;
+    gap: 0.4rem !important;
+    background: var(--bg-surface) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+  }
+
+  .toolbar-left {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    display: flex !important;
+  }
+
+  .toolbar-left::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .member-filters {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 0.4rem !important;
+    width: max-content !important;
+  }
+
+  .member-pill {
+    padding: 3px 8px !important;
+    font-size: 0.74rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .toolbar-right {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 0.4rem !important;
+  }
+
+  .active-date-heading {
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .date-nav-group {
+    display: flex !important;
+    gap: 3px !important;
+  }
+
+  .date-nav-btn {
+    padding: 3px 8px !important;
+    font-size: 0.76rem !important;
+  }
+
+  /* 7. Workspace Area */
+  .workspace-area {
+    flex: 1 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 0.65rem 0.65rem 3rem !important;
+  }
+
+  /* 8. Chores & Tasks Screen on Mobile */
+  .chores-container {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    width: 100% !important;
+  }
+
+  .chores-leaderboard {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .chores-leaderboard-card {
+    padding: 8px 10px !important;
+  }
+
+  .chore-card {
+    padding: 10px 12px !important;
+  }
+
+  .chore-checkbox {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+  }
+
+  .chore-info h3 {
+    font-size: 0.88rem !important;
+  }
+
+  .routine-time-pills {
+    width: 100% !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none !important;
+  }
+
+  /* 9. Rewards & Star Goals on Mobile */
+  #rewards-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    width: 100% !important;
+  }
+
+  .rewards-filter-pills {
+    width: 100% !important;
+    overflow-x: auto !important;
+    flex-wrap: nowrap !important;
+    scrollbar-width: none !important;
+  }
+
+  .reward-goal-card {
+    padding: 12px 14px !important;
+  }
+
+  /* 10. Weekly Meal Planner on Mobile */
   .meals-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 0.85rem !important;
+  }
+
+  .meal-day-card {
+    min-height: auto !important;
+  }
+
+  /* 11. Lists on Mobile */
+  .lists-layout {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .list-column {
+    max-height: none !important;
+  }
+
+  /* 12. Calendar Layouts on Mobile */
+  .daily-schedule-layout {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  .daily-mini-cal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .daily-events-pane {
+    width: 100% !important;
+    padding-right: 0 !important;
   }
 
   .calendar-grid.week-grid {
-    grid-template-columns: 1fr;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .week-col {
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    min-height: auto !important;
+    padding-bottom: 0.5rem !important;
+  }
+
+  .week-col-header {
+    background: var(--bg-card-alt) !important;
+    padding: 8px 12px !important;
+    border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  }
+
+  .calendar-grid.month-grid {
+    grid-auto-rows: minmax(65px, 1fr) !important;
+  }
+
+  .month-cell {
+    padding: 2px !important;
+  }
+
+  .month-cell-num {
+    font-size: 0.7rem !important;
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .month-cell-events {
+    max-height: 48px !important;
+    gap: 1px !important;
+  }
+
+  .month-event-pill {
+    font-size: 0.65rem !important;
+    padding: 1px 3px !important;
+  }
+
+  /* 13. Modals on Mobile */
+  .modal-card {
+    width: 95% !important;
+    max-width: 95% !important;
+    max-height: 90vh !important;
+    border-radius: 16px !important;
+    margin: auto !important;
+  }
+
+  .modal-body {
+    padding: 1rem !important;
+    max-height: 72vh !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .modal-header {
+    padding: 1rem !important;
+  }
+
+  .modal-footer {
+    padding: 0.75rem 1rem !important;
   }
 }
 
