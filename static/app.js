@@ -37,6 +37,7 @@ async function init() {
   await loadState();
   startSleepScheduler();
   startPhotoSlideshow();
+  requestScreenWakeLock();
 
   // If first-time setup has not been completed, launch the wizard
   if (!appState.settings || !appState.settings.setupCompleted) {
@@ -326,6 +327,86 @@ function toggleSplitScreen(targetMode) {
     renderSplitSidePane();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Tablet / iPad Kiosk Fullscreen & Screen Wake Lock
+// ---------------------------------------------------------------------------
+let screenWakeLock = null;
+
+async function requestScreenWakeLock() {
+  if ("wakeLock" in navigator) {
+    try {
+      if (!screenWakeLock) {
+        screenWakeLock = await navigator.wakeLock.request("screen");
+        screenWakeLock.addEventListener("release", () => {
+          screenWakeLock = null;
+        });
+        console.log("Kiosk Screen Wake Lock active (prevents tablet sleep)");
+      }
+    } catch (err) {
+      console.warn("Could not acquire screen wake lock:", err);
+    }
+  }
+}
+
+function toggleKioskFullscreen() {
+  requestScreenWakeLock();
+  const doc = document;
+  const docEl = document.documentElement;
+
+  const isFullscreen = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
+
+  if (!isFullscreen) {
+    if (docEl.requestFullscreen) {
+      docEl.requestFullscreen().catch(() => {});
+    } else if (docEl.webkitRequestFullscreen) {
+      docEl.webkitRequestFullscreen();
+    } else if (docEl.mozRequestFullScreen) {
+      docEl.mozRequestFullScreen();
+    } else if (docEl.msRequestFullscreen) {
+      docEl.msRequestFullscreen();
+    }
+    updateKioskButton(true);
+  } else {
+    if (doc.exitFullscreen) {
+      doc.exitFullscreen().catch(() => {});
+    } else if (doc.webkitExitFullscreen) {
+      doc.webkitExitFullscreen();
+    } else if (doc.mozCancelFullScreen) {
+      doc.mozCancelFullScreen();
+    } else if (doc.msExitFullscreen) {
+      doc.msExitFullscreen();
+    }
+    updateKioskButton(false);
+  }
+}
+
+function updateKioskButton(isFullscreen) {
+  const icon = document.getElementById("kiosk-icon");
+  const label = document.getElementById("kiosk-label");
+  const btn = document.getElementById("kiosk-toggle-btn");
+  if (btn) btn.classList.toggle("active", isFullscreen);
+  if (icon) icon.textContent = isFullscreen ? "🗗" : "⛶";
+  if (label) label.textContent = isFullscreen ? "Exit" : "Kiosk";
+}
+
+document.addEventListener("fullscreenchange", () => {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  updateKioskButton(isFs);
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  updateKioskButton(isFs);
+});
+
+// Re-acquire wake lock when tablet is unlocked or tab becomes visible
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible") {
+    await requestScreenWakeLock();
+  }
+});
+window.addEventListener("touchstart", () => { requestScreenWakeLock(); }, { once: true, passive: true });
+window.addEventListener("click", () => { requestScreenWakeLock(); }, { once: true, passive: true });
 
 function switchSplitTab(tabName) {
   appState.splitMode = tabName;

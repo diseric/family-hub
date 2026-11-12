@@ -2,10 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Family Hub — Smart Family Touchscreen Display</title>
-  <link rel="stylesheet" href="/static/styles.css?v=2.16.0" />
+
+  <!-- iOS / iPad PWA & Fullscreen Kiosk Mode -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Family Hub" />
+  <link rel="apple-touch-icon" href="/static/icon.svg" />
+
+  <!-- Android / Chrome PWA & Fullscreen Kiosk Mode -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#090d16" />
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
+
+  <link rel="stylesheet" href="/static/styles.css?v=2.17.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -73,6 +85,10 @@
 
       <!-- Sidebar Bottom Controls -->
       <div class="sidebar-bottom">
+        <button class="sidebar-btn" onclick="toggleKioskFullscreen()" id="kiosk-toggle-btn" title="Toggle Fullscreen Kiosk Mode">
+          <span class="icon" id="kiosk-icon">⛶</span>
+          <span class="label" id="kiosk-label">Kiosk</span>
+        </button>
         <button class="sidebar-btn" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle Day / Night Mode">
           <span class="icon" id="theme-icon">🌙</span>
           <span class="label" id="theme-label">Theme</span>
@@ -744,7 +760,37 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           </div>
         </div>
 
-        <!-- 5. Device Preferences Form -->
+        <!-- 5. iPad & Tablet Kiosk Setup Card -->
+        <div style="background: linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(139, 92, 246, 0.08)); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.75rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.3rem;">📱</span>
+              <strong style="font-size: 0.95rem;">iPad & Tablet Kiosk Mode</strong>
+            </div>
+            <button type="button" class="btn-hub primary mini-btn" onclick="toggleKioskFullscreen()" style="padding: 4px 12px; font-size: 0.78rem;">⛶ Enter Fullscreen</button>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 0.75rem;">
+            Transform any iPad, Android tablet, or touchscreen into a dedicated family wall display:
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.8rem;">
+            <div style="background: var(--bg-card); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
+              <div style="font-weight: 700; color: #0284c7; margin-bottom: 4px;">🍎 iPad / Safari Kiosk:</div>
+              <div style="color: var(--text-muted); line-height: 1.4;">
+                1. Tap <strong>Share (⎋)</strong> ➔ <strong>Add to Home Screen</strong> (opens with no browser bar).<br/>
+                2. For 100% kiosk lock, enable <em>Guided Access</em> in iPad Settings ➔ Accessibility.
+              </div>
+            </div>
+            <div style="background: var(--bg-card); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
+              <div style="font-weight: 700; color: #10b981; margin-bottom: 4px;">🤖 Android / Chrome:</div>
+              <div style="color: var(--text-muted); line-height: 1.4;">
+                1. Tap <strong>Menu (⋮)</strong> ➔ <strong>Install app</strong> or <strong>Add to Home screen</strong>.<br/>
+                2. Use tablet <em>Screen Pinning</em> or tap <strong>Kiosk (⛶)</strong> in the sidebar.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Device Preferences Form -->
         <form id="form-settings" onsubmit="saveSettings(event)">
           <div style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">🏡 Device & Display Preferences</div>
           <div class="form-group">
@@ -1105,7 +1151,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.16.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.16.0"></script>
+  <!-- Main JavaScript Engine (v2.17.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.17.0"></script>
 </body>
 </html>

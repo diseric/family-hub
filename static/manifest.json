@@ -1,8 +1,10 @@
 {
-  "name": "Family Hub Calendar",
+  "name": "Family Hub — Smart Family Touchscreen Display",
   "short_name": "Family Hub",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "window-controls-overlay"],
+  "orientation": "any",
   "background_color": "#090d16",
   "theme_color": "#090d16",
   "description": "Smart Touchscreen Family Calendar, Chore Tracker, Lists & Digital Photo Frame",
@@ -10,7 +12,8 @@
     {
       "src": "/static/icon.svg",
       "sizes": "192x192 512x512",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }
