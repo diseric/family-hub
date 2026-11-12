@@ -1212,11 +1212,22 @@ async function saveChore(e) {
   document.getElementById("form-chore").reset();
 }
 
-function openNewListModal() {
+async function openNewListModal() {
   const title = prompt("Enter List Name (e.g. 🛠️ Hardware Store or 🎒 Packing):");
   if (!title) return;
-  appState.lists.push({ id: `l_${Date.now()}`, title, items: [] });
-  renderLists();
+  try {
+    const res = await fetch("/api/lists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (res.ok) {
+      await loadState();
+      renderLists();
+    }
+  } catch (err) {
+    console.error("Failed to create list:", err);
+  }
 }
 
 function openSettingsModal() {
@@ -1227,6 +1238,11 @@ function openSettingsModal() {
   if (s.weatherLocation) document.getElementById("set-weather-loc").value = s.weatherLocation;
   if (s.skylightEmail) document.getElementById("set-skylight-email").value = s.skylightEmail;
   renderSettingsMembers();
+  renderSettingsFeeds();
+  updateSettingsMemberDropdown();
+  renderSettingsLists();
+  const statusEl = document.getElementById("set-gcal-status");
+  if (statusEl) statusEl.style.display = "none";
   openModal("modal-settings");
 }
 
@@ -1268,6 +1284,7 @@ async function addMemberFromSettings() {
       nameInput.value = "";
       await loadState();
       renderSettingsMembers();
+      updateSettingsMemberDropdown();
     }
   } catch (err) {
     console.error("Failed to add member:", err);
@@ -1281,9 +1298,213 @@ async function deleteMemberFromSettings(memberId) {
     if (res.ok) {
       await loadState();
       renderSettingsMembers();
+      updateSettingsMemberDropdown();
     }
   } catch (err) {
     console.error("Failed to delete member:", err);
+  }
+}
+
+function updateSettingsMemberDropdown() {
+  const sel = document.getElementById("set-gcal-member");
+  if (!sel) return;
+  let opts = `<option value="all">🏡 Entire Family (Shared)</option>`;
+  if (appState.members && appState.members.length > 0) {
+    for (const m of appState.members) {
+      opts += `<option value="${m.id}">${m.avatar || "👤"} ${m.name}</option>`;
+    }
+  }
+  sel.innerHTML = opts;
+}
+
+function renderSettingsFeeds() {
+  const container = document.getElementById("settings-feeds-list");
+  if (!container) return;
+  const feeds = appState.feeds || [];
+  if (feeds.length === 0) {
+    container.innerHTML = `<div style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">No connected external calendars yet. Connect your Google Calendar below!</div>`;
+    return;
+  }
+  container.innerHTML = feeds.map(f => {
+    let memberLabel = "🏡 Entire Family";
+    if (f.memberId && f.memberId !== "all") {
+      const mem = (appState.members || []).find(m => m.id === f.memberId);
+      if (mem) memberLabel = `${mem.avatar || "👤"} ${mem.name}`;
+    }
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: var(--bg-hover); border-radius: 6px; border: 1px solid var(--border-color);">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-size: 1.1rem;">📅</span>
+          <span style="font-weight: 600; font-size: 0.88rem;">${f.name}</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); background: var(--bg-card); padding: 2px 6px; border-radius: 4px;">${memberLabel}</span>
+          <span style="font-size: 0.75rem; color: #0284c7; background: rgba(2, 132, 199, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 600;">${f.eventCount || 0} events</span>
+        </div>
+        <button type="button" onclick="deleteFeedFromSettings('${f.id}')" title="Delete Feed" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1rem; padding: 2px 6px;">🗑️</button>
+      </div>
+    `;
+  }).join("");
+}
+
+async function addGoogleCalFromSettings() {
+  const urlInput = document.getElementById("set-gcal-url");
+  const nameInput = document.getElementById("set-gcal-name");
+  const memberSel = document.getElementById("set-gcal-member");
+  const statusEl = document.getElementById("set-gcal-status");
+  const btnConnect = document.getElementById("btn-add-gcal-settings");
+
+  if (!urlInput || !statusEl) return;
+  const url = urlInput.value.trim();
+  const name = (nameInput && nameInput.value.trim()) || "Google Calendar";
+  const memberId = (memberSel && memberSel.value) || "all";
+
+  if (!url) {
+    statusEl.className = "live-status-card error";
+    statusEl.style.display = "flex";
+    statusEl.innerHTML = `<span>⚠️</span> <span>Please paste your Google Calendar Secret iCal URL.</span>`;
+    urlInput.focus();
+    return;
+  }
+
+  statusEl.className = "live-status-card loading";
+  statusEl.style.display = "flex";
+  statusEl.innerHTML = `<span>⏳</span> <span>Connecting to Google Calendar & testing iCal stream...</span>`;
+  if (btnConnect) btnConnect.disabled = true;
+
+  try {
+    const testRes = await fetch("/api/feeds/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, name, memberId }),
+    });
+    const testData = await testRes.json();
+
+    if (testData.status === "ok") {
+      await fetch("/api/feeds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          provider: "google",
+          url,
+          color: "#4285F4",
+          memberId,
+        }),
+      });
+
+      await loadState();
+      renderSettingsFeeds();
+      renderCalendar();
+
+      const previewText = testData.preview && testData.preview.length > 0 ? ` (Found: "${testData.preview.slice(0, 3).join('", "')}")` : "";
+      statusEl.className = "live-status-card success";
+      statusEl.innerHTML = `<span>✅</span> <span><strong>Connected!</strong> Synced ${testData.eventCount} events${previewText}.</span>`;
+      urlInput.value = "";
+    } else {
+      statusEl.className = "live-status-card error";
+      statusEl.innerHTML = `<span>❌</span> <span>${testData.message || "Could not connect to calendar."}</span>`;
+    }
+  } catch (err) {
+    statusEl.className = "live-status-card error";
+    statusEl.innerHTML = `<span>❌</span> <span>Connection error: ${err.message}</span>`;
+  } finally {
+    if (btnConnect) btnConnect.disabled = false;
+  }
+}
+
+async function deleteFeedFromSettings(feedId) {
+  if (!confirm("Are you sure you want to remove this calendar feed and its synced events?")) return;
+  try {
+    const res = await fetch(`/api/feeds/${feedId}`, { method: "DELETE" });
+    if (res.ok) {
+      await loadState();
+      renderSettingsFeeds();
+      renderCalendar();
+    }
+  } catch (err) {
+    console.error("Error deleting feed:", err);
+  }
+}
+
+async function syncAllFeedsFromSettings() {
+  const statusEl = document.getElementById("set-gcal-status");
+  if (statusEl) {
+    statusEl.className = "live-status-card loading";
+    statusEl.style.display = "flex";
+    statusEl.innerHTML = `<span>🔄</span> <span>Syncing all connected calendars...</span>`;
+  }
+  try {
+    const res = await fetch("/api/feeds/sync-all", { method: "POST" });
+    const data = await res.json();
+    await loadState();
+    renderSettingsFeeds();
+    renderCalendar();
+    if (statusEl) {
+      statusEl.className = "live-status-card success";
+      statusEl.innerHTML = `<span>✅</span> <span>All calendars synced! Total events: ${data.totalEvents || 0}</span>`;
+    }
+  } catch (err) {
+    if (statusEl) {
+      statusEl.className = "live-status-card error";
+      statusEl.innerHTML = `<span>❌</span> <span>Error syncing calendars: ${err.message}</span>`;
+    }
+  }
+}
+
+function renderSettingsLists() {
+  const container = document.getElementById("settings-lists-list");
+  if (!container) return;
+  const lists = appState.lists || [];
+  if (lists.length === 0) {
+    container.innerHTML = `<div style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">No shared lists yet. Create one below!</div>`;
+    return;
+  }
+  container.innerHTML = lists.map(lst => `
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-hover); border-radius: 6px; border: 1px solid var(--border-color);">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-weight: 600; font-size: 0.9rem;">${lst.title}</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted); background: var(--bg-card); padding: 2px 6px; border-radius: 4px;">${(lst.items || []).length} items</span>
+      </div>
+      <button type="button" onclick="deleteListFromSettings('${lst.id}')" title="Delete List" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1rem; padding: 2px 6px;">🗑️</button>
+    </div>
+  `).join("");
+}
+
+async function addListFromSettings() {
+  const input = document.getElementById("new-list-title");
+  if (!input) return;
+  const title = input.value.trim();
+  if (!title) {
+    input.focus();
+    return;
+  }
+  try {
+    const res = await fetch("/api/lists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (res.ok) {
+      input.value = "";
+      await loadState();
+      renderSettingsLists();
+      renderLists();
+    }
+  } catch (err) {
+    console.error("Failed to create list:", err);
+  }
+}
+
+async function deleteListFromSettings(listId) {
+  if (!confirm("Are you sure you want to delete this list and all its items?")) return;
+  try {
+    const res = await fetch(`/api/lists/${listId}`, { method: "DELETE" });
+    if (res.ok) {
+      await loadState();
+      renderSettingsLists();
+      renderLists();
+    }
+  } catch (err) {
+    console.error("Failed to delete list:", err);
   }
 }
 
@@ -1334,6 +1555,10 @@ let currentWizardStep = 1;
 let wizardLocationData = null;
 
 function openSetupWizard() {
+  // Prevent re-opening setup once completed
+  if (appState.settings && appState.settings.setupCompleted) {
+    return;
+  }
   currentWizardStep = 1;
   wizardLocationData = null;
 

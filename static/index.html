@@ -74,10 +74,6 @@
 
       <!-- Sidebar Bottom Controls -->
       <div class="sidebar-bottom">
-        <button class="sidebar-btn" onclick="openSetupWizard()" title="First-Time Setup Wizard">
-          <span class="icon">✨</span>
-          <span class="label">Setup</span>
-        </button>
         <button class="sidebar-btn" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle Day / Night Mode">
           <span class="icon" id="theme-icon">🌙</span>
           <span class="label" id="theme-label">Theme</span>
@@ -506,32 +502,24 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Modal: Settings & Sleep Schedule -->
+  <!-- Modal: Settings & Household Configuration -->
   <div id="modal-settings" class="modal-overlay hidden">
-    <div class="modal-card" style="max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="modal-card" style="max-width: 640px; max-height: 90vh; display: flex; flex-direction: column;">
       <div class="modal-header">
-        <h2>⚙️ Device & Family Settings</h2>
+        <h2>⚙️ Device & Household Settings</h2>
         <button class="modal-close" onclick="closeModal('modal-settings')">✕</button>
       </div>
-      <div class="modal-body" style="overflow-y: auto; flex: 1;">
-        <!-- Setup Wizard Quick Launch -->
-        <div style="background: linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(245, 158, 11, 0.08)); border: 1px solid rgba(2, 132, 199, 0.25); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
-          <div>
-            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 2px;">✨ First-Time Setup Wizard</div>
-            <div style="font-size: 0.78rem; color: var(--text-muted);">Guide device setup, family profiles, and Google Calendar sync.</div>
-          </div>
-          <button type="button" class="btn-skylight primary" onclick="closeModal('modal-settings'); openSetupWizard();" style="padding: 7px 14px; font-size: 0.85rem;">Launch Wizard</button>
-        </div>
-
-        <!-- Family Members Management -->
-        <div style="margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+      <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 1.5rem;">
+        
+        <!-- 1. Family Members Management -->
+        <div style="margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
           <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
-            <span>👨‍👩‍👧‍👦 Family Profiles</span>
+            <span>👨‍👩‍👧‍👦 Family Profiles & Colors</span>
           </h3>
           <div id="settings-members-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
             <!-- Rendered dynamically -->
           </div>
-          <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="background: var(--bg-hover); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
             <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">+ Add Family Member</div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
               <input type="text" id="new-mem-name" placeholder="Name (e.g. Eric)" style="flex: 2; min-width: 120px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
@@ -542,9 +530,53 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           </div>
         </div>
 
+        <!-- 2. Google Calendar & External Feeds Management -->
+        <div style="margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>📅 Connected Calendars (Google / iCal)</span>
+            <button type="button" class="btn-skylight ghost" onclick="syncAllFeedsFromSettings()" style="font-size: 0.75rem; padding: 4px 10px;">🔄 Sync All Now</button>
+          </h3>
+          <div id="settings-feeds-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+            <!-- Rendered dynamically -->
+          </div>
+          <div style="background: var(--bg-hover); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">+ Connect Google Calendar</div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              <input type="url" id="set-gcal-url" placeholder="Google Calendar Secret iCal URL (https://...basic.ics)" style="padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <input type="text" id="set-gcal-name" placeholder="Name (e.g. Work, Family)" value="Google Calendar" style="flex: 1; min-width: 120px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
+                <select id="set-gcal-member" style="flex: 1; min-width: 140px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);">
+                  <!-- Dynamically populated -->
+                </select>
+                <button type="button" class="btn-skylight primary" onclick="addGoogleCalFromSettings()" id="btn-add-gcal-settings" style="padding: 6px 14px; font-size: 0.85rem;">Connect</button>
+              </div>
+            </div>
+            <div id="set-gcal-status" class="live-status-card" style="display: none; margin-top: 0.5rem;"></div>
+          </div>
+        </div>
+
+        <!-- 3. Lists Management -->
+        <div style="margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>🛒 Shared Lists</span>
+          </h3>
+          <div id="settings-lists-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+            <!-- Rendered dynamically -->
+          </div>
+          <div style="background: var(--bg-hover); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">+ Create New List</div>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="text" id="new-list-title" placeholder="List Title (e.g. 🎒 School Supplies, 🧰 Hardware Store)" style="flex: 1; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
+              <button type="button" class="btn-skylight primary" onclick="addListFromSettings()" style="padding: 6px 12px; font-size: 0.85rem;">Create</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Device Preferences Form -->
         <form id="form-settings" onsubmit="saveSettings(event)">
+          <div style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">🏡 Device & Display Preferences</div>
           <div class="form-group">
-            <label>Device Name</label>
+            <label>Device Name (Display Title)</label>
             <input type="text" id="set-device-name" value="Kitchen Skylight Hub" required />
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -570,13 +602,13 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           </div>
         </form>
 
-        <!-- Danger Zone: Reset / Clean Slate -->
-        <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+        <!-- 5. Danger Zone: Reset / Clean Slate -->
+        <div style="margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
           <div style="font-size: 0.85rem; font-weight: 700; color: #ef4444; margin-bottom: 0.4rem;">⚠️ Data Management</div>
           <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(239, 68, 68, 0.08); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2);">
             <div>
               <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">Reset All Data to Clean Slate</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">Permanently removes sample events, chores, meals, and demo items.</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Permanently removes all events, chores, meals, and custom lists.</div>
             </div>
             <button type="button" class="btn-skylight danger" onclick="resetCleanData()" style="padding: 6px 14px; font-size: 0.8rem; background: #ef4444; color: white;">Clear All Data</button>
           </div>
@@ -865,7 +897,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.3.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.3.0"></script>
+  <!-- Main JavaScript Engine (v2.4.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.4.0"></script>
 </body>
 </html>

@@ -479,6 +479,26 @@ def delete_list_item(list_id: str, item_id: str):
             return {"ok": True}
     raise HTTPException(status_code=404, detail="List not found")
 
+class CreateListModel(BaseModel):
+    title: str
+
+@app.post("/api/lists")
+def create_list(lst: CreateListModel):
+    new_list = {
+        "id": f"l_{int(time.time()*1000)}",
+        "title": lst.title,
+        "items": []
+    }
+    db.setdefault("lists", []).append(new_list)
+    save_db(db)
+    return new_list
+
+@app.delete("/api/lists/{list_id}")
+def delete_list(list_id: str):
+    db["lists"] = [l for l in db.get("lists", []) if l.get("id") != list_id]
+    save_db(db)
+    return {"ok": True}
+
 # --- Meal Planning ---
 class MealUpdateModel(BaseModel):
     day: str
