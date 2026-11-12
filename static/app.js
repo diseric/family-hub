@@ -165,7 +165,7 @@ function populateSelectDropdowns() {
     const el = document.getElementById(sId);
     if (!el) continue;
     el.innerHTML = "";
-    if (sId === "feed-member" || sId === "ev-member" || sId === "magic-member" || sId === "ch-member") {
+    if (sId === "feed-member" || sId === "ev-member" || sId === "magic-member") {
       const allOpt = document.createElement("option");
       allOpt.value = "all";
       allOpt.textContent = "🏡 Entire Family (Shared)";
@@ -176,6 +176,12 @@ function populateSelectDropdowns() {
       opt.value = m.id;
       opt.textContent = `${m.avatar || "👤"} ${m.name}`;
       el.appendChild(opt);
+    }
+    if (sId === "ch-member") {
+      const allOpt = document.createElement("option");
+      allOpt.value = "all";
+      allOpt.textContent = "🏡 Entire Family (Shared)";
+      el.appendChild(allOpt);
     }
   }
 }
@@ -1035,7 +1041,13 @@ function renderChores() {
   ];
 
   for (const member of membersToDisplay) {
-    const memberChores = (appState.chores || []).filter((c) => c.memberId === member.id);
+    const memberChores = (appState.chores || []).filter((c) => {
+      if (member.id === "all") return c.memberId === "all";
+      if (appState.activeMemberFilter !== "all") {
+        return c.memberId === member.id || c.memberId === "all";
+      }
+      return c.memberId === member.id;
+    });
     const completedCount = memberChores.filter((c) => c.completed).length;
     const totalCount = memberChores.length;
 
@@ -1087,6 +1099,7 @@ function renderChores() {
         `;
       } else {
         for (const chore of choresInSub) {
+          const isShared = chore.memberId === "all" && member.id !== "all";
           const card = document.createElement("div");
           card.className = `chore-card ${chore.completed ? "done" : ""}`;
           card.innerHTML = `
@@ -1094,6 +1107,7 @@ function renderChores() {
               <div class="chore-checkbox" title="Tap to mark complete">${chore.completed ? "✓" : ""}</div>
               <div class="chore-info" title="Tap to edit task">
                 <h3>${chore.title}</h3>
+                ${isShared ? `<div class="chore-meta"><span style="color: #0284c7; font-weight: 600;">🏡 Shared Task</span></div>` : ""}
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -1960,6 +1974,16 @@ function openNewChoreModal() {
   const ptsEl = document.getElementById("ch-points");
   if (ptsEl) ptsEl.value = "10";
   populateSelectDropdowns();
+
+  const mSel = document.getElementById("ch-member");
+  if (mSel) {
+    if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
+      mSel.value = appState.activeMemberFilter;
+    } else if (appState.members && appState.members.length > 0) {
+      mSel.value = appState.members[0].id;
+    }
+  }
+
   openModal("modal-chore");
 }
 
