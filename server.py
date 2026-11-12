@@ -68,20 +68,12 @@ DEFAULT_FEEDS = []
 
 DEFAULT_REWARDS = [
     {
-        "id": "rew_1",
-        "title": "Ice Cream Parlor Trip",
-        "icon": "🍦",
-        "starCost": 50,
-        "memberId": "all",
-        "autoRenew": True,
-        "description": "Choose your favorite scoop with sprinkles at the ice cream shop!"
-    },
-    {
         "id": "rew_2",
         "title": "30 Min Extra Screen Time",
         "icon": "🎮",
         "starCost": 30,
         "memberId": "all",
+        "isShared": False,
         "autoRenew": True,
         "description": "Bonus gaming or iPad playtime before dinner."
     },
@@ -90,7 +82,8 @@ DEFAULT_REWARDS = [
         "title": "Family Movie Night Pick",
         "icon": "🎬",
         "starCost": 40,
-        "memberId": "all",
+        "memberId": "shared",
+        "isShared": True,
         "autoRenew": True,
         "description": "Pick Friday movie night film and snack for the whole family!"
     },
@@ -100,6 +93,7 @@ DEFAULT_REWARDS = [
         "icon": "🎁",
         "starCost": 100,
         "memberId": "all",
+        "isShared": False,
         "autoRenew": False,
         "description": "Pick a special treat or toy during our weekend store trip."
     }
@@ -170,7 +164,51 @@ def save_db(data: Dict[str, Any]):
     except Exception as e:
         logger.error(f"Error saving state file: {e}")
 
+def normalize_rewards_db(data: Dict[str, Any]) -> bool:
+    """Normalize rewards in DB: clean duplicate creations and properly set isShared flag."""
+    rewards = data.get("rewards", [])
+    if not rewards:
+        return False
+    changed = False
+    cleaned = []
+    seen_keys = set()
+
+    for r in rewards:
+        title = r.get("title", "").strip().lower()
+        cost = r.get("starCost")
+        mem_id = r.get("memberId")
+        key = (title, cost, mem_id)
+        if key in seen_keys:
+            changed = True
+            continue
+        seen_keys.add(key)
+
+        # Rogers Friday or Movie Night is always shared
+        if "rogers" in title or "movie night" in title:
+            if r.get("isShared") is not True or r.get("memberId") != "shared":
+                r["isShared"] = True
+                r["memberId"] = "shared"
+                changed = True
+        elif r.get("id") in ("rew_2", "rew_4") and r.get("isShared") is not False:
+            r["isShared"] = False
+            changed = True
+
+        cleaned.append(r)
+
+    # If duplicate "Rogers Friday!" exists where one is shared and one is single kid, keep only the shared one
+    has_rogers_shared = any("rogers" in r.get("title", "").lower() and r.get("isShared") is True for r in cleaned)
+    if has_rogers_shared:
+        before_len = len(cleaned)
+        cleaned = [r for r in cleaned if not ("rogers" in r.get("title", "").lower() and r.get("isShared") is False)]
+        if len(cleaned) != before_len:
+            changed = True
+
+    data["rewards"] = cleaned
+    return changed
+
 db = load_db()
+if normalize_rewards_db(db):
+    save_db(db)
 
 def init_sample_photos():
     pass
@@ -627,8 +665,8 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
     is_shared = (
         (payload and payload.isShared) or
         reward.get("isShared") is True or
-        reward.get("memberId") in ("all", "shared") or
-        (reward.get("memberIds") and (len(reward.get("memberIds")) > 1 or "all" in reward.get("memberIds")))
+        reward.get("memberId") == "shared" or
+        (reward.get("memberIds") and len(reward.get("memberIds")) > 1 and reward.get("isShared") is not False)
     )
 
     if is_shared:
@@ -652,6 +690,7 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
         # Deduct stars proportionally based on current star balances
         remaining_to_deduct = cost
         contributions = []
+        member_deductions = []
         sorted_members = sorted(participating, key=lambda m: int(m.get("points", 0)))
         for idx, m in enumerate(sorted_members):
             pts = int(m.get("points", 0))
@@ -665,6 +704,7 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
             m["points"] = pts - deduct
             remaining_to_deduct -= deduct
             contributions.append(f"{m.get('name', 'Member')}: {deduct} ⭐")
+            member_deductions.append({"memberId": m["id"], "memberName": m.get("name"), "points": deduct})
 
         if remaining_to_deduct > 0:
             for m in reversed(sorted_members):
@@ -672,6 +712,9 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
                 extra = min(pts, remaining_to_deduct)
                 m["points"] = pts - extra
                 remaining_to_deduct -= extra
+                for md in member_deductions:
+                    if md["memberId"] == m["id"]:
+                        md["points"] += extra
                 if remaining_to_deduct <= 0:
                     break
 
@@ -685,6 +728,7 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
             "memberId": "shared",
             "memberName": f"Shared Goal ({team_names})",
             "memberAvatar": "🏡",
+            "contributions": member_deductions,
             "contributionDetails": ", ".join(contributions),
             "redeemedAt": datetime.now().isoformat()
         }
@@ -738,6 +782,7 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
         "memberId": target_member["id"],
         "memberName": target_member.get("name", "Member"),
         "memberAvatar": target_member.get("avatar", "⭐"),
+        "contributions": [{"memberId": target_member["id"], "memberName": target_member.get("name"), "points": cost}],
         "redeemedAt": datetime.now().isoformat()
     }
     db.setdefault("reward_redemptions", []).insert(0, redemption)
@@ -759,6 +804,72 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
 @app.get("/api/reward-redemptions")
 def get_reward_redemptions():
     return db.get("reward_redemptions", [])
+
+@app.delete("/api/reward-redemptions")
+def clear_all_reward_redemptions():
+    db["reward_redemptions"] = []
+    save_db(db)
+    return {"ok": True, "count": 0}
+
+@app.delete("/api/reward-redemptions/{redemption_id}")
+def delete_reward_redemption(redemption_id: str, refund: bool = False):
+    redemptions = db.get("reward_redemptions", [])
+    target = None
+    target_idx = -1
+    for idx, r in enumerate(redemptions):
+        if r.get("id") == redemption_id:
+            target = r
+            target_idx = idx
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Redemption record not found")
+
+    if refund:
+        contributions = target.get("contributions")
+        if contributions and isinstance(contributions, list):
+            for contrib in contributions:
+                mem_id = contrib.get("memberId")
+                pts = int(contrib.get("points", 0))
+                for m in db.get("members", []):
+                    if m.get("id") == mem_id:
+                        m["points"] = int(m.get("points", 0)) + pts
+                        break
+        elif target.get("memberId") and target["memberId"] != "shared":
+            cost = int(target.get("starCost", 0))
+            for m in db.get("members", []):
+                if m.get("id") == target["memberId"]:
+                    m["points"] = int(m.get("points", 0)) + cost
+                    break
+        elif target.get("contributionDetails"):
+            details = target.get("contributionDetails", "")
+            for part in details.split(","):
+                part = part.strip()
+                if ":" in part:
+                    name_part, pts_part = part.split(":", 1)
+                    name = name_part.strip()
+                    pts_str = pts_part.replace("⭐", "").strip()
+                    try:
+                        pts = int(pts_str)
+                        for m in db.get("members", []):
+                            if m.get("name", "").strip().lower() == name.lower():
+                                m["points"] = int(m.get("points", 0)) + pts
+                                break
+                    except Exception:
+                        pass
+
+        # Reopen reward if it was marked completed
+        rew_id = target.get("rewardId")
+        if rew_id:
+            for rew in db.get("rewards", []):
+                if rew.get("id") == rew_id:
+                    rew["completed"] = False
+                    rew["completedAt"] = None
+                    break
+
+    del redemptions[target_idx]
+    save_db(db)
+    return {"ok": True, "refunded": refund, "members": db.get("members", [])}
 
 # --- To-Do & Grocery Lists ---
 class ListItemModel(BaseModel):

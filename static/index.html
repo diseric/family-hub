@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.36.8" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.36.9" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -498,6 +498,20 @@
             <div id="rewards-excluded-summary" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="openRewardsMemberExclusionModal()">
               <!-- Dynamically populated, e.g. "👥 2 members excluded" -->
             </div>
+          </div>
+
+          <!-- Shared Family Collective Goals Container -->
+          <div id="rewards-shared-container" style="display: none; margin-bottom: 1.25rem;">
+            <!-- Dynamically injected -->
+          </div>
+
+          <!-- Section Header for Personal Goals -->
+          <div id="rewards-individual-header" style="display: none; align-items: center; justify-content: space-between; margin: 1rem 0 0.5rem 0; padding: 0 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 1.1rem;">⭐</span>
+              <span style="font-weight: 800; font-size: 0.95rem; color: var(--text-primary);">Personal Reward Goals</span>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Each child tracks their own star balance</span>
           </div>
 
           <!-- Rewards Grid Container (Columns per member) -->
@@ -1139,7 +1153,30 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
       </div>
       <form id="form-reward" onsubmit="saveReward(event)">
         <input type="hidden" id="reward-id" value="" />
+        <input type="hidden" id="reward-goal-type" value="shared" />
         <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
+          
+          <!-- Goal Type Selection: Shared Collective Goal vs Personal Goal -->
+          <div class="form-group">
+            <label style="font-weight: 700; margin-bottom: 6px;">Goal Type</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button type="button" id="btn-goal-type-shared" class="btn-goal-type active" onclick="setRewardGoalType('shared')">
+                <span style="font-size: 1.3rem;">🏡</span>
+                <div style="text-align: left;">
+                  <div style="font-weight: 700; font-size: 0.88rem;">Shared Goal</div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.2;">Kids pool stars together</div>
+                </div>
+              </button>
+              <button type="button" id="btn-goal-type-individual" class="btn-goal-type" onclick="setRewardGoalType('individual')">
+                <span style="font-size: 1.3rem;">⭐</span>
+                <div style="text-align: left;">
+                  <div style="font-weight: 700; font-size: 0.88rem;">Personal Goal</div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.2;">Earned by each child</div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div class="form-group">
             <label>Reward Title</label>
             <input type="text" id="reward-title" placeholder="e.g. Ice Cream Trip, 30 Min Gaming, Movie Night" required />
@@ -1225,9 +1262,12 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
   <!-- Modal: Reward Redemptions History -->
   <div id="modal-redemptions" class="modal-overlay hidden">
     <div class="modal-card" style="max-width: 520px;">
-      <div class="modal-header">
-        <h2>📜 Reward Redemptions History</h2>
-        <button class="modal-close" onclick="closeModal('modal-redemptions')">✕</button>
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0; font-size: 1.15rem;">📜 Reward Redemptions History</h2>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" id="btn-clear-all-redemptions" class="btn-hub danger mini-btn" onclick="clearAllRedemptionsHistory()" title="Clear all redemption history records">🗑️ Clear History</button>
+          <button class="modal-close" onclick="closeModal('modal-redemptions')">✕</button>
+        </div>
       </div>
       <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
         <div id="redemptions-history-list" style="display: flex; flex-direction: column; gap: 8px;">
@@ -1976,7 +2016,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.36.8 Cache Busting) -->
-  <script src="/static/app.js?v=2.36.8"></script>
+  <!-- Main JavaScript Engine (v2.36.9 Cache Busting) -->
+  <script src="/static/app.js?v=2.36.9"></script>
 </body>
 </html>
