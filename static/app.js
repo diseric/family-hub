@@ -178,6 +178,54 @@ function renderMemberPills() {
   }
 }
 
+function renderMemberFilters() {
+  renderMemberPills();
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function showAppAlert(message, options = {}) {
+  const modal = document.getElementById("modal-confirm");
+  const iconEl = document.getElementById("confirm-icon");
+  const titleEl = document.getElementById("confirm-title");
+  const msgEl = document.getElementById("confirm-message");
+  const okBtn = document.getElementById("confirm-btn-ok");
+  const cancelBtn = document.getElementById("confirm-btn-cancel");
+
+  if (!modal) {
+    alert(message);
+    return Promise.resolve(true);
+  }
+
+  if (iconEl) iconEl.textContent = options.icon || "ℹ️";
+  if (titleEl) titleEl.textContent = options.title || "Family Hub";
+  if (msgEl) msgEl.textContent = message;
+  if (okBtn) okBtn.textContent = options.confirmText || "OK";
+  if (cancelBtn) cancelBtn.style.display = "none";
+
+  return new Promise((resolve) => {
+    const handleOk = () => {
+      cleanup();
+      resolve(true);
+    };
+    const cleanup = () => {
+      modal.classList.add("hidden");
+      if (okBtn) okBtn.removeEventListener("click", handleOk);
+      if (cancelBtn) cancelBtn.style.display = "inline-flex";
+    };
+    if (okBtn) okBtn.addEventListener("click", handleOk);
+    modal.classList.remove("hidden");
+  });
+}
+
 function getMember(memberId) {
   return appState.members.find((m) => m.id === memberId) || { name: "Family", color: "#38bdf8", avatar: "🏡" };
 }
@@ -3922,38 +3970,42 @@ async function saveBatchPresetRoutines() {
 }
 
 function openNewChoreModal(preferredMemberId) {
-  const form = document.getElementById("form-chore");
-  if (form) form.reset();
-  const idEl = document.getElementById("ch-id");
-  if (idEl) idEl.value = "";
-  const titEl = document.getElementById("modal-chore-title");
-  if (titEl) titEl.textContent = "+ Add Family Task / Routine";
-  const subBtn = document.getElementById("ch-btn-submit");
-  if (subBtn) subBtn.textContent = "Save Routine";
-  const delBtn = document.getElementById("ch-btn-delete");
-  if (delBtn) delBtn.style.display = "none";
-  const ptsEl = document.getElementById("ch-points");
-  if (ptsEl) ptsEl.value = "10";
-  const iconEl = document.getElementById("ch-icon");
-  if (iconEl) iconEl.value = "🪥";
+  try {
+    const form = document.getElementById("form-chore");
+    if (form) form.reset();
+    const idEl = document.getElementById("ch-id");
+    if (idEl) idEl.value = "";
+    const titEl = document.getElementById("modal-chore-title");
+    if (titEl) titEl.textContent = "+ Add Family Task / Routine";
+    const subBtn = document.getElementById("ch-btn-submit");
+    if (subBtn) subBtn.textContent = "Save Routine";
+    const delBtn = document.getElementById("ch-btn-delete");
+    if (delBtn) delBtn.style.display = "none";
+    const ptsEl = document.getElementById("ch-points");
+    if (ptsEl) ptsEl.value = "10";
+    const iconEl = document.getElementById("ch-icon");
+    if (iconEl) iconEl.value = "🪥";
 
-  setChoreType("routine");
-  const curPeriod = getCurrentRoutinePeriod();
-  selectRoutineTimeOfDay(curPeriod);
-  setSelectedRoutineDays(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+    setChoreType("routine");
+    const curPeriod = getCurrentRoutinePeriod();
+    selectRoutineTimeOfDay(curPeriod);
+    setSelectedRoutineDays(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
 
-  switchChoreQuickPresetTab("toddler");
-  renderChoreQuickPresetChips();
+    switchChoreQuickPresetTab("toddler");
+    renderChoreQuickPresetChips();
 
-  populateSelectDropdowns();
+    populateSelectDropdowns();
 
-  let selMember = "all";
-  if (preferredMemberId) {
-    selMember = preferredMemberId;
-  } else if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
-    selMember = appState.activeMemberFilter;
+    let selMember = "all";
+    if (preferredMemberId) {
+      selMember = preferredMemberId;
+    } else if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
+      selMember = appState.activeMemberFilter;
+    }
+    renderMultiMemberPicker("ch-members-picker", [selMember]);
+  } catch (err) {
+    console.error("Error setting up new chore modal:", err);
   }
-  renderMultiMemberPicker("ch-members-picker", [selMember]);
 
   openModal("modal-chore");
 }
@@ -3962,38 +4014,42 @@ function openEditChoreModal(choreId) {
   const chore = (appState.chores || []).find((c) => c.id === choreId);
   if (!chore) return;
 
-  const idEl = document.getElementById("ch-id");
-  if (idEl) idEl.value = chore.id;
-  const titEl = document.getElementById("modal-chore-title");
-  if (titEl) titEl.textContent = chore.isRoutine !== false ? "✏️ Edit Routine" : "✏️ Edit Family Chore";
+  try {
+    const idEl = document.getElementById("ch-id");
+    if (idEl) idEl.value = chore.id;
+    const titEl = document.getElementById("modal-chore-title");
+    if (titEl) titEl.textContent = chore.isRoutine !== false ? "✏️ Edit Routine" : "✏️ Edit Family Chore";
 
-  const tEl = document.getElementById("ch-title");
-  if (tEl) tEl.value = chore.title || "";
+    const tEl = document.getElementById("ch-title");
+    if (tEl) tEl.value = chore.title || "";
 
-  const iconEl = document.getElementById("ch-icon");
-  if (iconEl) iconEl.value = chore.icon || "🪥";
+    const iconEl = document.getElementById("ch-icon");
+    if (iconEl) iconEl.value = chore.icon || "🪥";
 
-  populateSelectDropdowns();
-  renderMultiMemberPicker("ch-members-picker", [chore.memberId || "all"]);
+    populateSelectDropdowns();
+    renderMultiMemberPicker("ch-members-picker", [chore.memberId || "all"]);
 
-  const ptsEl = document.getElementById("ch-points");
-  if (ptsEl) ptsEl.value = chore.points !== undefined ? chore.points : 10;
+    const ptsEl = document.getElementById("ch-points");
+    if (ptsEl) ptsEl.value = chore.points !== undefined ? chore.points : 10;
 
-  const freqEl = document.getElementById("ch-freq");
-  if (freqEl && chore.frequency) freqEl.value = chore.frequency;
+    const freqEl = document.getElementById("ch-freq");
+    if (freqEl && chore.frequency) freqEl.value = chore.frequency;
 
-  setChoreType(chore.isRoutine !== false ? "routine" : "chore");
-  selectRoutineTimeOfDay(chore.timeOfDay || "morning");
-  setSelectedRoutineDays(chore.daysOfWeek || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+    setChoreType(chore.isRoutine !== false ? "routine" : "chore");
+    selectRoutineTimeOfDay(chore.timeOfDay || "morning");
+    setSelectedRoutineDays(chore.daysOfWeek || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
 
-  switchChoreQuickPresetTab("toddler");
-  renderChoreQuickPresetChips();
+    switchChoreQuickPresetTab("toddler");
+    renderChoreQuickPresetChips();
 
-  const subBtn = document.getElementById("ch-btn-submit");
-  if (subBtn) subBtn.textContent = "Save Changes";
+    const subBtn = document.getElementById("ch-btn-submit");
+    if (subBtn) subBtn.textContent = "Save Changes";
 
-  const delBtn = document.getElementById("ch-btn-delete");
-  if (delBtn) delBtn.style.display = "inline-block";
+    const delBtn = document.getElementById("ch-btn-delete");
+    if (delBtn) delBtn.style.display = "inline-block";
+  } catch (err) {
+    console.error("Error setting up edit chore modal:", err);
+  }
 
   openModal("modal-chore");
 }
