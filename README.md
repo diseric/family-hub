@@ -25,8 +25,8 @@ An open-source, touch-optimized family organization hub designed for kitchen dis
 
 ```bash
 # Clone the repository
-git clone https://github.com/diseric/skylight-dashboard.git
-cd skylight-dashboard
+git clone https://github.com/diseric/family-hub.git
+cd family-hub
 
 # Start the application
 docker compose up -d --build
