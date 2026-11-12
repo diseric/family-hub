@@ -523,14 +523,15 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Modal: Add New Chore -->
+  <!-- Modal: Add / Edit Chore -->
   <div id="modal-chore" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>+ Add Family Task / Chore</h2>
+        <h2 id="modal-chore-title">+ Add Family Task / Chore</h2>
         <button class="modal-close" onclick="closeModal('modal-chore')">✕</button>
       </div>
       <form id="form-chore" onsubmit="saveChore(event)">
+        <input type="hidden" id="ch-id" value="" />
         <div class="modal-body">
           <div class="form-group">
             <label>Chore Title</label>
@@ -557,9 +558,12 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             </select>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-chore')">Cancel</button>
-          <button type="submit" class="btn-hub primary">Add Chore</button>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn-hub danger" id="ch-btn-delete" onclick="deleteCurrentChore()" style="display: none; background: #ef4444; color: white;">Delete Task</button>
+          <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+            <button type="button" class="btn-hub ghost" onclick="closeModal('modal-chore')">Cancel</button>
+            <button type="submit" class="btn-hub primary" id="ch-btn-submit">Add Chore</button>
+          </div>
         </div>
       </form>
     </div>
@@ -1049,7 +1053,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.8.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.8.0"></script>
+  <!-- Main JavaScript Engine (v2.9.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.9.0"></script>
 </body>
 </html>

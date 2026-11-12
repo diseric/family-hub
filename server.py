@@ -441,6 +441,19 @@ def toggle_chore(chore_id: str):
             return {"chore": c, "reward": reward}
     raise HTTPException(status_code=404, detail="Chore not found")
 
+@app.put("/api/chores/{chore_id}")
+def update_chore(chore_id: str, ch: ChoreModel):
+    for i, c in enumerate(db["chores"]):
+        if c.get("id") == chore_id:
+            updated = ch.dict()
+            updated["id"] = chore_id
+            updated["completed"] = c.get("completed", False)
+            updated["completedDate"] = c.get("completedDate")
+            db["chores"][i] = updated
+            save_db(db)
+            return updated
+    raise HTTPException(status_code=404, detail="Chore not found")
+
 @app.delete("/api/chores/{chore_id}")
 def delete_chore(chore_id: str):
     db["chores"] = [c for c in db["chores"] if c.get("id") != chore_id]

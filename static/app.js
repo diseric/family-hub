@@ -420,12 +420,11 @@ function renderSplitChores() {
       background: var(--bg-surface);
       border-radius: var(--radius-md);
       border: 1px solid var(--border-subtle);
-      cursor: pointer;
       transition: all 0.15s ease;
       ${chore.completed ? "opacity: 0.55; text-decoration: line-through;" : ""}
     `;
     item.innerHTML = `
-      <div style="
+      <div class="split-chore-check" title="Tap to mark complete" style="
         width: 24px;
         height: 24px;
         border-radius: 50%;
@@ -438,8 +437,9 @@ function renderSplitChores() {
         font-size: 0.75rem;
         font-weight: 700;
         flex-shrink: 0;
+        cursor: pointer;
       ">${chore.completed ? "✓" : ""}</div>
-      <div style="flex: 1; min-width: 0;">
+      <div class="split-chore-body" title="Tap to edit task" style="flex: 1; min-width: 0; cursor: pointer;">
         <div style="font-size: 0.86rem; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${chore.title}</div>
         <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; margin-top: 2px;">
           <span>${m.avatar} ${m.name}</span>
@@ -447,8 +447,12 @@ function renderSplitChores() {
           <span style="color: var(--accent-gold); font-weight: 700;">+${chore.points} ⭐</span>
         </div>
       </div>
+      <button type="button" class="btn-split-chore-edit" title="Edit or delete task" style="border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 4px; font-size: 0.82rem;">✏️</button>
     `;
-    item.onclick = async () => {
+
+    const chk = item.querySelector(".split-chore-check");
+    chk.onclick = async (e) => {
+      e.stopPropagation();
       try {
         const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
         const data = await res.json();
@@ -461,6 +465,19 @@ function renderSplitChores() {
         console.error("Failed to toggle chore:", err);
       }
     };
+
+    const bodyEl = item.querySelector(".split-chore-body");
+    bodyEl.onclick = (e) => {
+      e.stopPropagation();
+      openEditChoreModal(chore.id);
+    };
+
+    const editBtn = item.querySelector(".btn-split-chore-edit");
+    editBtn.onclick = (e) => {
+      e.stopPropagation();
+      openEditChoreModal(chore.id);
+    };
+
     container.appendChild(item);
   }
 }
@@ -952,8 +969,8 @@ function renderChores() {
     card.className = `chore-card ${chore.completed ? "done" : ""}`;
     card.innerHTML = `
       <div class="chore-left">
-        <div class="chore-checkbox">${chore.completed ? "✓" : ""}</div>
-        <div class="chore-info">
+        <div class="chore-checkbox" title="Tap to mark complete">${chore.completed ? "✓" : ""}</div>
+        <div class="chore-info" title="Tap to edit task">
           <h3>${chore.title}</h3>
           <div class="chore-meta">
             <span>${m.avatar} ${m.name}</span>
@@ -962,10 +979,16 @@ function renderChores() {
           </div>
         </div>
       </div>
-      <div class="chore-points">+${chore.points} ⭐</div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="chore-points">+${chore.points} ⭐</div>
+        <button type="button" class="btn-chore-edit" title="Edit or delete task">✏️</button>
+      </div>
     `;
 
-    card.onclick = async () => {
+    // Clicking checkbox toggles completion
+    const chk = card.querySelector(".chore-checkbox");
+    chk.onclick = async (e) => {
+      e.stopPropagation();
       try {
         const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
         const data = await res.json();
@@ -978,6 +1001,20 @@ function renderChores() {
       } catch (err) {
         console.error("Failed to toggle chore:", err);
       }
+    };
+
+    // Clicking edit button opens modal
+    const editBtn = card.querySelector(".btn-chore-edit");
+    editBtn.onclick = (e) => {
+      e.stopPropagation();
+      openEditChoreModal(chore.id);
+    };
+
+    // Clicking chore text also opens edit modal
+    const choreInfo = card.querySelector(".chore-info");
+    choreInfo.onclick = (e) => {
+      e.stopPropagation();
+      openEditChoreModal(chore.id);
     };
 
     grid.appendChild(card);
@@ -1790,24 +1827,102 @@ async function deleteCurrentEvent() {
 }
 
 function openNewChoreModal() {
+  const form = document.getElementById("form-chore");
+  if (form) form.reset();
+  const idEl = document.getElementById("ch-id");
+  if (idEl) idEl.value = "";
+  const titEl = document.getElementById("modal-chore-title");
+  if (titEl) titEl.textContent = "+ Add Family Task / Chore";
+  const subBtn = document.getElementById("ch-btn-submit");
+  if (subBtn) subBtn.textContent = "Add Chore";
+  const delBtn = document.getElementById("ch-btn-delete");
+  if (delBtn) delBtn.style.display = "none";
+  const ptsEl = document.getElementById("ch-points");
+  if (ptsEl) ptsEl.value = "10";
+  populateSelectDropdowns();
   openModal("modal-chore");
+}
+
+function openEditChoreModal(choreId) {
+  const chore = (appState.chores || []).find((c) => c.id === choreId);
+  if (!chore) return;
+
+  const idEl = document.getElementById("ch-id");
+  if (idEl) idEl.value = chore.id;
+  const titEl = document.getElementById("modal-chore-title");
+  if (titEl) titEl.textContent = "✏️ Edit Family Task / Chore";
+
+  const tEl = document.getElementById("ch-title");
+  if (tEl) tEl.value = chore.title || "";
+
+  populateSelectDropdowns();
+  const mEl = document.getElementById("ch-member");
+  if (mEl && chore.memberId) mEl.value = chore.memberId;
+
+  const ptsEl = document.getElementById("ch-points");
+  if (ptsEl) ptsEl.value = chore.points !== undefined ? chore.points : 10;
+
+  const freqEl = document.getElementById("ch-freq");
+  if (freqEl && chore.frequency) freqEl.value = chore.frequency;
+
+  const subBtn = document.getElementById("ch-btn-submit");
+  if (subBtn) subBtn.textContent = "Save Changes";
+
+  const delBtn = document.getElementById("ch-btn-delete");
+  if (delBtn) delBtn.style.display = "inline-block";
+
+  openModal("modal-chore");
+}
+
+async function deleteCurrentChore() {
+  const choreId = document.getElementById("ch-id").value;
+  if (!choreId) return;
+
+  const title = (document.getElementById("ch-title") && document.getElementById("ch-title").value) || "this task";
+  if (!confirm(`Are you sure you want to permanently delete "${title}"?`)) return;
+
+  try {
+    const res = await fetch(`/api/chores/${choreId}`, { method: "DELETE" });
+    if (res.ok) {
+      closeModal("modal-chore");
+      await loadState();
+      if (appState.splitScreen) renderSplitSidePane();
+    }
+  } catch (err) {
+    alert("Error deleting task: " + err.message);
+  }
 }
 
 async function saveChore(e) {
   e.preventDefault();
-  const title = document.getElementById("ch-title").value;
+  const choreId = document.getElementById("ch-id").value;
+  const title = document.getElementById("ch-title").value.trim();
   const memberId = document.getElementById("ch-member").value;
   const points = parseInt(document.getElementById("ch-points").value, 10) || 10;
   const frequency = document.getElementById("ch-freq").value;
 
-  await fetch("/api/chores", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, memberId, points, frequency }),
-  });
-  await loadState();
-  closeModal("modal-chore");
-  document.getElementById("form-chore").reset();
+  try {
+    if (choreId) {
+      await fetch(`/api/chores/${choreId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: choreId, title, memberId, points, frequency }),
+      });
+    } else {
+      await fetch("/api/chores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, memberId, points, frequency }),
+      });
+    }
+    await loadState();
+    if (appState.splitScreen) renderSplitSidePane();
+    closeModal("modal-chore");
+    const form = document.getElementById("form-chore");
+    if (form) form.reset();
+  } catch (err) {
+    alert("Error saving chore: " + err.message);
+  }
 }
 
 async function openNewListModal() {
