@@ -1850,6 +1850,12 @@ function getChoreSubcategory(chore) {
   const f = (chore.frequency || "Daily").toLowerCase();
   if (f.includes("week")) return "Weekly";
   if (f.includes("need") || f.includes("one") || f.includes("time")) return "As Needed";
+
+  // General Chore (explicitly non-routine, or missing both isRoutine and timeOfDay)
+  if (chore.isRoutine === false || (!chore.isRoutine && !chore.timeOfDay)) {
+    return "general_chore";
+  }
+
   const tod = (chore.timeOfDay || "morning").toLowerCase();
   if (tod.includes("afternoon")) return "afternoon";
   if (tod.includes("evening") || tod.includes("night")) return "evening";
@@ -1857,18 +1863,20 @@ function getChoreSubcategory(chore) {
 }
 
 function isChoreActiveToday(chore) {
+  const f = (chore.frequency || "").toLowerCase();
+  if (f.includes("need") || f.includes("one") || f.includes("time")) return true;
   if (!chore.daysOfWeek || chore.daysOfWeek.length === 0) return true;
+  if (chore.daysOfWeek.length >= 7) return true;
   const todayShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date().getDay()];
   return chore.daysOfWeek.includes(todayShort);
 }
 
-function setChoreType(type) {
+function setChoreType(type, isUserAction = false) {
   const isRoutine = type === "routine";
   const btnR = document.getElementById("type-btn-routine");
   const btnC = document.getElementById("type-btn-chore");
   const isREl = document.getElementById("ch-is-routine");
   const pGroup = document.getElementById("routine-period-group");
-  const dGroup = document.getElementById("routine-days-group");
   const lblTitle = document.getElementById("lbl-chore-title");
   const subBtn = document.getElementById("ch-btn-submit");
 
@@ -1876,16 +1884,20 @@ function setChoreType(type) {
   if (btnC) btnC.classList.toggle("active", !isRoutine);
   if (isREl) isREl.value = isRoutine ? "true" : "false";
   if (pGroup) pGroup.style.display = isRoutine ? "block" : "none";
-  if (dGroup) dGroup.style.display = isRoutine ? "block" : "none";
   if (lblTitle) lblTitle.textContent = isRoutine ? "Routine Title" : "Chore Title";
   if (subBtn && !document.getElementById("ch-id").value) {
     subBtn.textContent = isRoutine ? "Save Routine" : "Add Chore";
   }
 
-  const freqSel = document.getElementById("ch-freq");
-  if (freqSel) {
-    freqSel.value = isRoutine ? "Daily" : "Weekly";
+  if (isUserAction && !isRoutine) {
+    // When user explicitly switches to General Chore, default days to all 7 days if none selected
+    const curDays = getSelectedRoutineDays();
+    if (!curDays || curDays.length === 0) {
+      setSelectedRoutineDays(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+    }
   }
+
+  handleChoreFreqChange();
 }
 
 function selectChoreEmoji(emoji) {
@@ -2046,7 +2058,7 @@ function renderUpForGrabsColumn(subcats) {
 
   for (const sub of subcats) {
     const choresInSub = ufgChores.filter((c) => getChoreSubcategory(c) === sub.key);
-    if (choresInSub.length === 0 && sub.key !== "morning" && sub.key !== "As Needed") {
+    if (choresInSub.length === 0) {
       continue;
     }
 
@@ -2149,6 +2161,14 @@ function renderUpForGrabsColumn(subcats) {
     subcatsContainer.appendChild(subGroup);
   }
 
+  if (subcatsContainer.children.length === 0) {
+    subcatsContainer.innerHTML = `
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-size: 0.8rem;">
+        No open tasks right now
+      </div>
+    `;
+  }
+
   return col;
 }
 
@@ -2216,24 +2236,28 @@ function renderChores() {
       { key: "morning", label: "Morning Routines", icon: "🌅" },
       { key: "afternoon", label: "Afternoon Routines", icon: "☀️" },
       { key: "evening", label: "Evening Routines", icon: "🌙" },
+      { key: "general_chore", label: "General Chores", icon: "📋" },
       { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
       { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
     ];
   } else if (activePeriod === "morning") {
     subcats = [
       { key: "morning", label: "Morning Routines (Midnight - Noon)", icon: "🌅" },
+      { key: "general_chore", label: "General Chores", icon: "📋" },
       { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
       { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
     ];
   } else if (activePeriod === "afternoon") {
     subcats = [
       { key: "afternoon", label: "Afternoon Routines (Noon - 6 PM)", icon: "☀️" },
+      { key: "general_chore", label: "General Chores", icon: "📋" },
       { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
       { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
     ];
   } else if (activePeriod === "evening") {
     subcats = [
       { key: "evening", label: "Evening Routines (6 PM - Midnight)", icon: "🌙" },
+      { key: "general_chore", label: "General Chores", icon: "📋" },
       { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
       { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
     ];
@@ -2315,6 +2339,13 @@ function renderChores() {
       const choresInSub = memberChores.filter(
         (c) => getChoreSubcategory(c) === sub.key && isChoreActiveToday(c)
       );
+
+      // Skip empty optional subcategories so columns stay clean and concise
+      if (choresInSub.length === 0) {
+        if (sub.key === "general_chore" || sub.key === "Weekly" || sub.key === "As Needed" || activePeriod === "all") {
+          continue;
+        }
+      }
 
       const subGroup = document.createElement("div");
       subGroup.className = "chore-subcategory-group";
@@ -2405,6 +2436,14 @@ function renderChores() {
       }
 
       subcatsContainer.appendChild(subGroup);
+    }
+
+    if (subcatsContainer.children.length === 0) {
+      subcatsContainer.innerHTML = `
+        <div class="chore-empty-sub" style="padding: 1.5rem 0.5rem; text-align: center;">
+          <span>No tasks or routines scheduled today</span>
+        </div>
+      `;
     }
 
     grid.appendChild(col);
@@ -4871,12 +4910,14 @@ function openEditChoreModal(choreId) {
     const ptsEl = document.getElementById("ch-points");
     if (ptsEl) ptsEl.value = chore.points !== undefined ? chore.points : 10;
 
+    setChoreType(chore.isRoutine !== false ? "routine" : "chore", false);
+
     const freqEl = document.getElementById("ch-freq");
     if (freqEl && chore.frequency) freqEl.value = chore.frequency;
 
-    setChoreType(chore.isRoutine !== false ? "routine" : "chore");
     selectRoutineTimeOfDay(chore.timeOfDay || "morning");
     setSelectedRoutineDays(chore.daysOfWeek || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+    handleChoreFreqChange();
 
     switchChoreQuickPresetTab("toddler");
     renderChoreQuickPresetChips();
@@ -4926,8 +4967,11 @@ async function saveChore(e) {
   const points = parseInt(document.getElementById("ch-points").value, 10) || 10;
   const frequency = document.getElementById("ch-freq").value;
   const isRoutine = document.getElementById("ch-is-routine").value === "true";
-  const timeOfDay = document.getElementById("ch-time-of-day").value || "morning";
-  const daysOfWeek = getSelectedRoutineDays();
+  const timeOfDay = isRoutine ? (document.getElementById("ch-time-of-day").value || "morning") : "";
+  let daysOfWeek = getSelectedRoutineDays();
+  if (!isRoutine && (!daysOfWeek || daysOfWeek.length === 0)) {
+    daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  }
   const icon = document.getElementById("ch-icon").value.trim() || "";
 
   if (!title) {
@@ -6131,19 +6175,19 @@ function isChoreMatchingHomePeriod(chore, currentPeriod) {
   if (!isChoreActiveToday(chore)) return false;
   if (currentPeriod === "all") return true;
 
-  const tod = (chore.timeOfDay || "").toLowerCase();
+  // General chores (isRoutine === false) or tasks without timeOfDay display all day on Home
   const isRoutine = chore.isRoutine !== false;
+  if (!isRoutine) return true;
 
-  // 1. Explicit timeOfDay
+  const tod = (chore.timeOfDay || "").toLowerCase();
+  if (!tod) return true;
+
+  // Routines filtered by time of day
   if (tod.includes("afternoon")) return currentPeriod === "afternoon";
   if (tod.includes("evening") || tod.includes("night")) return currentPeriod === "evening";
   if (tod.includes("morning")) return currentPeriod === "morning";
 
-  // 2. Explicit routine without timeOfDay defaults to morning
-  if (isRoutine) return currentPeriod === "morning";
-
-  // 3. Regular non-routine chores (general daily, weekly, or as needed) display anytime
-  return true;
+  return currentPeriod === "morning";
 }
 
 async function cycleHomeTasksPeriod(e) {
