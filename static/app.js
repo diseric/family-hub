@@ -1094,26 +1094,26 @@ function renderChores() {
     lb.appendChild(card);
   }
 
-  // 2. Identify assigned persons / groups to display
+  // 2. Identify assigned family members to display (e.g. 4 members side-by-side)
   let membersToDisplay = appState.activeMemberFilter === "all"
     ? [...appState.members]
     : appState.members.filter((m) => m.id === appState.activeMemberFilter);
 
-  // If "all" filter is active, check if there are chores assigned to "all" (Entire Family)
-  const sharedChores = (appState.chores || []).filter((c) => c.memberId === "all");
-  if (sharedChores.length > 0 && appState.activeMemberFilter === "all") {
-    membersToDisplay.unshift({
-      id: "all",
-      name: "Entire Family (Shared)",
-      avatar: "🏡",
-      color: "#0284c7",
-      points: sharedChores.reduce((sum, c) => sum + (c.points || 0), 0),
-    });
-  }
-
   if (membersToDisplay.length === 0) {
     grid.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-muted); width: 100%;">No family members found. Add profiles in Settings!</div>`;
     return;
+  }
+
+  // Ensure 4 columns sit side-by-side cleanly across the screen
+  if (membersToDisplay.length === 4) {
+    grid.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
+    lb.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
+  } else if (membersToDisplay.length === 1) {
+    grid.style.gridTemplateColumns = "minmax(0, 640px)";
+    lb.style.gridTemplateColumns = "minmax(0, 320px)";
+  } else {
+    grid.style.gridTemplateColumns = `repeat(${Math.min(membersToDisplay.length, 4)}, minmax(0, 1fr))`;
+    lb.style.gridTemplateColumns = `repeat(${Math.min(membersToDisplay.length, 4)}, minmax(0, 1fr))`;
   }
 
   const subcats = [
@@ -1123,12 +1123,9 @@ function renderChores() {
   ];
 
   for (const member of membersToDisplay) {
+    // Show each member's personal chores + shared family chores with 🏡 badge
     const memberChores = (appState.chores || []).filter((c) => {
-      if (member.id === "all") return c.memberId === "all";
-      if (appState.activeMemberFilter !== "all") {
-        return c.memberId === member.id || c.memberId === "all";
-      }
-      return c.memberId === member.id;
+      return c.memberId === member.id || c.memberId === "all";
     });
     const completedCount = memberChores.filter((c) => c.completed).length;
     const totalCount = memberChores.length;

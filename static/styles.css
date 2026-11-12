@@ -1163,26 +1163,23 @@ body {
 }
 
 .chores-leaderboard {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.85rem;
   margin-bottom: 1.25rem;
-  overflow-x: auto;
-  padding: 4px 2px 10px 2px;
   flex-shrink: 0;
-  min-height: 72px;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
 
 .chores-leaderboard-card {
   background: var(--bg-card);
-  padding: 10px 18px;
+  padding: 10px 14px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  min-width: 175px;
-  flex-shrink: 0;
+  gap: 0.6rem;
+  min-width: 0;
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
@@ -1196,11 +1193,20 @@ body {
 
 .chores-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
   align-items: start;
   padding-bottom: 2.5rem;
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .chores-leaderboard {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .chores-container {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .member-tasks-column {
@@ -1211,6 +1217,7 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .member-tasks-header {
