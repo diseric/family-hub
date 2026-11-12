@@ -15,7 +15,9 @@ let appState = {
   calendarView: "week", // day, 3day, week, month, schedule
   currentDateOffset: 0,
   splitScreen: false,
+  splitMode: "photos", // photos, chores, lists, meals
   slideshowIndex: 0,
+  slideshowPaused: false,
 };
 
 let slideshowTimer = null;
@@ -61,6 +63,7 @@ async function init() {
         renderWeather();
       }
       renderActiveNav();
+      if (appState.splitScreen) renderSplitSidePane();
     } catch (_) {}
   }, 6000);
 }
@@ -100,6 +103,9 @@ async function loadState() {
     renderMemberPills();
     renderWeather();
     renderActiveNav();
+    if (appState.splitScreen) {
+      renderSplitSidePane();
+    }
     populateSelectDropdowns();
   } catch (err) {
     console.error("Failed to load initial state:", err);
@@ -122,6 +128,7 @@ function renderMemberPills() {
     appState.activeMemberFilter = "all";
     renderMemberPills();
     renderActiveNav();
+    if (appState.splitScreen) renderSplitSidePane();
   };
   bar.appendChild(allBtn);
 
@@ -142,6 +149,7 @@ function renderMemberPills() {
       appState.activeMemberFilter = m.id;
       renderMemberPills();
       renderActiveNav();
+      if (appState.splitScreen) renderSplitSidePane();
     };
     bar.appendChild(pill);
   }
@@ -292,8 +300,16 @@ function setCalendarView(viewName) {
   renderCalendar();
 }
 
-function toggleSplitScreen() {
-  appState.splitScreen = !appState.splitScreen;
+function toggleSplitScreen(targetMode) {
+  if (targetMode) {
+    appState.splitScreen = true;
+    appState.splitMode = targetMode;
+  } else {
+    appState.splitScreen = !appState.splitScreen;
+    if (appState.splitScreen && !appState.splitMode) {
+      appState.splitMode = (appState.settings && appState.settings.splitDefault) || "photos";
+    }
+  }
   const splitBtn = document.querySelector(".view-btn.split-btn");
   const splitPane = document.getElementById("split-photos-pane");
   
@@ -301,8 +317,295 @@ function toggleSplitScreen() {
   if (splitPane) splitPane.classList.toggle("hidden", !appState.splitScreen);
   
   if (appState.splitScreen) {
-    updateSlideshowImage("split-slideshow-img", "split-slideshow-caption");
+    renderSplitSidePane();
   }
+}
+
+function switchSplitTab(tabName) {
+  appState.splitMode = tabName;
+  renderSplitSidePane();
+}
+
+function renderSplitSidePane() {
+  const mode = appState.splitMode || "photos";
+  
+  // Highlight active split tab
+  document.querySelectorAll(".split-tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-split-tab") === mode);
+  });
+  
+  // Toggle subviews
+  const photoView = document.getElementById("split-view-photos");
+  const choresView = document.getElementById("split-view-chores");
+  const listsView = document.getElementById("split-view-lists");
+  const mealsView = document.getElementById("split-view-meals");
+  
+  if (photoView) photoView.classList.toggle("hidden", mode !== "photos");
+  if (choresView) choresView.classList.toggle("hidden", mode !== "chores");
+  if (listsView) listsView.classList.toggle("hidden", mode !== "lists");
+  if (mealsView) mealsView.classList.toggle("hidden", mode !== "meals");
+  
+  if (mode === "photos") {
+    updateSlideshowImage("split-slideshow-img", "split-slideshow-caption");
+  } else if (mode === "chores") {
+    renderSplitChores();
+  } else if (mode === "lists") {
+    renderSplitLists();
+  } else if (mode === "meals") {
+    renderSplitMeals();
+  }
+}
+
+function toggleSlideshowPause(e) {
+  if (e) e.stopPropagation();
+  appState.slideshowPaused = !appState.slideshowPaused;
+  const btn = document.getElementById("split-pause-btn");
+  if (btn) btn.textContent = appState.slideshowPaused ? "▶" : "⏸";
+  const metaEl = document.getElementById("split-slideshow-meta");
+  if (metaEl) {
+    if (appState.slideshowPaused) {
+      metaEl.textContent = "⏸ Slideshow Paused • Tap photo to resume";
+    } else {
+      metaEl.textContent = "📸 Rotating Slideshow • Tap photo to pause";
+    }
+  }
+}
+
+function prevSlideshowPhoto(e) {
+  if (e) e.stopPropagation();
+  const photos = getActivePhotos();
+  if (photos.length === 0) return;
+  appState.slideshowIndex = (appState.slideshowIndex - 2 + photos.length) % photos.length;
+  updateSlideshowImage("split-slideshow-img", "split-slideshow-caption");
+}
+
+function nextSlideshowPhoto(e) {
+  if (e) e.stopPropagation();
+  updateSlideshowImage("split-slideshow-img", "split-slideshow-caption");
+}
+
+function renderSplitChores() {
+  const container = document.getElementById("split-chores-list");
+  const countBadge = document.getElementById("split-chores-count");
+  if (!container) return;
+  container.innerHTML = "";
+  
+  const chores = appState.activeMemberFilter === "all"
+    ? (appState.chores || [])
+    : (appState.chores || []).filter((c) => c.memberId === appState.activeMemberFilter);
+    
+  const pending = chores.filter((c) => !c.completed);
+  if (countBadge) countBadge.textContent = `${pending.length} left`;
+  
+  if (chores.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 2rem 1rem; color: var(--text-muted);">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⭐</div>
+        <div style="font-weight: 600; font-size: 0.9rem;">No chores scheduled today!</div>
+        <div style="font-size: 0.78rem; margin-top: 4px;">Tap "+ Add" above to create family routines.</div>
+      </div>
+    `;
+    return;
+  }
+  
+  for (const chore of chores) {
+    const m = getMember(chore.memberId);
+    const item = document.createElement("div");
+    item.className = `split-chore-item ${chore.completed ? "done" : ""}`;
+    item.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      ${chore.completed ? "opacity: 0.55; text-decoration: line-through;" : ""}
+    `;
+    item.innerHTML = `
+      <div style="
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 2px solid ${chore.completed ? "var(--accent-green)" : "var(--border-color)"};
+        background: ${chore.completed ? "var(--accent-green)" : "transparent"};
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      ">${chore.completed ? "✓" : ""}</div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 0.86rem; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${chore.title}</div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; margin-top: 2px;">
+          <span>${m.avatar} ${m.name}</span>
+          <span>•</span>
+          <span style="color: var(--accent-gold); font-weight: 700;">+${chore.points} ⭐</span>
+        </div>
+      </div>
+    `;
+    item.onclick = async () => {
+      try {
+        const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
+        const data = await res.json();
+        if (data.reward) {
+          triggerRewardConfetti(data.reward);
+        }
+        await loadState();
+        renderSplitChores();
+      } catch (err) {
+        console.error("Failed to toggle chore:", err);
+      }
+    };
+    container.appendChild(item);
+  }
+}
+
+let currentSplitListId = null;
+
+function renderSplitLists() {
+  const selectEl = document.getElementById("split-list-select");
+  const itemsContainer = document.getElementById("split-list-items");
+  const countBadge = document.getElementById("split-list-count");
+  if (!itemsContainer || !selectEl) return;
+  
+  const lists = appState.lists || [];
+  if (lists.length === 0) {
+    itemsContainer.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem;">No lists created yet.</div>`;
+    return;
+  }
+  
+  if (!currentSplitListId || !lists.find(l => l.id === currentSplitListId)) {
+    currentSplitListId = lists[0].id;
+  }
+  
+  selectEl.innerHTML = lists.map(l => `<option value="${l.id}" ${l.id === currentSplitListId ? "selected" : ""}>${l.title}</option>`).join("");
+  
+  const activeList = lists.find(l => l.id === currentSplitListId) || lists[0];
+  const items = activeList.items || [];
+  const unchecked = items.filter(i => !i.checked);
+  if (countBadge) countBadge.textContent = `${unchecked.length} left`;
+  
+  itemsContainer.innerHTML = "";
+  if (items.length === 0) {
+    itemsContainer.innerHTML = `<div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.8rem;">List is empty. Add items below!</div>`;
+    return;
+  }
+  
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-surface);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+      transition: background 0.15s;
+    `;
+    row.innerHTML = `
+      <input type="checkbox" ${item.checked ? "checked" : ""} style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary);" />
+      <span style="flex: 1; font-size: 0.85rem; color: var(--text-primary); ${item.checked ? "text-decoration: line-through; opacity: 0.5;" : ""}">${item.text}</span>
+      <button type="button" style="border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 2px 6px;">✕</button>
+    `;
+    const chk = row.querySelector("input");
+    chk.onchange = async () => {
+      await fetch(`/api/lists/${activeList.id}/items/${item.id}/toggle`, { method: "POST" });
+      await loadState();
+      renderSplitLists();
+    };
+    const delBtn = row.querySelector("button");
+    delBtn.onclick = async (e) => {
+      e.stopPropagation();
+      await fetch(`/api/lists/${activeList.id}/items/${item.id}`, { method: "DELETE" });
+      await loadState();
+      renderSplitLists();
+    };
+    itemsContainer.appendChild(row);
+  }
+}
+
+function switchSplitList(listId) {
+  currentSplitListId = listId;
+  renderSplitLists();
+}
+
+async function addSplitListItem() {
+  const inp = document.getElementById("split-list-input");
+  if (!inp || !inp.value.trim() || !currentSplitListId) return;
+  const text = inp.value.trim();
+  inp.value = "";
+  const activeMem = appState.activeMemberFilter !== "all" ? getMember(appState.activeMemberFilter).name : "Kitchen Hub";
+  await fetch(`/api/lists/${currentSplitListId}/items`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, addedBy: activeMem }),
+  });
+  await loadState();
+  renderSplitLists();
+}
+
+function handleSplitListKey(e) {
+  if (e.key === "Enter") addSplitListItem();
+}
+
+function renderSplitMeals() {
+  const container = document.getElementById("split-meals-content");
+  if (!container) return;
+  container.innerHTML = "";
+  
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const todayName = days[new Date().getDay()];
+  const tomorrowName = days[(new Date().getDay() + 1) % 7];
+  
+  const todayMeals = (appState.meals && appState.meals[todayName]) || { breakfast: "Eggs & toast", lunch: "Salad wrap", dinner: "Family Dinner" };
+  const tomorrowMeals = (appState.meals && appState.meals[tomorrowName]) || { dinner: "Taco Night" };
+  
+  container.innerHTML = `
+    <div style="background: var(--primary-light); padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid rgba(2, 132, 199, 0.2); margin-bottom: 8px;">
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--primary); letter-spacing: 0.5px; margin-bottom: 8px;">
+        📅 Today's Menu (${todayName})
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 8px 10px; border-radius: 6px; cursor: pointer;" onclick="editMealPrompt('${todayName}', 'breakfast', '${todayMeals.breakfast}')">
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">🍳 BREAKFAST</div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-top: 1px;">${todayMeals.breakfast || "Tap to set"}</div>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">✏️</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 8px 10px; border-radius: 6px; cursor: pointer;" onclick="editMealPrompt('${todayName}', 'lunch', '${todayMeals.lunch}')">
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">🥪 LUNCH</div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-top: 1px;">${todayMeals.lunch || "Tap to set"}</div>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">✏️</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-surface); padding: 8px 10px; border-radius: 6px; cursor: pointer;" onclick="editMealPrompt('${todayName}', 'dinner', '${todayMeals.dinner}')">
+          <div>
+            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted);">🍲 DINNER</div>
+            <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-top: 1px;">${todayMeals.dinner || "Tap to set"}</div>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">✏️</span>
+        </div>
+      </div>
+    </div>
+    
+    <div style="background: var(--bg-surface); padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+      <div style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">
+        🔮 Tomorrow's Dinner (${tomorrowName})
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;" onclick="editMealPrompt('${tomorrowName}', 'dinner', '${tomorrowMeals.dinner}')">
+        <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">${tomorrowMeals.dinner || "Tap to plan tomorrow's dinner"}</div>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">✏️</span>
+      </div>
+    </div>
+  `;
 }
 
 function navigateDate(delta) {
@@ -882,6 +1185,18 @@ function updateSlideshowImage(imgId, captionId) {
   }
   if (capEl) capEl.textContent = current.caption;
 
+  const splitMetaEl = document.getElementById("split-slideshow-meta");
+  if (splitMetaEl) {
+    const isGPhotos = appState.settings && appState.settings.googlePhotosAlbumUrl;
+    if (appState.slideshowPaused) {
+      splitMetaEl.textContent = "⏸ Slideshow Paused • Tap photo to resume";
+    } else if (isGPhotos) {
+      splitMetaEl.textContent = `📸 Google Photos Album • ${photos.length} photos • Tap to pause`;
+    } else {
+      splitMetaEl.textContent = `📸 Rotating Photo Frame • ${photos.length} photos • Tap to pause`;
+    }
+  }
+
   const metaEl = document.getElementById("full-slideshow-meta");
   if (metaEl && appState.settings && appState.settings.googlePhotosAlbumUrl) {
     metaEl.textContent = `📸 Google Photos Album • ${appState.photos.length} photos rotating • Tap to pause`;
@@ -891,9 +1206,10 @@ function updateSlideshowImage(imgId, captionId) {
 function startPhotoSlideshow() {
   if (slideshowTimer) clearInterval(slideshowTimer);
   slideshowTimer = setInterval(() => {
+    if (appState.slideshowPaused) return;
     if (appState.activeNav === "photo-frame") {
       updateSlideshowImage("full-slideshow-img", "full-slideshow-caption");
-    } else if (appState.splitScreen) {
+    } else if (appState.splitScreen && (appState.splitMode || "photos") === "photos") {
       updateSlideshowImage("split-slideshow-img", "split-slideshow-caption");
     }
   }, (appState.settings.slideshowIntervalSec || 8) * 1000);
@@ -1519,6 +1835,14 @@ function openSettingsModal() {
   if (s.sleepTime) document.getElementById("set-sleep-time").value = s.sleepTime;
   if (s.weatherLocation) document.getElementById("set-weather-loc").value = s.weatherLocation;
   if (s.skylightEmail) document.getElementById("set-skylight-email").value = s.skylightEmail;
+  if (s.splitDefault) {
+    const splitDefEl = document.getElementById("set-split-default");
+    if (splitDefEl) splitDefEl.value = s.splitDefault;
+  }
+  if (s.slideshowIntervalSec) {
+    const speedEl = document.getElementById("set-slideshow-interval");
+    if (speedEl) speedEl.value = String(s.slideshowIntervalSec);
+  }
   renderSettingsMembers();
   renderSettingsFeeds();
   updateSettingsMemberDropdown();
@@ -1867,12 +2191,14 @@ async function saveSettings(e) {
   const sleepTime = document.getElementById("set-sleep-time").value;
   const weatherLocation = document.getElementById("set-weather-loc").value;
   const skylightEmail = document.getElementById("set-skylight-email").value;
+  const splitDefault = document.getElementById("set-split-default") ? document.getElementById("set-split-default").value : "photos";
+  const slideshowIntervalSec = document.getElementById("set-slideshow-interval") ? parseInt(document.getElementById("set-slideshow-interval").value, 10) : 8;
 
   try {
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceName, wakeTime, sleepTime, weatherLocation, skylightEmail }),
+      body: JSON.stringify({ deviceName, wakeTime, sleepTime, weatherLocation, skylightEmail, splitDefault, slideshowIntervalSec }),
     });
     const data = await res.json();
     if (data.weather) {
@@ -1883,6 +2209,7 @@ async function saveSettings(e) {
     console.error("Error saving settings:", err);
   }
   await loadState();
+  startPhotoSlideshow();
   closeModal("modal-settings");
 }
 
@@ -2313,6 +2640,7 @@ async function finishSetupWizard() {
       closeModal("modal-wizard");
       await loadState();
       renderActiveNav();
+      if (appState.splitScreen) renderSplitSidePane();
     }
   } catch (err) {
     alert("Error completing setup: " + err.message);

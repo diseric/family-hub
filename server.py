@@ -74,6 +74,7 @@ DEFAULT_SETTINGS = {
     "wakeTime": "06:30",
     "sleepTime": "22:00",
     "slideshowIntervalSec": 8,
+    "splitDefault": "photos",
     "weatherLocation": "Seattle, WA",
     "weatherLat": 47.6062,
     "weatherLon": -122.3321,

@@ -163,13 +163,90 @@
               <!-- Rendered dynamically (Week, Month, Day, 3-Day, Schedule) -->
             </div>
 
-            <!-- Split Screen Photo Frame Right Pane (Shown when Split Screen active) -->
-            <div id="split-photos-pane" class="split-photos-card hidden">
-              <img id="split-slideshow-bg" class="photo-slide-ambient" src="" alt="" />
-              <img id="split-slideshow-img" class="photo-slide-img" src="" alt="Slideshow" referrerpolicy="no-referrer" />
-              <div class="photo-overlay-info">
-                <div id="split-slideshow-caption" class="photo-caption">Family Memory</div>
-                <div class="photo-meta">Rotating Photo Frame Mode</div>
+            <!-- Split Screen Right Pane (Multi-Option Side Panel) -->
+            <div id="split-photos-pane" class="split-side-card hidden">
+              <!-- Split Header: Switch between Photos, Chores, Lists, Meals -->
+              <div class="split-nav-header">
+                <div class="split-nav-tabs">
+                  <button type="button" class="split-tab-btn active" data-split-tab="photos" onclick="switchSplitTab('photos')" title="Rotating Photo Frame">
+                    📸 Photos
+                  </button>
+                  <button type="button" class="split-tab-btn" data-split-tab="chores" onclick="switchSplitTab('chores')" title="Today's Chores & Tasks">
+                    ⭐ Chores
+                  </button>
+                  <button type="button" class="split-tab-btn" data-split-tab="lists" onclick="switchSplitTab('lists')" title="Grocery & To-Do Lists">
+                    🛒 Lists
+                  </button>
+                  <button type="button" class="split-tab-btn" data-split-tab="meals" onclick="switchSplitTab('meals')" title="Weekly Meal Plan">
+                    🍽️ Meals
+                  </button>
+                </div>
+                <button type="button" class="split-close-btn" onclick="toggleSplitScreen()" title="Exit Split Screen">✕</button>
+              </div>
+
+              <!-- View 1: Photos Slideshow -->
+              <div id="split-view-photos" class="split-subview active">
+                <img id="split-slideshow-bg" class="photo-slide-ambient" src="" alt="" />
+                <img id="split-slideshow-img" class="photo-slide-img" src="" alt="Slideshow" referrerpolicy="no-referrer" onclick="toggleSlideshowPause()" />
+                
+                <!-- Floating Photo Controls -->
+                <div class="split-photo-controls">
+                  <button type="button" class="photo-ctrl-btn" onclick="prevSlideshowPhoto(event)" title="Previous Photo">‹</button>
+                  <button type="button" class="photo-ctrl-btn" id="split-pause-btn" onclick="toggleSlideshowPause(event)" title="Pause / Play Slideshow">⏸</button>
+                  <button type="button" class="photo-ctrl-btn" onclick="nextSlideshowPhoto(event)" title="Next Photo">›</button>
+                  <button type="button" class="photo-ctrl-btn" onclick="openGooglePhotosModal(event)" title="Google Photos Album Settings">📸</button>
+                </div>
+
+                <!-- Bottom Photo Caption & Status Overlay -->
+                <div class="photo-overlay-info">
+                  <div id="split-slideshow-caption" class="photo-caption">Family Memory</div>
+                  <div id="split-slideshow-meta" class="photo-meta">Rotating Photo Frame • Tap to pause</div>
+                </div>
+              </div>
+
+              <!-- View 2: Today's Chores & Routines -->
+              <div id="split-view-chores" class="split-subview hidden">
+                <div class="split-subview-header">
+                  <div class="split-subview-title">
+                    <span>⭐ Today's Chores & Tasks</span>
+                    <span id="split-chores-count" class="badge-count">0 left</span>
+                  </div>
+                  <button type="button" class="btn-hub primary mini-btn" onclick="openNewChoreModal()">+ Add</button>
+                </div>
+                <div id="split-chores-list" class="split-items-scroll">
+                  <!-- Rendered dynamically -->
+                </div>
+              </div>
+
+              <!-- View 3: Grocery & To-Do Lists -->
+              <div id="split-view-lists" class="split-subview hidden">
+                <div class="split-subview-header">
+                  <select id="split-list-select" onchange="switchSplitList(this.value)" class="split-select-styled">
+                    <!-- Options populated from appState.lists -->
+                  </select>
+                  <span id="split-list-count" class="badge-count">0 items</span>
+                </div>
+                <div id="split-list-items" class="split-items-scroll">
+                  <!-- Rendered dynamically -->
+                </div>
+                <div class="split-list-input-bar">
+                  <input type="text" id="split-list-input" placeholder="Add item (e.g. Milk, Apples)..." onkeydown="handleSplitListKey(event)" />
+                  <button type="button" class="btn-hub primary mini-btn" onclick="addSplitListItem()">Add</button>
+                </div>
+              </div>
+
+              <!-- View 4: Weekly Meal Plan -->
+              <div id="split-view-meals" class="split-subview hidden">
+                <div class="split-subview-header">
+                  <div class="split-subview-title">
+                    <span>🍽️ Meal Planner</span>
+                    <span id="split-meals-day-label" class="badge-count">Today</span>
+                  </div>
+                  <button type="button" class="btn-hub ghost mini-btn" onclick="switchNav('meals')">Full Grid</button>
+                </div>
+                <div id="split-meals-content" class="split-items-scroll">
+                  <!-- Rendered dynamically -->
+                </div>
               </div>
             </div>
           </div>
@@ -643,6 +720,27 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
               <input type="time" id="set-wake-time" value="06:30" required />
             </div>
           </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Default Split Screen Widget</label>
+              <select id="set-split-default" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; width: 100%;">
+                <option value="photos">📸 Rotating Photo Frame</option>
+                <option value="chores">⭐ Daily Chores & Tasks</option>
+                <option value="lists">🛒 Grocery & To-Do Lists</option>
+                <option value="meals">🍽️ Weekly Meal Plan</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Photo Slideshow Speed</label>
+              <select id="set-slideshow-interval" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; width: 100%;">
+                <option value="5">5 Seconds (Fast)</option>
+                <option value="8" selected>8 Seconds (Default)</option>
+                <option value="15">15 Seconds</option>
+                <option value="30">30 Seconds</option>
+                <option value="60">1 Minute (Relaxed)</option>
+              </select>
+            </div>
+          </div>
           <div class="form-group">
             <label>Weather Location (City, State / Country)</label>
             <input type="text" id="set-weather-loc" value="Seattle, WA" required />
@@ -951,7 +1049,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.7.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.7.0"></script>
+  <!-- Main JavaScript Engine (v2.8.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.8.0"></script>
 </body>
 </html>
