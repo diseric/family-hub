@@ -1457,10 +1457,10 @@ function renderChores() {
               <div class="chore-checkbox" title="Tap to mark complete">${chore.completed ? "✓" : ""}</div>
               <div class="chore-info" title="Tap to edit task">
                 <h3>${chore.title}</h3>
-                ${isShared ? `<div class="chore-meta"><span style="color: #0284c7; font-weight: 600;">🏡 Shared Task</span></div>` : ""}
+                ${isShared ? `<div class="chore-meta"><span style="color: #0284c7; font-weight: 600;">🏡 Shared</span></div>` : ""}
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div class="chore-card-actions">
               <div class="chore-points">+${chore.points} ⭐</div>
               <button type="button" class="btn-chore-edit" title="Edit or delete task">✏️</button>
             </div>

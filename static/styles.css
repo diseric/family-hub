@@ -1490,37 +1490,45 @@ body {
 }
 
 .member-tasks-header {
-  padding: 12px 16px;
+  padding: 8px 10px;
   background: var(--bg-card-alt);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
 }
 
 .member-tasks-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .member-tasks-avatar {
-  font-size: 1.85rem;
+  font-size: 1.35rem;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .member-tasks-name {
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .member-tasks-progress {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
+  gap: 4px;
+  font-size: 0.7rem;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 1px;
+  white-space: nowrap;
 }
 
 .member-points-pill {
@@ -1528,8 +1536,8 @@ body {
   border: 1px solid rgba(251, 191, 36, 0.35);
   color: var(--accent-gold);
   font-weight: 700;
-  font-size: 0.72rem;
-  padding: 2px 8px;
+  font-size: 0.68rem;
+  padding: 1px 6px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: transform 0.15s;
@@ -1540,10 +1548,10 @@ body {
 }
 
 .member-subcategories-container {
-  padding: 12px 14px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .chore-subcategory-group {
@@ -1556,19 +1564,19 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding-bottom: 4px;
+  letter-spacing: 0.4px;
+  padding-bottom: 3px;
   border-bottom: 1px dashed var(--border-subtle);
 }
 
 .subcategory-badge {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
-  padding: 1px 7px;
+  padding: 1px 5px;
   border-radius: var(--radius-pill);
   background: var(--bg-pill);
   color: var(--text-muted);
@@ -1577,15 +1585,15 @@ body {
 .chore-subcategory-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .chore-empty-sub {
-  padding: 8px 12px;
+  padding: 6px 8px;
   background: var(--bg-surface);
   border-radius: var(--radius-sm);
   border: 1px dashed var(--border-subtle);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   font-style: italic;
   text-align: center;
@@ -1595,17 +1603,19 @@ body {
   background: var(--bg-surface);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  padding: 10px 12px;
+  padding: 6px 8px;
   box-shadow: var(--shadow-sm);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  min-width: 0;
 }
 
 .chore-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-pop);
 }
 
@@ -1617,22 +1627,24 @@ body {
 .chore-left {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 6px;
   flex: 1;
   min-width: 0;
 }
 
 /* Tactile circular checkbox */
 .chore-checkbox {
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
   border-radius: var(--radius-pill);
   border: 2px solid var(--border-subtle);
   background: var(--bg-surface);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.05rem;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: #ffffff;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1650,12 +1662,17 @@ body {
 }
 
 .chore-info h3 {
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--text-primary);
-  white-space: nowrap;
+  line-height: 1.25;
+  margin: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .chore-card.done .chore-info h3 {
@@ -1664,26 +1681,37 @@ body {
 }
 
 .chore-meta {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   margin-top: 2px;
+  line-height: 1.2;
+}
+
+.chore-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .chore-points {
   background: #fef3c7;
   color: #b45309;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 2px 6px;
   border-radius: var(--radius-pill);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .btn-chore-edit {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
@@ -1692,7 +1720,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
+  padding: 0;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
