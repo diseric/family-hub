@@ -5701,11 +5701,94 @@ function renderHome() {
   if (showTasks) renderHomeTasks();
 }
 
+function getHomeTasksFilter() {
+  const cfg = (appState.settings && appState.settings.homeConfig) || {};
+  return cfg.tasksFilter || "auto";
+}
+
+function getHomeEffectivePeriod() {
+  const filter = getHomeTasksFilter();
+  const curPeriod = getCurrentRoutinePeriod();
+  if (filter === "auto") {
+    return { period: curPeriod, isAuto: true, filter: "auto" };
+  }
+  return { period: filter, isAuto: false, filter };
+}
+
+function isChoreMatchingHomePeriod(chore, currentPeriod) {
+  if (!isChoreActiveToday(chore)) return false;
+  if (currentPeriod === "all") return true;
+
+  const tod = (chore.timeOfDay || "").toLowerCase();
+  const isRoutine = chore.isRoutine !== false;
+
+  // 1. Explicit timeOfDay
+  if (tod.includes("afternoon")) return currentPeriod === "afternoon";
+  if (tod.includes("evening") || tod.includes("night")) return currentPeriod === "evening";
+  if (tod.includes("morning")) return currentPeriod === "morning";
+
+  // 2. Explicit routine without timeOfDay defaults to morning
+  if (isRoutine) return currentPeriod === "morning";
+
+  // 3. Regular non-routine chores (general daily, weekly, or as needed) display anytime
+  return true;
+}
+
+async function cycleHomeTasksPeriod(e) {
+  if (e) e.stopPropagation();
+  const cfg = (appState.settings && appState.settings.homeConfig) || {};
+  const current = cfg.tasksFilter || "auto";
+  const order = ["auto", "morning", "afternoon", "evening", "all"];
+  const nextIdx = (order.indexOf(current) + 1) % order.length;
+  const nextFilter = order[nextIdx];
+
+  if (!appState.settings) appState.settings = {};
+  if (!appState.settings.homeConfig) {
+    appState.settings.homeConfig = { showTasks: true, calendarView: "week" };
+  }
+  appState.settings.homeConfig.tasksFilter = nextFilter;
+
+  renderHomeTasks();
+
+  try {
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(appState.settings),
+    });
+  } catch (err) {
+    console.error("Failed to save home tasks filter preference:", err);
+  }
+}
+
 function renderHomeTasks() {
   const container = document.getElementById("home-tasks-carousel");
   const countBadge = document.getElementById("home-tasks-count-badge");
+  const periodBadge = document.getElementById("home-tasks-period-badge");
+  const titleEl = document.getElementById("home-tasks-pane-title");
   if (!container) return;
   container.innerHTML = "";
+
+  const { period, isAuto } = getHomeEffectivePeriod();
+  const periodName = period === "morning" ? "Morning" : period === "afternoon" ? "Afternoon" : period === "evening" ? "Evening" : "Today's";
+  const periodIcon = period === "morning" ? "🌅" : period === "afternoon" ? "☀️" : period === "evening" ? "🌙" : "📋";
+
+  if (titleEl) {
+    titleEl.textContent = `📋 ${periodName} Tasks`;
+  }
+
+  if (periodBadge) {
+    if (isAuto) {
+      periodBadge.innerHTML = `${periodIcon} ${periodName} <span style="opacity: 0.72; font-size: 0.65rem; margin-left: 2px;">(Auto)</span>`;
+      periodBadge.title = `Current Time: ${periodName} (Auto-displaying ${periodName} Tasks). Tap to switch manually.`;
+    } else if (period === "all") {
+      periodBadge.innerHTML = `📋 All Day`;
+      periodBadge.title = `Displaying all tasks across the day. Tap to return to Auto.`;
+    } else {
+      periodBadge.innerHTML = `${periodIcon} ${periodName}`;
+      periodBadge.title = `Manual Filter: ${periodName} Tasks. Tap to switch or return to Auto.`;
+    }
+  }
 
   const isUfgFilter = appState.activeMemberFilter === "up_for_grabs";
   const allMembers = (appState.members || []).filter((m) => m.id !== "m5");
@@ -5715,11 +5798,27 @@ function renderHomeTasks() {
 
   let totalPending = 0;
 
+  const emptyText = period === "morning"
+    ? "No morning tasks ✨"
+    : period === "afternoon"
+    ? "No afternoon tasks ✨"
+    : period === "evening"
+    ? "No evening tasks ✨"
+    : "No tasks today ✨";
+
+  const ufgEmptyText = period === "morning"
+    ? "No morning tasks up for grabs ✨"
+    : period === "afternoon"
+    ? "No afternoon tasks up for grabs ✨"
+    : period === "evening"
+    ? "No evening tasks up for grabs ✨"
+    : "No tasks up for grabs ✨";
+
   // 1. Up for Grabs Card (Shown when on "All Family" or "Up for Grabs" filter)
   const showUfgCard = appState.activeMemberFilter === "all" || isUfgFilter;
   if (showUfgCard) {
     const ufgChores = (appState.chores || []).filter((c) => {
-      return (c.isUpForGrabs || c.memberId === "up_for_grabs") && isChoreActiveToday(c);
+      return (c.isUpForGrabs || c.memberId === "up_for_grabs") && isChoreMatchingHomePeriod(c, period);
     });
     const pendingUfg = ufgChores.filter((c) => !c.completed);
     totalPending += pendingUfg.length;
@@ -5743,7 +5842,7 @@ function renderHomeTasks() {
       <div class="home-profile-tasks-list">
         ${ufgChores.length === 0 ? `
           <div style="text-align: center; padding: 1.5rem 0.5rem; color: var(--text-muted); font-size: 0.78rem;">
-            No tasks up for grabs ✨
+            ${ufgEmptyText}
           </div>
         ` : ufgChores.map((chore) => {
           const claimant = chore.completedBy ? getMember(chore.completedBy) : null;
@@ -5774,7 +5873,7 @@ function renderHomeTasks() {
   // 2. Family Members Cards
   for (const member of members) {
     const memberChores = (appState.chores || []).filter((c) => {
-      return (c.memberId === member.id || c.memberId === "all") && !c.isUpForGrabs && c.memberId !== "up_for_grabs" && isChoreActiveToday(c);
+      return (c.memberId === member.id || c.memberId === "all") && !c.isUpForGrabs && c.memberId !== "up_for_grabs" && isChoreMatchingHomePeriod(c, period);
     });
 
     const pending = memberChores.filter((c) => !c.completed);
@@ -5799,7 +5898,7 @@ function renderHomeTasks() {
       <div class="home-profile-tasks-list">
         ${memberChores.length === 0 ? `
           <div style="text-align: center; padding: 1.5rem 0.5rem; color: var(--text-muted); font-size: 0.78rem;">
-            No tasks today ✨
+            ${emptyText}
           </div>
         ` : memberChores.map((chore) => `
           <div class="home-task-item ${chore.completed ? "done" : ""}" onclick="toggleHomeChore('${chore.id}', event)">
@@ -6129,12 +6228,14 @@ function playTimerAlarm() {
 // Customize Home Screen Modal
 // ---------------------------------------------------------------------------
 function openCustomizeHomeModal() {
-  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, calendarView: "week" };
+  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, calendarView: "week", tasksFilter: "auto" };
   const chkTasks = document.getElementById("cfg-home-tasks");
   const selView = document.getElementById("cfg-home-cal-view");
+  const selFilter = document.getElementById("cfg-home-tasks-filter");
 
   if (chkTasks) chkTasks.checked = cfg.showTasks !== false;
   if (selView) selView.value = cfg.calendarView || "week";
+  if (selFilter) selFilter.value = cfg.tasksFilter || "auto";
 
   openModal("modal-customize-home");
 }
@@ -6142,11 +6243,13 @@ function openCustomizeHomeModal() {
 async function saveCustomizeHome() {
   const showTasks = document.getElementById("cfg-home-tasks") ? document.getElementById("cfg-home-tasks").checked : true;
   const calendarView = (document.getElementById("cfg-home-cal-view") && document.getElementById("cfg-home-cal-view").value) || "week";
+  const tasksFilter = (document.getElementById("cfg-home-tasks-filter") && document.getElementById("cfg-home-tasks-filter").value) || "auto";
 
   if (!appState.settings) appState.settings = {};
   appState.settings.homeConfig = {
     showTasks,
-    calendarView
+    calendarView,
+    tasksFilter,
   };
 
   try {

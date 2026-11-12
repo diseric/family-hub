@@ -3866,6 +3866,33 @@ body {
   color: var(--primary);
 }
 
+.home-period-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.home-period-badge:hover {
+  background: rgba(245, 158, 11, 0.22);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .home-period-badge {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
 .home-calendar-mount {
   flex: 1;
   overflow-y: auto;

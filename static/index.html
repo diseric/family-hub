@@ -305,7 +305,10 @@
               <div class="home-pane-card home-tasks-pane" id="home-tasks-pane">
                 <div class="home-pane-header">
                   <div class="home-pane-header-left">
-                    <span class="home-pane-title">📋 Today's Tasks</span>
+                    <span class="home-pane-title" id="home-tasks-pane-title">📋 Today's Tasks</span>
+                    <button type="button" id="home-tasks-period-badge" class="home-period-badge" onclick="cycleHomeTasksPeriod(event)" title="Tap to switch: Auto / Morning / Afternoon / Evening / All Day">
+                      ☀️ Afternoon (Auto)
+                    </button>
                     <span id="home-tasks-count-badge" class="home-count-badge">0 left</span>
                   </div>
                   <div class="home-pane-header-right">
@@ -1387,6 +1390,17 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
         </div>
 
         <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <label style="font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 8px;">Home Screen Tasks Auto-Display</label>
+          <select id="cfg-home-tasks-filter" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem;">
+            <option value="auto" selected>Auto: Match current time (Morning / Afternoon / Evening)</option>
+            <option value="all">Show all tasks all day</option>
+            <option value="morning">Morning tasks only</option>
+            <option value="afternoon">Afternoon tasks only</option>
+            <option value="evening">Evening tasks only</option>
+          </select>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
           <label style="font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 8px;">Default Calendar View on Home</label>
           <select id="cfg-home-cal-view" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem;">
             <option value="schedule">Schedule (Agenda)</option>
@@ -1959,7 +1973,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.36.5 Cache Busting) -->
-  <script src="/static/app.js?v=2.36.5"></script>
+  <!-- Main JavaScript Engine (v2.36.6 Cache Busting) -->
+  <script src="/static/app.js?v=2.36.6"></script>
 </body>
 </html>
