@@ -861,13 +861,23 @@ function updateSlideshowImage(imgId, captionId) {
 
   const imgEl = document.getElementById(imgId);
   const capEl = document.getElementById(captionId);
+  const bgId = imgId === "split-slideshow-img" ? "split-slideshow-bg" : (imgId === "full-slideshow-img" ? "full-slideshow-bg" : null);
+  const bgEl = bgId ? document.getElementById(bgId) : null;
 
   if (imgEl) {
     imgEl.referrerPolicy = "no-referrer";
     imgEl.style.opacity = "0.2";
+    if (bgEl) {
+      bgEl.referrerPolicy = "no-referrer";
+      bgEl.style.opacity = "0.2";
+    }
     setTimeout(() => {
       imgEl.src = current.url;
       imgEl.style.opacity = "1";
+      if (bgEl) {
+        bgEl.src = current.url;
+        bgEl.style.opacity = "0.85";
+      }
     }, 400);
   }
   if (capEl) capEl.textContent = current.caption;
