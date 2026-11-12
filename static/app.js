@@ -1825,11 +1825,10 @@ async function deleteFeed(feedId) {
   });
   if (!confirmed) return;
   await fetch(`/api/feeds/${feedId}`, { method: "DELETE" });
-    await loadState();
-    renderFeedsList();
-    renderSettingsFeeds();
-    renderCalendar();
-  }
+  await loadState();
+  renderFeedsList();
+  renderSettingsFeeds();
+  renderCalendar();
 }
 
 // ---------------------------------------------------------------------------
