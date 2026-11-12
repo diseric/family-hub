@@ -294,6 +294,14 @@ function triggerSleep() {
   if (overlay) overlay.classList.remove("hidden");
 }
 
+function refreshApplication() {
+  const logos = document.querySelectorAll(".hub-logo-arch");
+  logos.forEach((el) => el.classList.add("refreshing-spin"));
+  setTimeout(() => {
+    window.location.reload();
+  }, 220);
+}
+
 // ---------------------------------------------------------------------------
 // Navigation & Views
 // ---------------------------------------------------------------------------

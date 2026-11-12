@@ -160,6 +160,27 @@ body {
   gap: 0.4rem;
   margin-bottom: 2rem;
   cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.sidebar-brand:hover .hub-logo-arch,
+.mobile-brand-corner:hover .hub-logo-arch {
+  transform: scale(1.06);
+}
+
+.sidebar-brand:active,
+.mobile-brand-corner:active {
+  transform: scale(0.92);
+  opacity: 0.8;
+}
+
+.refreshing-spin {
+  animation: logoSpin 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes logoSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .hub-logo-arch,
@@ -302,7 +323,8 @@ body {
 }
 .mobile-only-inline,
 .mobile-nav-item,
-.mobile-header-settings-btn {
+.mobile-header-settings-btn,
+.mobile-brand-corner {
   display: none !important;
 }
 .desktop-only-inline {
@@ -2451,6 +2473,14 @@ body {
     display: inline-flex !important;
     padding: 4px 8px !important;
     font-size: 1.05rem !important;
+  }
+
+  .mobile-brand-corner {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
   }
 
   .desktop-only-inline {

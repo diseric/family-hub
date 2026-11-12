@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.26.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.27.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -84,7 +84,7 @@
 
     <!-- Left Navigation Rail (Hardware Sidebar) -->
     <aside class="hub-sidebar">
-      <div class="sidebar-brand" onclick="switchNav('calendar')">
+      <div class="sidebar-brand" onclick="refreshApplication()" title="Refresh Application">
         <div class="hub-logo-arch">
           <svg viewBox="0 0 36 36" fill="none">
             <path d="M7 26 C7 15.5, 15.5 7, 26 7" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
@@ -156,6 +156,15 @@
         <div class="topbar-main-row">
           <!-- Live Clock & Weather -->
           <div class="clock-weather-group">
+            <div class="mobile-brand-corner" onclick="refreshApplication()" title="Refresh Application">
+              <div class="hub-logo-arch" style="width: 26px; height: 26px;">
+                <svg viewBox="0 0 36 36" fill="none">
+                  <path d="M7 26 C7 15.5, 15.5 7, 26 7" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                  <path d="M13 26 C13 18.8, 18.8 13, 26 13" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+                  <circle cx="26" cy="26" r="3.5" fill="currentColor"/>
+                </svg>
+              </div>
+            </div>
             <div>
               <div id="clock-display" class="live-clock-hub">--:--</div>
               <div id="date-display" class="live-date-hub">Loading date...</div>
@@ -1499,7 +1508,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.26.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.26.0"></script>
+  <!-- Main JavaScript Engine (v2.27.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.27.0"></script>
 </body>
 </html>
