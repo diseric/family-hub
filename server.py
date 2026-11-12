@@ -522,11 +522,11 @@ class FeedModel(BaseModel):
     provider: str
     url: str
     color: str = "#3b82f6"
-    memberId: str = "m5"
+    memberId: str = "all"
 
 class TestFeedModel(BaseModel):
     url: str
-    memberId: Optional[str] = "m1"
+    memberId: Optional[str] = "all"
     name: Optional[str] = "Google Calendar"
 
 @app.post("/api/feeds/test")
@@ -597,7 +597,7 @@ async def sync_feed(feed_id: str):
         with urllib.request.urlopen(req, timeout=10) as resp:
             ics_text = resp.read().decode("utf-8", errors="replace")
             
-        synced_events = parse_ical_feed(feed_id, ics_text, feed.get("memberId", "m5"), feed.get("name", "Google Calendar"))
+        synced_events = parse_ical_feed(feed_id, ics_text, feed.get("memberId", "all"), feed.get("name", "Google Calendar"))
         
         # Remove old events from this feed
         db["events"] = [e for e in db.get("events", []) if e.get("feedId") != feed_id]
@@ -694,6 +694,37 @@ async def complete_setup(data: SetupCompleteModel):
     await sync_all_feeds()
     weather = await fetch_weather(force=True)
     return {"status": "ok", "state": db, "weather": weather}
+
+class UpdateFeedModel(BaseModel):
+    name: Optional[str] = None
+    memberId: Optional[str] = None
+    color: Optional[str] = None
+    enabled: Optional[bool] = None
+
+@app.put("/api/feeds/{feed_id}")
+def update_feed(feed_id: str, updates: UpdateFeedModel):
+    target = None
+    for f in db.get("feeds", []):
+        if f.get("id") == feed_id:
+            target = f
+            break
+    if not target:
+        raise HTTPException(status_code=404, detail="Feed not found")
+    
+    if updates.name is not None:
+        target["name"] = updates.name
+    if updates.color is not None:
+        target["color"] = updates.color
+    if updates.enabled is not None:
+        target["enabled"] = updates.enabled
+    if updates.memberId is not None:
+        target["memberId"] = updates.memberId
+        # Update all events currently in db for this feed to the new member
+        for ev in db.get("events", []):
+            if ev.get("feedId") == feed_id:
+                ev["memberId"] = updates.memberId
+    save_db(db)
+    return {"status": "ok", "feed": target}
 
 @app.delete("/api/feeds/{feed_id}")
 def delete_feed(feed_id: str):

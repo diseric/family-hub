@@ -157,6 +157,12 @@ function populateSelectDropdowns() {
     const el = document.getElementById(sId);
     if (!el) continue;
     el.innerHTML = "";
+    if (sId === "feed-member" || sId === "ev-member" || sId === "magic-member") {
+      const allOpt = document.createElement("option");
+      allOpt.value = "all";
+      allOpt.textContent = "🏡 Entire Family (Shared)";
+      el.appendChild(allOpt);
+    }
     for (const m of appState.members) {
       const opt = document.createElement("option");
       opt.value = m.id;
@@ -316,7 +322,7 @@ function getFilteredEvents() {
   if (appState.activeMemberFilter === "all") {
     return appState.events;
   }
-  return appState.events.filter((e) => e.memberId === appState.activeMemberFilter || e.memberId === "m5");
+  return appState.events.filter((e) => e.memberId === appState.activeMemberFilter);
 }
 
 function getBaseDate() {
@@ -984,6 +990,7 @@ async function submitMagicImport(e) {
 // 7. Universal Calendar Sync Modal
 // ---------------------------------------------------------------------------
 function openSyncModal() {
+  populateSelectDropdowns();
   renderFeedsList();
   openModal("modal-sync");
 }
@@ -993,42 +1000,88 @@ function renderFeedsList() {
   if (!list) return;
   list.innerHTML = "";
 
+  if (!appState.feeds || appState.feeds.length === 0) {
+    list.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); font-style: italic;">No external calendars connected yet. Add one below!</div>`;
+    return;
+  }
+
   for (const f of appState.feeds) {
-    const m = getMember(f.memberId);
+    let optionsHtml = `<option value="all" ${(!f.memberId || f.memberId === "all") ? "selected" : ""}>🏡 Entire Family (Shared)</option>`;
+    for (const m of (appState.members || [])) {
+      const isSel = f.memberId === m.id ? "selected" : "";
+      optionsHtml += `<option value="${m.id}" ${isSel}>${m.avatar || "👤"} ${m.name}</option>`;
+    }
+
     const row = document.createElement("div");
-    row.style.cssText = `background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); border-left: 4px solid ${f.color || "#38bdf8"}; display: flex; justify-content: space-between; align-items: center;`;
+    row.style.cssText = `background: var(--bg-card); padding: 12px; border-radius: var(--radius-md); border-left: 4px solid ${f.color || "#38bdf8"}; display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid var(--border-color);`;
     row.innerHTML = `
-      <div>
-        <div style="font-weight: 700;">${f.name} <span style="font-size: 0.75rem; color: var(--text-dim);">(${f.provider})</span></div>
-        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Assigned to: ${m.avatar} ${m.name} • ${f.eventCount || 0} events synced</div>
-        ${f.lastSynced ? `<div style="font-size: 0.75rem; color: var(--accent-emerald);">Last synced: ${f.lastSynced}</div>` : ""}
+      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-weight: 700; font-size: 0.95rem;">${f.name}</span>
+          <span style="font-size: 0.75rem; color: var(--text-dim);">(${f.provider || "iCal"})</span>
+          <span style="font-size: 0.75rem; color: #0284c7; background: rgba(2, 132, 199, 0.1); padding: 2px 7px; border-radius: 4px; font-weight: 700;">${f.eventCount || 0} events</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">Assigned To:</span>
+          <select onchange="changeFeedMember('${f.id}', this.value)" style="padding: 3px 8px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-weight: 600; cursor: pointer;">
+            ${optionsHtml}
+          </select>
+        </div>
+        ${f.lastSynced ? `<div style="font-size: 0.72rem; color: var(--accent-emerald);">Last synced: ${f.lastSynced}</div>` : ""}
       </div>
-      <div style="display: flex; gap: 0.5rem;">
-        <button class="btn-touch" onclick="triggerFeedSync('${f.id}')">🔄 Sync Now</button>
-        <button class="btn-touch" style="color: var(--accent-rose);" onclick="deleteFeed('${f.id}')">✕</button>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <button type="button" class="btn-touch" onclick="triggerFeedSync('${f.id}')">🔄 Sync Now</button>
+        <button type="button" class="btn-touch" style="color: var(--accent-rose);" onclick="deleteFeed('${f.id}')">✕</button>
       </div>
     `;
     list.appendChild(row);
   }
 }
 
-async function addFeed(e) {
+async function addCalendarFeed(e) {
   e.preventDefault();
-  const name = document.getElementById("feed-name").value;
-  const provider = document.getElementById("feed-provider").value;
-  const url = document.getElementById("feed-url").value;
-  const memberId = document.getElementById("feed-member").value;
-  const color = document.getElementById("feed-color").value;
+  const name = (document.getElementById("feed-name") && document.getElementById("feed-name").value.trim()) || "Google Calendar";
+  const provider = (document.getElementById("feed-provider") && document.getElementById("feed-provider").value) || "Google";
+  const url = (document.getElementById("feed-url") && document.getElementById("feed-url").value.trim()) || "";
+  const memberId = (document.getElementById("feed-member") && document.getElementById("feed-member").value) || "all";
+  let color = (document.getElementById("feed-color") && document.getElementById("feed-color").value) || "#0284c7";
 
-  await fetch("/api/feeds", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, provider, url, memberId, color }),
-  });
-  await loadState();
-  renderFeedsList();
-  document.getElementById("form-feed").reset();
+  if (!url) return;
+
+  if (memberId !== "all") {
+    const mem = (appState.members || []).find((m) => m.id === memberId);
+    if (mem && mem.color) color = mem.color;
+  }
+
+  try {
+    const testRes = await fetch("/api/feeds/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, name, memberId }),
+    });
+    const testData = await testRes.json();
+    if (testData.status === "ok") {
+      await fetch("/api/feeds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, provider, url, memberId, color }),
+      });
+      await loadState();
+      renderFeedsList();
+      renderSettingsFeeds();
+      renderCalendar();
+      const form = document.getElementById("form-feed");
+      if (form) form.reset();
+      alert(`✅ Successfully connected "${name}" with ${testData.eventCount} events!`);
+    } else {
+      alert(`❌ Connection error: ${testData.message || "Could not connect to calendar feed."}`);
+    }
+  } catch (err) {
+    alert("Error adding calendar feed: " + err.message);
+  }
 }
+
+const addFeed = addCalendarFeed;
 
 async function triggerFeedSync(feedId) {
   try {
@@ -1036,6 +1089,8 @@ async function triggerFeedSync(feedId) {
     const data = await res.json();
     await loadState();
     renderFeedsList();
+    renderSettingsFeeds();
+    renderCalendar();
     alert(`✓ Sync complete: ${data.eventsCount} events imported.`);
   } catch (err) {
     alert("Sync error: " + err.message);
@@ -1047,6 +1102,8 @@ async function deleteFeed(feedId) {
     await fetch(`/api/feeds/${feedId}`, { method: "DELETE" });
     await loadState();
     renderFeedsList();
+    renderSettingsFeeds();
+    renderCalendar();
   }
 }
 
@@ -1326,23 +1383,69 @@ function renderSettingsFeeds() {
     return;
   }
   container.innerHTML = feeds.map(f => {
-    let memberLabel = "🏡 Entire Family";
-    if (f.memberId && f.memberId !== "all") {
-      const mem = (appState.members || []).find(m => m.id === f.memberId);
-      if (mem) memberLabel = `${mem.avatar || "👤"} ${mem.name}`;
+    let optionsHtml = `<option value="all" ${(!f.memberId || f.memberId === "all") ? "selected" : ""}>🏡 Entire Family (Shared)</option>`;
+    for (const m of (appState.members || [])) {
+      const isSel = f.memberId === m.id ? "selected" : "";
+      optionsHtml += `<option value="${m.id}" ${isSel}>${m.avatar || "👤"} ${m.name}</option>`;
     }
     return `
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: var(--bg-hover); border-radius: 6px; border: 1px solid var(--border-color);">
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <span style="font-size: 1.1rem;">📅</span>
-          <span style="font-weight: 600; font-size: 0.88rem;">${f.name}</span>
-          <span style="font-size: 0.75rem; color: var(--text-muted); background: var(--bg-card); padding: 2px 6px; border-radius: 4px;">${memberLabel}</span>
-          <span style="font-size: 0.75rem; color: #0284c7; background: rgba(2, 132, 199, 0.1); padding: 2px 6px; border-radius: 4px; font-weight: 600;">${f.eventCount || 0} events</span>
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border-color); gap: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; flex: 1;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 1.15rem;">📅</span>
+            <strong style="font-size: 0.92rem;">${f.name}</strong>
+            <span style="font-size: 0.75rem; color: #0284c7; background: rgba(2, 132, 199, 0.1); padding: 2px 7px; border-radius: 4px; font-weight: 700;">${f.eventCount || 0} events</span>
+            ${f.lastSynced ? `<span style="font-size: 0.72rem; color: var(--text-muted);">Synced: ${f.lastSynced}</span>` : ""}
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 3px;">
+            <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 600;">Assigned To:</span>
+            <select onchange="changeFeedMember('${f.id}', this.value)" style="padding: 3px 8px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: 600; cursor: pointer;">
+              ${optionsHtml}
+            </select>
+          </div>
         </div>
-        <button type="button" onclick="deleteFeedFromSettings('${f.id}')" title="Delete Feed" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1rem; padding: 2px 6px;">🗑️</button>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <button type="button" class="btn-skylight ghost" onclick="syncFeedFromSettings('${f.id}')" title="Sync this calendar now" style="padding: 5px 9px; font-size: 0.82rem;">🔄 Sync</button>
+          <button type="button" onclick="deleteFeedFromSettings('${f.id}')" title="Delete Feed" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1.1rem; padding: 4px 6px;">🗑️</button>
+        </div>
       </div>
     `;
   }).join("");
+}
+
+async function changeFeedMember(feedId, memberId) {
+  let feedColor = "#4285F4";
+  if (memberId !== "all") {
+    const mem = (appState.members || []).find((m) => m.id === memberId);
+    if (mem && mem.color) feedColor = mem.color;
+  }
+  try {
+    const res = await fetch(`/api/feeds/${feedId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId, color: feedColor }),
+    });
+    if (res.ok) {
+      await loadState();
+      renderSettingsFeeds();
+      renderFeedsList();
+      renderCalendar();
+    }
+  } catch (err) {
+    console.error("Error updating calendar assignment:", err);
+  }
+}
+
+async function syncFeedFromSettings(feedId) {
+  try {
+    await fetch(`/api/feeds/${feedId}/sync`, { method: "POST" });
+    await loadState();
+    renderSettingsFeeds();
+    renderFeedsList();
+    renderCalendar();
+  } catch (err) {
+    alert("Sync error: " + err.message);
+  }
 }
 
 async function addGoogleCalFromSettings() {
@@ -1379,6 +1482,12 @@ async function addGoogleCalFromSettings() {
     const testData = await testRes.json();
 
     if (testData.status === "ok") {
+      let feedColor = "#4285F4";
+      if (memberId !== "all") {
+        const mem = (appState.members || []).find((m) => m.id === memberId);
+        if (mem && mem.color) feedColor = mem.color;
+      }
+
       await fetch("/api/feeds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1386,13 +1495,14 @@ async function addGoogleCalFromSettings() {
           name,
           provider: "google",
           url,
-          color: "#4285F4",
+          color: feedColor,
           memberId,
         }),
       });
 
       await loadState();
       renderSettingsFeeds();
+      renderFeedsList();
       renderCalendar();
 
       const previewText = testData.preview && testData.preview.length > 0 ? ` (Found: "${testData.preview.slice(0, 3).join('", "')}")` : "";
