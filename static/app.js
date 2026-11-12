@@ -5668,29 +5668,25 @@ function setHomeCalendarView(viewName) {
 }
 
 function renderHome() {
-  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, showLists: true, calendarView: "week" };
+  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, calendarView: "week" };
   const homeView = appState.homeCalendarView || cfg.calendarView || "week";
 
   // Configure Grid & Pane Visibility
   const grid = document.getElementById("home-layout-grid");
   const sideContainer = document.getElementById("home-side-container");
   const tasksPane = document.getElementById("home-tasks-pane");
-  const listsPane = document.getElementById("home-lists-pane");
 
   const showTasks = cfg.showTasks !== false;
-  const showLists = cfg.showLists !== false;
 
   if (tasksPane) tasksPane.classList.toggle("hidden", !showTasks);
-  if (listsPane) listsPane.classList.toggle("hidden", !showLists);
 
   if (sideContainer) {
-    sideContainer.classList.toggle("hidden", !showTasks && !showLists);
-    sideContainer.classList.toggle("single-pane", (showTasks && !showLists) || (!showTasks && showLists));
+    sideContainer.classList.toggle("hidden", !showTasks);
+    sideContainer.classList.add("single-pane");
   }
 
   if (grid) {
     grid.classList.toggle("tasks-hidden", !showTasks);
-    grid.classList.toggle("lists-hidden", !showLists);
   }
 
   // Active view pill in Home Calendar selector
@@ -5701,9 +5697,8 @@ function renderHome() {
   // Render Calendar
   renderCalendar("home-calendar-mount", "home-calendar-title-label", homeView);
 
-  // Render Tasks & Lists
+  // Render Tasks
   if (showTasks) renderHomeTasks();
-  if (showLists) renderHomeLists();
 }
 
 function renderHomeTasks() {
@@ -6134,27 +6129,23 @@ function playTimerAlarm() {
 // Customize Home Screen Modal
 // ---------------------------------------------------------------------------
 function openCustomizeHomeModal() {
-  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, showLists: true, calendarView: "week" };
+  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, calendarView: "week" };
   const chkTasks = document.getElementById("cfg-home-tasks");
-  const chkLists = document.getElementById("cfg-home-lists");
   const selView = document.getElementById("cfg-home-cal-view");
 
   if (chkTasks) chkTasks.checked = cfg.showTasks !== false;
-  if (chkLists) chkLists.checked = cfg.showLists !== false;
   if (selView) selView.value = cfg.calendarView || "week";
 
   openModal("modal-customize-home");
 }
 
 async function saveCustomizeHome() {
-  const showTasks = document.getElementById("cfg-home-tasks").checked;
-  const showLists = document.getElementById("cfg-home-lists").checked;
-  const calendarView = document.getElementById("cfg-home-cal-view").value || "week";
+  const showTasks = document.getElementById("cfg-home-tasks") ? document.getElementById("cfg-home-tasks").checked : true;
+  const calendarView = (document.getElementById("cfg-home-cal-view") && document.getElementById("cfg-home-cal-view").value) || "week";
 
   if (!appState.settings) appState.settings = {};
   appState.settings.homeConfig = {
     showTasks,
-    showLists,
     calendarView
   };
 

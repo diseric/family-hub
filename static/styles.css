@@ -3820,6 +3820,10 @@ body {
   flex: 1;
 }
 
+.home-side-container.single-pane .home-profile-tasks-list {
+  max-height: calc(100vh - 260px);
+}
+
 .home-pane-header {
   display: flex;
   justify-content: space-between;

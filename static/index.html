@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.36.3" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.36.4" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -315,23 +315,6 @@
                 </div>
                 <div class="home-tasks-scroll" id="home-tasks-carousel">
                   <!-- Injected dynamically per profile -->
-                </div>
-              </div>
-
-              <!-- The Lists Pane -->
-              <div class="home-pane-card home-lists-pane" id="home-lists-pane">
-                <div class="home-pane-header">
-                  <div class="home-pane-header-left">
-                    <span class="home-pane-title">🛒 Family Lists</span>
-                    <span id="home-lists-count-badge" class="home-count-badge">0 items</span>
-                  </div>
-                  <div class="home-pane-header-right">
-                    <button type="button" class="btn-hub ghost mini-btn" onclick="openNewListModal()" title="Add List">+ List</button>
-                    <button type="button" class="btn-hub ghost mini-btn" onclick="switchNav('lists')" title="Open Lists Tab">View All ›</button>
-                  </div>
-                </div>
-                <div class="home-lists-scroll" id="home-lists-carousel">
-                  <!-- Injected dynamically per list -->
                 </div>
               </div>
             </div>
@@ -1398,15 +1381,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <input type="checkbox" id="cfg-home-tasks" checked style="width: 20px; height: 20px;" />
             <div style="flex: 1;">
               <div style="font-weight: 700; font-size: 0.95rem;">📋 Today's Tasks Pane</div>
-              <div style="font-size: 0.78rem; color: var(--text-muted);">Show family members' daily routines and chores with quick check-off</div>
-            </div>
-          </label>
-
-          <label class="checkbox-label" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-hover); border-radius: 10px; cursor: pointer;">
-            <input type="checkbox" id="cfg-home-lists" checked style="width: 20px; height: 20px;" />
-            <div style="flex: 1;">
-              <div style="font-weight: 700; font-size: 0.95rem;">🛒 Family Lists Pane</div>
-              <div style="font-size: 0.78rem; color: var(--text-muted);">Show grocery & to-do lists with quick check-off and inline item adding</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Show family members' daily routines and chores alongside the calendar</div>
             </div>
           </label>
         </div>
@@ -1985,6 +1960,6 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
   </div>
 
   <!-- Main JavaScript Engine (v2.35.1 Cache Busting) -->
-  <script src="/static/app.js?v=2.36.3"></script>
+  <script src="/static/app.js?v=2.36.4"></script>
 </body>
 </html>
