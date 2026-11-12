@@ -1,14 +1,31 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 
-# Application database and uploaded media
-data/skylight_db.json
+# Application database and runtime media (local only, never committed to GitHub)
+data/*
+!data/photos/
 data/photos/*
 !data/photos/.gitkeep
-data/*.json
+*.db
+*.sqlite
+*.sqlite3
+*db.json
+skylight_db.json
+familyhub_db.json
 
-# Local environment
+# Local environment variables & secrets (API keys, credentials, tokens)
 .env
+.env.*
+*.env
+*.key
+*.pem
+secrets/
+credentials*.json
+
+# OS and Editor metadata
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
