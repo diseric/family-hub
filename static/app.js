@@ -14,6 +14,7 @@ let appState = {
   activeNav: "calendar",
   calendarView: "week", // day, 3day, week, month, schedule
   currentDateOffset: 0,
+  selectedDailyDate: null,
   splitScreen: false,
   splitMode: "photos", // photos, chores, lists, meals
   slideshowIndex: 0,
@@ -778,14 +779,12 @@ function renderCalendar() {
 
   if (view === "week") {
     renderWeekView(mount, titleLabel, filteredEvents);
-  } else if (view === "day") {
-    renderDayView(mount, titleLabel, filteredEvents, 1);
+  } else if (view === "day" || view === "schedule") {
+    renderDailyScheduleView(mount, titleLabel, filteredEvents);
   } else if (view === "3day") {
     renderDayView(mount, titleLabel, filteredEvents, 3);
   } else if (view === "month") {
     renderMonthView(mount, titleLabel, filteredEvents);
-  } else if (view === "schedule") {
-    renderScheduleListView(mount, titleLabel, filteredEvents);
   }
 }
 
@@ -836,6 +835,278 @@ function renderWeekView(mount, titleLabel, events) {
 
     mount.appendChild(col);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Daily Schedule Split View (Interactive Mini-Calendar + Stacked Pastel Cards)
+// ---------------------------------------------------------------------------
+function formatTimeString(t) {
+  if (!t) return "";
+  if (t.toLowerCase().includes("am") || t.toLowerCase().includes("pm")) return t;
+  const parts = t.split(":");
+  if (parts.length < 2) return t;
+  let h = parseInt(parts[0], 10);
+  const m = parts[1];
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
+}
+
+function formatEventDisplayTime(startTime, endTime) {
+  if (!startTime || startTime === "All Day") return "All Day";
+  const startFmt = formatTimeString(startTime);
+  if (!endTime) return startFmt;
+  const endFmt = formatTimeString(endTime);
+  const startParts = startFmt.split(" ");
+  const endParts = endFmt.split(" ");
+  if (startParts.length === 2 && endParts.length === 2 && startParts[1] === endParts[1]) {
+    return `${startParts[0]} - ${endParts[0]} ${endParts[1]}`;
+  }
+  return `${startFmt} - ${endFmt}`;
+}
+
+function openNewEventForDate(dateIso) {
+  openNewEventModal();
+  const dInput = document.getElementById("ev-date");
+  if (dInput && dateIso) dInput.value = dateIso;
+}
+
+function navDailyDay(offset) {
+  if (!appState.selectedDailyDate) {
+    appState.selectedDailyDate = new Date().toISOString().split("T")[0];
+  }
+  const d = new Date(appState.selectedDailyDate + "T00:00:00");
+  d.setDate(d.getDate() + offset);
+  appState.selectedDailyDate = d.toISOString().split("T")[0];
+  renderCalendar();
+}
+
+function navMiniCalMonth(offset) {
+  if (!appState.selectedDailyDate) {
+    appState.selectedDailyDate = new Date().toISOString().split("T")[0];
+  }
+  const d = new Date(appState.selectedDailyDate + "T00:00:00");
+  d.setMonth(d.getMonth() + offset);
+  appState.selectedDailyDate = d.toISOString().split("T")[0];
+  renderCalendar();
+}
+
+function goToTodayDaily() {
+  appState.selectedDailyDate = new Date().toISOString().split("T")[0];
+  renderCalendar();
+}
+
+function renderDailyScheduleView(mount, titleLabel, events) {
+  mount.className = "calendar-grid-container";
+  mount.innerHTML = "";
+
+  if (!appState.selectedDailyDate) {
+    const today = new Date();
+    appState.selectedDailyDate = today.toISOString().split("T")[0];
+  }
+
+  const selectedD = new Date(appState.selectedDailyDate + "T00:00:00");
+  const monthYearStr = selectedD.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const dateFormatted = selectedD.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const weekdayStr = selectedD.toLocaleDateString("en-US", { weekday: "long" });
+
+  if (titleLabel) {
+    titleLabel.textContent = `${weekdayStr}, ${dateFormatted}`;
+  }
+
+  // Master 2-pane layout container
+  const layout = document.createElement("div");
+  layout.className = "daily-schedule-layout";
+
+  // --- LEFT PANE: Mini Month Calendar ---
+  const leftCard = document.createElement("aside");
+  leftCard.className = "daily-mini-cal-card";
+
+  // Mini Calendar Header with Month/Year & Controls
+  const navHeader = document.createElement("div");
+  navHeader.className = "mini-cal-nav";
+  navHeader.innerHTML = `
+    <span class="mini-cal-month-title">${monthYearStr}</span>
+    <div class="mini-cal-nav-btns">
+      <button type="button" class="mini-cal-btn" onclick="navMiniCalMonth(-1)" title="Previous Month">‹</button>
+      <button type="button" class="mini-cal-btn today-btn" onclick="goToTodayDaily()" title="Go to Today">Today</button>
+      <button type="button" class="mini-cal-btn" onclick="navMiniCalMonth(1)" title="Next Month">›</button>
+    </div>
+  `;
+  leftCard.appendChild(navHeader);
+
+  // Weekday Headers: Sun Mon Tue Wed Thu Fri Sat
+  const dayNamesHeader = document.createElement("div");
+  dayNamesHeader.className = "mini-cal-grid-header";
+  const daysShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  dayNamesHeader.innerHTML = daysShort.map(d => `<span>${d}</span>`).join("");
+  leftCard.appendChild(dayNamesHeader);
+
+  // Days Grid
+  const daysGrid = document.createElement("div");
+  daysGrid.className = "mini-cal-days-grid";
+
+  // Compute month bounds
+  const year = selectedD.getFullYear();
+  const month = selectedD.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startingDayOfWeek = firstDay.getDay(); // 0 is Sunday
+  const daysInMonth = lastDay.getDate();
+
+  // Days from previous month
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
+  for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+    const prevDate = prevMonthLastDay - i;
+    const prevMonthIdx = month === 0 ? 11 : month - 1;
+    const prevYear = month === 0 ? year - 1 : year;
+    const prevDateIso = `${prevYear}-${String(prevMonthIdx + 1).padStart(2, "0")}-${String(prevDate).padStart(2, "0")}`;
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "mini-cal-cell other-month";
+    cell.textContent = prevDate;
+    cell.onclick = () => {
+      appState.selectedDailyDate = prevDateIso;
+      renderCalendar();
+    };
+    daysGrid.appendChild(cell);
+  }
+
+  const todayIso = new Date().toISOString().split("T")[0];
+
+  // Current month days
+  for (let day = 1; day <= daysInMonth; day++) {
+    const curDateIso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const isSelected = curDateIso === appState.selectedDailyDate;
+    const isToday = curDateIso === todayIso;
+    const hasEvents = (appState.events || []).some(e => e.date === curDateIso);
+
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = `mini-cal-cell ${isSelected ? "selected" : ""} ${isToday ? "today" : ""} ${hasEvents ? "has-events" : ""}`;
+    cell.innerHTML = `
+      <span class="mini-cal-cell-num">${day}</span>
+      ${hasEvents ? '<span class="mini-cal-event-dot"></span>' : ''}
+    `;
+    cell.onclick = () => {
+      appState.selectedDailyDate = curDateIso;
+      renderCalendar();
+    };
+    daysGrid.appendChild(cell);
+  }
+
+  // Fill remaining cells for 35 or 42 grid
+  const totalRendered = startingDayOfWeek + daysInMonth;
+  const nextMonthCells = totalRendered <= 35 ? 35 - totalRendered : 42 - totalRendered;
+  for (let day = 1; day <= nextMonthCells; day++) {
+    const nextMonthIdx = month === 11 ? 0 : month + 1;
+    const nextYear = month === 11 ? year + 1 : year;
+    const nextDateIso = `${nextYear}-${String(nextMonthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "mini-cal-cell other-month";
+    cell.textContent = day;
+    cell.onclick = () => {
+      appState.selectedDailyDate = nextDateIso;
+      renderCalendar();
+    };
+    daysGrid.appendChild(cell);
+  }
+
+  leftCard.appendChild(daysGrid);
+  layout.appendChild(leftCard);
+
+  // --- RIGHT PANE: Daily Schedule Timeline Cards ---
+  const rightPane = document.createElement("div");
+  rightPane.className = "daily-events-pane";
+
+  // Top header with big date title e.g. Oct 27
+  const header = document.createElement("div");
+  header.className = "daily-events-header";
+  header.innerHTML = `
+    <div class="daily-header-left">
+      <h1 class="daily-selected-date">${dateFormatted}</h1>
+      <span class="daily-selected-weekday">${weekdayStr}</span>
+    </div>
+    <div class="daily-header-actions">
+      <button type="button" class="btn-hub ghost mini-btn" onclick="navDailyDay(-1)" title="Previous Day">‹ Prev</button>
+      <button type="button" class="btn-hub ghost mini-btn" onclick="goToTodayDaily()">Today</button>
+      <button type="button" class="btn-hub ghost mini-btn" onclick="navDailyDay(1)" title="Next Day">Next ›</button>
+      <button type="button" class="btn-hub primary mini-btn" onclick="openNewEventForDate('${appState.selectedDailyDate}')">+ Add Event</button>
+    </div>
+  `;
+  rightPane.appendChild(header);
+
+  // Check today's meal dinner
+  const weekdayName = selectedD.toLocaleDateString("en-US", { weekday: "long" });
+  const dayMeal = appState.meals && appState.meals[weekdayName];
+  const dinner = dayMeal && dayMeal.dinner && dayMeal.dinner.trim();
+
+  // Cards Stack Container
+  const stack = document.createElement("div");
+  stack.className = "daily-events-stack";
+
+  // 1. Dinner Card (matches "Lasagna / For Dinner" in screenshot)
+  if (dinner) {
+    const mealCard = document.createElement("div");
+    mealCard.className = "daily-schedule-card meal-dinner-card";
+    mealCard.title = "Tap to open Meal Planner";
+    mealCard.innerHTML = `
+      <div class="daily-card-title">${dinner}</div>
+      <div class="daily-card-subtitle">🍽️ For Dinner</div>
+    `;
+    mealCard.onclick = () => switchNav("meals");
+    stack.appendChild(mealCard);
+  }
+
+  // 2. Day's Events
+  const dayEvents = (events || [])
+    .filter(e => e.date === appState.selectedDailyDate)
+    .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+
+  if (dayEvents.length === 0 && !dinner) {
+    stack.innerHTML = `
+      <div class="daily-no-events">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📅</div>
+        <div style="font-weight: 700; font-size: 1.15rem; color: var(--text-primary);">No events scheduled for ${dateFormatted}</div>
+        <div style="font-size: 0.88rem; color: var(--text-muted); margin: 6px 0 18px;">Enjoy family downtime or schedule activities!</div>
+        <button type="button" class="btn-hub primary mini-btn" onclick="openNewEventForDate('${appState.selectedDailyDate}')">+ Schedule Event</button>
+      </div>
+    `;
+  } else {
+    for (const ev of dayEvents) {
+      const m = getMember(ev.memberId);
+      const color = m ? m.color : "#0284c7";
+      const avatar = m ? m.avatar : "👤";
+      const name = m ? m.name : "Entire Family";
+      const timeDisplay = formatEventDisplayTime(ev.time, ev.endTime);
+
+      const evCard = document.createElement("div");
+      evCard.className = "daily-schedule-card";
+      evCard.style.backgroundColor = `${color}1f`; // soft pastel tint
+      evCard.style.borderLeft = `6px solid ${color}`;
+      evCard.title = `Click to edit ${ev.title}`;
+
+      evCard.innerHTML = `
+        <div class="daily-card-title">${ev.title}</div>
+        <div class="daily-card-subtitle">
+          <span class="daily-card-time">${timeDisplay}</span>
+          <span class="daily-card-member" style="color: ${color};">
+            <span>${avatar}</span>
+            <span>${name}</span>
+          </span>
+          ${ev.location ? `<span class="daily-card-location">📍 ${ev.location}</span>` : ""}
+        </div>
+      `;
+      evCard.onclick = () => openEventDetail(ev);
+      stack.appendChild(evCard);
+    }
+  }
+
+  rightPane.appendChild(stack);
+  layout.appendChild(rightPane);
+  mount.appendChild(layout);
 }
 
 function renderDayView(mount, titleLabel, events, daysCount = 1) {
