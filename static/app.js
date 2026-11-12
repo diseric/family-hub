@@ -155,6 +155,27 @@ function renderMemberPills() {
   };
   bar.appendChild(allBtn);
 
+  // 'Up for Grabs' Pill
+  const isUfgActive = appState.activeMemberFilter === "up_for_grabs";
+  const ufgBtn = document.createElement("button");
+  ufgBtn.className = `member-pill ${isUfgActive ? "active" : ""}`;
+  if (isUfgActive) {
+    ufgBtn.style.borderColor = "#f59e0b";
+    ufgBtn.style.boxShadow = "0 0 0 1px #f59e0b, 0 2px 8px rgba(245, 158, 11, 0.2)";
+  }
+  ufgBtn.innerHTML = `
+    <span class="member-dot" style="background: #f59e0b"></span>
+    <span style="font-size: 1.15rem;">⚡</span>
+    <span style="font-weight: 700;">Up for Grabs</span>
+  `;
+  ufgBtn.onclick = () => {
+    appState.activeMemberFilter = "up_for_grabs";
+    renderMemberPills();
+    renderActiveNav();
+    if (appState.splitScreen) renderSplitSidePane();
+  };
+  bar.appendChild(ufgBtn);
+
   for (const m of appState.members) {
     const isActive = appState.activeMemberFilter === m.id;
     const pill = document.createElement("button");
@@ -227,6 +248,9 @@ function showAppAlert(message, options = {}) {
 }
 
 function getMember(memberId) {
+  if (memberId === "up_for_grabs") {
+    return { id: "up_for_grabs", name: "Up for Grabs", color: "#f59e0b", avatar: "⚡" };
+  }
   return appState.members.find((m) => m.id === memberId) || { name: "Family", color: "#38bdf8", avatar: "🏡" };
 }
 
@@ -241,6 +265,16 @@ function populateSelectDropdowns() {
       allOpt.value = "all";
       allOpt.textContent = "🏡 Entire Family (Shared)";
       el.appendChild(allOpt);
+    }
+    if (sId === "ch-member") {
+      const allOpt = document.createElement("option");
+      allOpt.value = "all";
+      allOpt.textContent = "🏡 Entire Family (Shared)";
+      el.appendChild(allOpt);
+      const ufgOpt = document.createElement("option");
+      ufgOpt.value = "up_for_grabs";
+      ufgOpt.textContent = "⚡ Up for Grabs (First to complete)";
+      el.appendChild(ufgOpt);
     }
     if (sId === "reward-member-id") {
       const allOpt = document.createElement("option");
@@ -299,6 +333,23 @@ function renderMultiMemberPicker(containerId, selectedIds = [], isReward = false
   `;
   container.appendChild(allBtn);
 
+  // Up for Grabs (First to complete earns stars) - Available for Chores/Routines
+  if (!isReward) {
+    const isUfgSelected = selSet.has("up_for_grabs");
+    const ufgBtn = document.createElement("button");
+    ufgBtn.type = "button";
+    ufgBtn.className = `member-chip-select ${isUfgSelected ? "selected" : ""}`;
+    ufgBtn.dataset.memberId = "up_for_grabs";
+    ufgBtn.style.setProperty("--member-color", "#f59e0b");
+    ufgBtn.onclick = () => handleMemberChipClick(containerId, "up_for_grabs");
+    ufgBtn.innerHTML = `
+      <span class="member-chip-avatar">⚡</span>
+      <span class="member-chip-name">Up for Grabs (Open to anyone)</span>
+      <span class="member-chip-check">✓</span>
+    `;
+    container.appendChild(ufgBtn);
+  }
+
   // Individual Members
   for (const m of appState.members || []) {
     if (m.id === "m5") continue;
@@ -335,14 +386,19 @@ function handleMemberChipClick(containerId, clickedVal) {
   const container = document.getElementById(containerId);
   if (!container) return;
   const allBtn = container.querySelector(`.member-chip-select[data-member-id="all"]`);
+  const ufgBtn = container.querySelector(`.member-chip-select[data-member-id="up_for_grabs"]`);
   const clickedBtn = container.querySelector(`.member-chip-select[data-member-id="${clickedVal}"]`);
   if (!clickedBtn) return;
 
   if (clickedVal === "all") {
     container.querySelectorAll(".member-chip-select").forEach((b) => b.classList.remove("selected"));
     allBtn.classList.add("selected");
+  } else if (clickedVal === "up_for_grabs") {
+    container.querySelectorAll(".member-chip-select").forEach((b) => b.classList.remove("selected"));
+    clickedBtn.classList.add("selected");
   } else {
     if (allBtn) allBtn.classList.remove("selected");
+    if (ufgBtn) ufgBtn.classList.remove("selected");
     clickedBtn.classList.toggle("selected");
 
     const anySelected = container.querySelectorAll(".member-chip-select.selected").length > 0;
@@ -358,8 +414,10 @@ function toggleAllPickerMembers(containerId, selectAll) {
   const container = document.getElementById(containerId);
   if (!container) return;
   const allBtn = container.querySelector(`.member-chip-select[data-member-id="all"]`);
-  const individualBtns = Array.from(container.querySelectorAll(`.member-chip-select:not([data-member-id="all"])`));
+  const ufgBtn = container.querySelector(`.member-chip-select[data-member-id="up_for_grabs"]`);
+  const individualBtns = Array.from(container.querySelectorAll(`.member-chip-select:not([data-member-id="all"]):not([data-member-id="up_for_grabs"])`));
 
+  if (ufgBtn) ufgBtn.classList.remove("selected");
   if (selectAll) {
     if (allBtn) allBtn.classList.remove("selected");
     individualBtns.forEach((b) => b.classList.add("selected"));
@@ -801,6 +859,10 @@ function renderSplitChores() {
       const chk = item.querySelector(".split-chore-check");
       chk.onclick = async (e) => {
         e.stopPropagation();
+        if ((chore.isUpForGrabs || chore.memberId === "up_for_grabs") && !chore.completed) {
+          openClaimModal(chore);
+          return;
+        }
         try {
           const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
           const data = await res.json();
@@ -1739,6 +1801,212 @@ function openNewChoreForMember(memberId) {
   openNewChoreModal(memberId);
 }
 
+function openNewChoreForUpForGrabs() {
+  openNewChoreModal("up_for_grabs");
+  const iconEl = document.getElementById("ch-icon");
+  const titleEl = document.getElementById("ch-title");
+  if (iconEl && (!iconEl.value || iconEl.value === "🪥")) iconEl.value = "🐶";
+  if (titleEl && !titleEl.value) titleEl.value = "Feed Animals";
+}
+
+function openClaimModal(chore) {
+  const modal = document.getElementById("modal-claim-chore");
+  if (!modal) return;
+  const titleEl = document.getElementById("claim-chore-title");
+  const ptsEl = document.getElementById("claim-chore-points");
+  const listEl = document.getElementById("claim-members-list");
+
+  if (titleEl) {
+    titleEl.textContent = `${chore.icon || "⚡"} ${chore.title}`;
+  }
+  if (ptsEl) {
+    ptsEl.textContent = `Earn +${chore.points || 10} ⭐ Points`;
+  }
+  if (listEl) {
+    listEl.innerHTML = "";
+    const activeKids = (appState.members || []).filter((m) => m.id !== "m5");
+    activeKids.forEach((m) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "claim-member-btn";
+      btn.style.setProperty("--member-color", m.color || "var(--primary)");
+      btn.innerHTML = `
+        <span class="claim-member-avatar" style="font-size: 1.8rem;">${m.avatar || "👤"}</span>
+        <div style="text-align: left; flex: 1;">
+          <div style="font-weight: 800; font-size: 1rem; color: var(--text-primary);">${escapeHtml(m.name)}</div>
+          <div style="font-size: 0.78rem; color: var(--accent-gold); font-weight: 700;">${m.points || 0} ⭐ currently</div>
+        </div>
+        <span style="font-size: 1.1rem; color: var(--text-muted);">➜</span>
+      `;
+      btn.onclick = () => claimUpForGrabsChore(chore.id, m.id);
+      listEl.appendChild(btn);
+    });
+  }
+
+  openModal("modal-claim-chore");
+}
+
+async function claimUpForGrabsChore(choreId, claimantId) {
+  closeModal("modal-claim-chore");
+  try {
+    const res = await fetch(`/api/chores/${choreId}/toggle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ claimant_id: claimantId })
+    });
+    const data = await res.json();
+    if (data.reward) {
+      triggerRewardConfetti(data.reward);
+    }
+    await loadState();
+    if (appState.splitScreen) renderSplitSidePane();
+  } catch (err) {
+    console.error("Failed to claim up for grabs chore:", err);
+  }
+}
+
+function renderUpForGrabsColumn(subcats) {
+  const ufgChores = (appState.chores || []).filter((c) => {
+    return (c.isUpForGrabs || c.memberId === "up_for_grabs") && isChoreActiveToday(c);
+  });
+  const completedCount = ufgChores.filter((c) => c.completed).length;
+  const totalCount = ufgChores.length;
+
+  const col = document.createElement("div");
+  col.className = "member-tasks-column up-for-grabs-column";
+  col.style.borderTop = "4px solid #f59e0b";
+
+  col.innerHTML = `
+    <div class="member-tasks-header" style="background: rgba(245, 158, 11, 0.1);">
+      <div class="member-tasks-info">
+        <span class="member-tasks-avatar" style="font-size: 1.4rem;">⚡</span>
+        <div>
+          <div class="member-tasks-name" style="color: #b45309; font-weight: 800; display: flex; align-items: center; gap: 4px;">
+            <span>Up for Grabs</span>
+            <span style="font-size: 0.72rem; background: #f59e0b; color: #fff; padding: 1px 6px; border-radius: 10px;">Open</span>
+          </div>
+          <div class="member-tasks-progress">
+            <span>${completedCount}/${totalCount} claimed today</span>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 4px; align-items: center;">
+        <button type="button" class="btn-hub ghost mini-btn" onclick="openNewChoreForUpForGrabs()" title="Add an open task" style="border-color: #f59e0b; color: #b45309;">+ Task</button>
+      </div>
+    </div>
+    <div class="member-subcategories-container"></div>
+  `;
+
+  const subcatsContainer = col.querySelector(".member-subcategories-container");
+
+  for (const sub of subcats) {
+    const choresInSub = ufgChores.filter((c) => getChoreSubcategory(c) === sub.key);
+    if (choresInSub.length === 0 && sub.key !== "morning" && sub.key !== "As Needed") {
+      continue;
+    }
+
+    const subGroup = document.createElement("div");
+    subGroup.className = "chore-subcategory-group";
+    subGroup.innerHTML = `
+      <div class="chore-subcategory-title" style="color: #b45309;">
+        <span>${sub.icon} ${sub.label}</span>
+        <span class="subcategory-badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309;">
+          ${choresInSub.filter((c) => !c.completed).length} open
+        </span>
+      </div>
+      <div class="chore-subcategory-list"></div>
+    `;
+
+    const listContainer = subGroup.querySelector(".chore-subcategory-list");
+
+    if (choresInSub.length === 0) {
+      listContainer.innerHTML = `
+        <div class="chore-empty-sub" style="font-size: 0.75rem; color: var(--text-muted); padding: 8px 10px;">
+          <span>No ${sub.label.toLowerCase()} right now</span>
+        </div>
+      `;
+    } else {
+      for (const chore of choresInSub) {
+        const claimant = chore.completedBy ? getMember(chore.completedBy) : null;
+
+        const card = document.createElement("div");
+        card.className = `chore-card up-for-grabs-card ${chore.completed ? "done" : ""}`;
+        card.style.borderLeft = "5px solid #f59e0b";
+        if (!chore.completed) {
+          card.style.background = "linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, var(--bg-surface) 45%)";
+        }
+
+        card.innerHTML = `
+          <div class="chore-left">
+            <div class="chore-checkbox" title="${chore.completed ? 'Tap to unmark' : 'Tap to claim task'}" style="border-color: #f59e0b; ${chore.completed ? 'background-color: #f59e0b;' : ''}">
+              ${chore.completed ? "✓" : ""}
+            </div>
+            ${chore.icon ? `<span class="chore-emoji" title="${escapeHtml(chore.title)}">${chore.icon}</span>` : `<span class="chore-emoji">⚡</span>`}
+            <div class="chore-info" title="Tap to view / edit">
+              <h3>${escapeHtml(chore.title)}</h3>
+              <div class="chore-meta">
+                ${chore.completed && claimant ? `
+                  <span class="chore-member-tag" style="background: ${claimant.color || '#f59e0b'}20; color: ${claimant.color || '#f59e0b'}; border: 1px solid ${claimant.color || '#f59e0b'}40;">
+                    ✓ Claimed by ${claimant.avatar || "👤"} ${escapeHtml(claimant.name)}
+                  </span>
+                ` : `
+                  <span class="chore-member-tag" style="background: rgba(245, 158, 11, 0.15); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.35);">
+                    ⚡ Open to Anyone
+                  </span>
+                `}
+                ${chore.isRoutine && chore.timeOfDay ? `<span class="routine-time-badge">${chore.timeOfDay}</span>` : ""}
+              </div>
+            </div>
+          </div>
+          <div class="chore-card-actions">
+            <div class="chore-points" style="background: rgba(245, 158, 11, 0.18); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 800;">
+              +${chore.points || 10} ⭐
+            </div>
+            <button type="button" class="btn-chore-edit" title="Edit task">✏️</button>
+          </div>
+        `;
+
+        const chk = card.querySelector(".chore-checkbox");
+        chk.onclick = async (e) => {
+          e.stopPropagation();
+          if (chore.completed) {
+            try {
+              await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
+              await loadState();
+            } catch (err) {
+              console.error("Failed to uncomplete chore:", err);
+            }
+          } else {
+            openClaimModal(chore);
+          }
+        };
+
+        const editBtn = card.querySelector(".btn-chore-edit");
+        editBtn.onclick = (e) => {
+          e.stopPropagation();
+          openEditChoreModal(chore.id);
+        };
+
+        const choreInfo = card.querySelector(".chore-info");
+        choreInfo.onclick = (e) => {
+          e.stopPropagation();
+          if (!chore.completed) {
+            openClaimModal(chore);
+          } else {
+            openEditChoreModal(chore.id);
+          }
+        };
+
+        listContainer.appendChild(card);
+      }
+    }
+
+    subcatsContainer.appendChild(subGroup);
+  }
+
+  return col;
+}
+
 // ---------------------------------------------------------------------------
 // 2. Interactive Chore & Routines Tracker with Confetti Rewards
 // ---------------------------------------------------------------------------
@@ -1827,11 +2095,22 @@ function renderChores() {
   }
 
   // 3. Identify assigned family members to display (e.g. 4 members side-by-side)
-  let membersToDisplay = appState.activeMemberFilter === "all"
-    ? [...appState.members]
-    : appState.members.filter((m) => m.id === appState.activeMemberFilter);
+  let membersToDisplay = [];
+  let showUpForGrabs = false;
 
-  if (membersToDisplay.length === 0) {
+  if (appState.activeMemberFilter === "all") {
+    membersToDisplay = [...appState.members];
+    showUpForGrabs = true;
+  } else if (appState.activeMemberFilter === "up_for_grabs") {
+    membersToDisplay = [];
+    showUpForGrabs = true;
+  } else {
+    membersToDisplay = appState.members.filter((m) => m.id === appState.activeMemberFilter);
+    showUpForGrabs = false;
+  }
+
+  const totalCols = membersToDisplay.length + (showUpForGrabs ? 1 : 0);
+  if (totalCols === 0) {
     grid.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-muted); width: 100%;">No family members found. Add profiles in Settings!</div>`;
     return;
   }
@@ -1840,21 +2119,23 @@ function renderChores() {
   if (window.innerWidth <= 768) {
     grid.style.gridTemplateColumns = "1fr";
     lb.style.gridTemplateColumns = "repeat(2, 1fr)";
-  } else if (membersToDisplay.length === 4) {
-    grid.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
-    lb.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
-  } else if (membersToDisplay.length === 1) {
+  } else if (totalCols === 1) {
     grid.style.gridTemplateColumns = "minmax(0, 640px)";
     lb.style.gridTemplateColumns = "minmax(0, 320px)";
   } else {
-    grid.style.gridTemplateColumns = `repeat(${Math.min(membersToDisplay.length, 4)}, minmax(0, 1fr))`;
-    lb.style.gridTemplateColumns = `repeat(${Math.min(membersToDisplay.length, 4)}, minmax(0, 1fr))`;
+    grid.style.gridTemplateColumns = `repeat(${Math.min(totalCols, 5)}, minmax(0, 1fr))`;
+    lb.style.gridTemplateColumns = `repeat(${Math.min(appState.members.length, 4)}, minmax(0, 1fr))`;
+  }
+
+  // Prepend Up for Grabs column if active
+  if (showUpForGrabs) {
+    grid.appendChild(renderUpForGrabsColumn(subcats));
   }
 
   for (const member of membersToDisplay) {
     // Show each member's personal chores + shared family chores with 🏡 badge
     const memberChores = (appState.chores || []).filter((c) => {
-      return c.memberId === member.id || c.memberId === "all";
+      return (c.memberId === member.id || c.memberId === "all") && !c.isUpForGrabs && c.memberId !== "up_for_grabs";
     });
     const completedCount = memberChores.filter((c) => c.completed).length;
     const totalCount = memberChores.length;
@@ -4027,7 +4308,8 @@ function openEditChoreModal(choreId) {
     if (iconEl) iconEl.value = chore.icon || "🪥";
 
     populateSelectDropdowns();
-    renderMultiMemberPicker("ch-members-picker", [chore.memberId || "all"]);
+    const selMember = (chore.isUpForGrabs || chore.memberId === "up_for_grabs") ? "up_for_grabs" : (chore.memberId || "all");
+    renderMultiMemberPicker("ch-members-picker", [selMember]);
 
     const ptsEl = document.getElementById("ch-points");
     if (ptsEl) ptsEl.value = chore.points !== undefined ? chore.points : 10;
@@ -4097,8 +4379,9 @@ async function saveChore(e) {
   }
 
   try {
+    const isUpForGrabs = selectedMembers.includes("up_for_grabs");
     if (choreId) {
-      const memberId = selectedMembers[0] || "all";
+      const memberId = isUpForGrabs ? "up_for_grabs" : (selectedMembers[0] || "all");
       const payload = {
         title,
         memberId,
@@ -4108,6 +4391,7 @@ async function saveChore(e) {
         timeOfDay,
         daysOfWeek,
         icon,
+        isUpForGrabs,
         id: choreId
       };
       await fetch(`/api/chores/${choreId}`, {
@@ -4115,7 +4399,25 @@ async function saveChore(e) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      showToast(isRoutine ? "Routine updated!" : "Task updated!");
+      showToast(isUpForGrabs ? "Up for Grabs task updated!" : (isRoutine ? "Routine updated!" : "Task updated!"));
+    } else if (isUpForGrabs) {
+      const payload = {
+        title,
+        memberId: "up_for_grabs",
+        points,
+        frequency,
+        isRoutine,
+        timeOfDay,
+        daysOfWeek,
+        icon,
+        isUpForGrabs: true
+      };
+      await fetch("/api/chores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      showToast("⚡ Up for Grabs task saved!");
     } else if (selectedMembers.length > 1) {
       const payloadList = selectedMembers.map((mId) => ({
         title,
@@ -5265,16 +5567,74 @@ function renderHomeTasks() {
   if (!container) return;
   container.innerHTML = "";
 
+  const isUfgFilter = appState.activeMemberFilter === "up_for_grabs";
   const allMembers = (appState.members || []).filter((m) => m.id !== "m5");
-  const members = (appState.activeMemberFilter && appState.activeMemberFilter !== "all")
+  const members = (appState.activeMemberFilter && appState.activeMemberFilter !== "all" && !isUfgFilter)
     ? allMembers.filter((m) => m.id === appState.activeMemberFilter)
-    : allMembers;
+    : (isUfgFilter ? [] : allMembers);
 
   let totalPending = 0;
 
+  // 1. Up for Grabs Card (Shown when on "All Family" or "Up for Grabs" filter)
+  const showUfgCard = appState.activeMemberFilter === "all" || isUfgFilter;
+  if (showUfgCard) {
+    const ufgChores = (appState.chores || []).filter((c) => {
+      return (c.isUpForGrabs || c.memberId === "up_for_grabs") && isChoreActiveToday(c);
+    });
+    const pendingUfg = ufgChores.filter((c) => !c.completed);
+    totalPending += pendingUfg.length;
+    const completedUfg = ufgChores.filter((c) => c.completed).length;
+
+    const ufgCard = document.createElement("div");
+    ufgCard.className = "home-profile-card home-ufg-card";
+    ufgCard.style.setProperty("--member-color", "#f59e0b");
+
+    ufgCard.innerHTML = `
+      <div class="home-profile-card-header" style="background: rgba(245, 158, 11, 0.12);">
+        <div class="home-profile-info">
+          <span class="home-profile-avatar" style="font-size: 1.35rem;">⚡</span>
+          <span class="home-profile-name" style="color: #b45309; font-weight: 800;">Up for Grabs</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <span class="home-profile-progress" style="color: #b45309; font-weight: 700;">${completedUfg}/${ufgChores.length}</span>
+          <button type="button" class="btn-hub ghost mini-btn" style="font-size: 0.68rem; padding: 1px 6px; border-color: #f59e0b; color: #b45309;" onclick="openNewChoreForUpForGrabs()" title="Add an open task">+ Task</button>
+        </div>
+      </div>
+      <div class="home-profile-tasks-list">
+        ${ufgChores.length === 0 ? `
+          <div style="text-align: center; padding: 1.5rem 0.5rem; color: var(--text-muted); font-size: 0.78rem;">
+            No tasks up for grabs ✨
+          </div>
+        ` : ufgChores.map((chore) => {
+          const claimant = chore.completedBy ? getMember(chore.completedBy) : null;
+          return `
+            <div class="home-task-item ${chore.completed ? "done" : ""}" onclick="handleHomeUfgChoreClick('${chore.id}', event)">
+              <div class="home-task-checkbox ${chore.completed ? "checked" : ""}" style="border-color: #f59e0b; ${chore.completed ? 'background-color: #f59e0b;' : ''}" title="Tap to claim or unmark">
+                ${chore.completed ? "✓" : ""}
+              </div>
+              <span style="font-size: 0.95rem;">${chore.icon || "⚡"}</span>
+              <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
+                <span class="home-task-text" title="${escapeHtml(chore.title)}">${escapeHtml(chore.title)}</span>
+                ${chore.completed && claimant ? `
+                  <span style="font-size: 0.68rem; color: #b45309; font-weight: 700;">Claimed by ${claimant.avatar} ${escapeHtml(claimant.name)}</span>
+                ` : `
+                  <span style="font-size: 0.68rem; color: var(--text-muted);">First to finish earns stars</span>
+                `}
+              </div>
+              <span class="home-task-stars" style="color: #d97706; font-weight: 800;">+${chore.points || 10}⭐</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    container.appendChild(ufgCard);
+  }
+
+  // 2. Family Members Cards
   for (const member of members) {
     const memberChores = (appState.chores || []).filter((c) => {
-      return (c.memberId === member.id || c.memberId === "all") && isChoreActiveToday(c);
+      return (c.memberId === member.id || c.memberId === "all") && !c.isUpForGrabs && c.memberId !== "up_for_grabs" && isChoreActiveToday(c);
     });
 
     const pending = memberChores.filter((c) => !c.completed);
@@ -5320,19 +5680,24 @@ function renderHomeTasks() {
   if (countBadge) countBadge.textContent = `${totalPending} left`;
 }
 
+function handleHomeUfgChoreClick(choreId, e) {
+  if (e) e.stopPropagation();
+  const chore = (appState.chores || []).find((c) => c.id === choreId);
+  if (!chore) return;
+  if (chore.completed) {
+    toggleHomeChore(choreId, e);
+  } else {
+    openClaimModal(chore);
+  }
+}
+
 async function toggleHomeChore(choreId, e) {
   if (e) e.stopPropagation();
   try {
     const res = await fetch(`/api/chores/${choreId}/toggle`, { method: "POST" });
-    const chore = (appState.chores || []).find((c) => c.id === choreId);
-    if (chore) {
-      chore.completed = !chore.completed;
-      if (chore.completed) {
-        playTimerAlarm();
-        if (typeof confetti === "function") {
-          confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
-        }
-      }
+    const data = await res.json();
+    if (data.reward) {
+      triggerRewardConfetti(data.reward);
     }
     await loadState();
   } catch (err) {

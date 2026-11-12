@@ -469,6 +469,8 @@ class ChoreModel(BaseModel):
     timeOfDay: Optional[str] = "morning"  # morning, afternoon, evening
     daysOfWeek: Optional[List[str]] = None  # ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
     icon: Optional[str] = ""
+    isUpForGrabs: Optional[bool] = False
+    completedBy: Optional[str] = None
 
 @app.post("/api/chores")
 def create_chore(ch: ChoreModel):
@@ -495,23 +497,31 @@ def create_chores_batch(chores: List[ChoreModel]):
     return added
 
 @app.post("/api/chores/{chore_id}/toggle")
-def toggle_chore(chore_id: str):
+def toggle_chore(chore_id: str, payload: Optional[Dict[str, Any]] = None):
     reward = None
+    claimant_req = payload.get("claimant_id") if payload else None
     for c in db["chores"]:
         if c.get("id") == chore_id:
             c["completed"] = not c.get("completed", False)
+            pts = c.get("points", 10)
             if c["completed"]:
                 c["completedDate"] = date.today().isoformat()
-                pts = c.get("points", 10)
-                # award points to member
-                m_id = c.get("memberId")
+                claimant = claimant_req or c.get("completedBy") or c.get("memberId")
+                c["completedBy"] = claimant
                 for m in db["members"]:
-                    if m.get("id") == m_id:
+                    if m.get("id") == claimant:
                         m["points"] = m.get("points", 0) + pts
                         reward = {"member": m["name"], "avatar": m.get("avatar", "⭐"), "points": pts, "total": m["points"]}
                         break
             else:
+                prev_claimant = c.get("completedBy") or c.get("memberId")
+                if prev_claimant:
+                    for m in db["members"]:
+                        if m.get("id") == prev_claimant:
+                            m["points"] = max(0, m.get("points", 0) - pts)
+                            break
                 c["completedDate"] = None
+                c["completedBy"] = None
             save_db(db)
             return {"chore": c, "reward": reward}
     raise HTTPException(status_code=404, detail="Chore not found")
@@ -524,6 +534,7 @@ def update_chore(chore_id: str, ch: ChoreModel):
             updated["id"] = chore_id
             updated["completed"] = c.get("completed", False)
             updated["completedDate"] = c.get("completedDate")
+            updated["completedBy"] = c.get("completedBy")
             db["chores"][i] = updated
             save_db(db)
             return updated
