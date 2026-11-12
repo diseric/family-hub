@@ -72,7 +72,10 @@ An open-source, touch-optimized family organization hub designed for kitchen dis
 - **Daytime Screen Wake Lock**: Prevents wall tablets and iPads from sleeping during daytime active hours.
 
 ### 🪄 Magic Import (AI Schedule Extractor)
-- Paste messy flyers, sports emails, camp schedules, or text messages: AI automatically parses dates, times, and assigns members into calendar events.
+- **Multi-Provider AI Engine**: Powered by your choice of **Google Gemini** (default / recommended), **OpenAI** (`gpt-4o-mini`), **Anthropic Claude**, **Local Ollama**, or any **Custom OpenAI-compatible endpoint** (Groq, OpenRouter, DeepSeek).
+- **Automated Event Parsing**: Paste messy flyers, school newsletters, sports emails, camp schedules, or upload PDF rosters: AI automatically extracts event titles, dates, start/end times, and locations directly onto your family calendar.
+- **In-App API Key Management**: Configure and test your authentication keys directly in **Settings ⚙️** with a real-time **⚡ Test Connection** latency check and masked inputs for touchscreen security.
+- **Rule-Based Fallback**: Works even without an active AI key using an offline regex heuristic parser.
 
 ---
 
@@ -103,6 +106,11 @@ services:
       - PORT=3003
       - DATA_DIR=/app/data
       - TZ=America/Los_Angeles
+      # Optional: Pre-configure AI keys (can also be entered anytime in Settings UI)
+      - GEMINI_API_KEY=your_gemini_api_key_here
+      # - OPENAI_API_KEY=your_openai_api_key_here
+      # - ANTHROPIC_API_KEY=your_anthropic_api_key_here
+      # - OLLAMA_HOST=http://host.docker.internal:11434
     volumes:
       - ./data:/app/data
 ```
@@ -122,6 +130,18 @@ The first time you load the app, the **Guided Setup Wizard** will launch to conf
 3. Family Member Profiles (Name, Emoji Avatar, and Custom Theme Color)
 4. Google Calendar iCal sync links
 5. Starter Lists & Chores
+
+### 5. Configure AI Schedule Extractor (Optional)
+Family Hub includes **🪄 Magic Import** powered by your preferred AI service:
+1. Tap **⚙️ Settings** on the left navigation bar.
+2. Scroll down to **🤖 AI Assistant & Schedule Extractor**.
+3. Choose your provider:
+   - **Google Gemini** (Recommended): Fast, highly accurate, and free tier available via [Google AI Studio](https://aistudio.google.com/apikey).
+   - **OpenAI**: Use `gpt-4o-mini` or `gpt-4o` with your OpenAI platform key.
+   - **Anthropic Claude**: Use `claude-3-5-haiku-20241022` or Sonnet with your Anthropic key.
+   - **Local Ollama**: Self-hosted, private, and 100% offline (point to `http://localhost:11434`).
+   - **Custom OpenAI-Compatible**: Point to Groq, OpenRouter, DeepSeek, LocalAI, or vLLM.
+4. Paste your API key, tap **⚡ Test Connection** to verify response latency, and tap **Save AI Keys**.
 
 ---
 
@@ -316,6 +336,7 @@ Once installed, it opens full-screen like a native app with zero browser toolbar
 | **Audio Engine** | Web Audio API | Client-side harmonic chime synthesis (no external audio files required). |
 | **Celebrations** | Canvas Confetti | Smooth particle confetti animations on chore completion and reward redemption. |
 | **Weather** | Open-Meteo API | Free, keyless 5-day weather forecasts and geocoding. |
+| **AI Assistant** | Google Gemini / OpenAI / Claude / Ollama | Smart schedule extraction from text and PDF documents with structured JSON output. |
 | **Remote Access** | Cloudflare Tunnel & Zero Trust | Free outbound-only encrypted tunnel with multi-factor authentication. |
 | **Data Storage** | Atomic JSON (`data/skylight_db.json`) | Easy backup, human-readable, zero complex SQL setup required. |
 
