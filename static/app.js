@@ -769,6 +769,63 @@ function goToToday() {
 // ---------------------------------------------------------------------------
 // 1. Calendar Engine (Day, 3-Day, Week, Month, Schedule)
 // ---------------------------------------------------------------------------
+function isEventOnDate(ev, dateIso) {
+  if (!ev || !ev.date || !dateIso) return false;
+  if (ev.date === dateIso) return true;
+
+  const repeat = ev.repeat || "none";
+  if (repeat === "none") return false;
+
+  // Repeating occurrences only happen on or after the event's start date
+  if (dateIso < ev.date) return false;
+
+  // Check optional repeatUntil cutoff
+  if (ev.repeatUntil && dateIso > ev.repeatUntil) return false;
+
+  const [tY, tM, tD] = dateIso.split("-").map(Number);
+  const [eY, eM, eD] = ev.date.split("-").map(Number);
+
+  const targetDate = new Date(tY, tM - 1, tD);
+  const origDate = new Date(eY, eM - 1, eD);
+
+  switch (repeat) {
+    case "daily":
+      return true;
+
+    case "weekdays": {
+      const day = targetDate.getDay();
+      return day >= 1 && day <= 5; // Mon through Fri
+    }
+
+    case "weekly":
+      return targetDate.getDay() === origDate.getDay();
+
+    case "biweekly": {
+      if (targetDate.getDay() !== origDate.getDay()) return false;
+      const diffDays = Math.round((targetDate.getTime() - origDate.getTime()) / (1000 * 60 * 60 * 24));
+      const diffWeeks = Math.round(diffDays / 7);
+      return diffWeeks % 2 === 0;
+    }
+
+    case "monthly":
+      return tD === eD;
+
+    case "yearly":
+      return tM === eM && tD === eD;
+
+    default:
+      return false;
+  }
+}
+
+function toggleRepeatUntilVisibility() {
+  const rep = document.getElementById("ev-repeat");
+  const grp = document.getElementById("ev-repeat-until-group");
+  if (rep && grp) {
+    grp.style.display = rep.value !== "none" ? "block" : "none";
+  }
+}
+
 function getFilteredEvents() {
   if (appState.activeMemberFilter === "all") {
     return appState.events;
@@ -839,7 +896,7 @@ function renderWeekView(mount, titleLabel, events) {
 
     const eventsContainer = col.querySelector(".week-col-events");
     const dayEvents = events
-      .filter((e) => e.date === dateIso)
+      .filter((e) => isEventOnDate(e, dateIso))
       .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
 
     for (const ev of dayEvents) {
@@ -994,7 +1051,7 @@ function renderDailyScheduleView(mount, titleLabel, events) {
     const curDateIso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const isSelected = curDateIso === appState.selectedDailyDate;
     const isToday = curDateIso === todayIso;
-    const hasEvents = (appState.events || []).some(e => e.date === curDateIso);
+    const hasEvents = (appState.events || []).some(e => isEventOnDate(e, curDateIso));
 
     const cell = document.createElement("button");
     cell.type = "button";
@@ -1076,7 +1133,7 @@ function renderDailyScheduleView(mount, titleLabel, events) {
 
   // 2. Day's Events
   const dayEvents = (events || [])
-    .filter(e => e.date === appState.selectedDailyDate)
+    .filter(e => isEventOnDate(e, appState.selectedDailyDate))
     .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
 
   if (dayEvents.length === 0 && !dinner) {
@@ -1095,12 +1152,14 @@ function renderDailyScheduleView(mount, titleLabel, events) {
       const avatar = m ? m.avatar : "👤";
       const name = m ? m.name : "Entire Family";
       const timeDisplay = formatEventDisplayTime(ev.time, ev.endTime);
+      const isRepeating = ev.repeat && ev.repeat !== "none";
+      const repeatTag = isRepeating ? `<span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 4px;">🔁 ${ev.repeat}</span>` : "";
 
       const evCard = document.createElement("div");
       evCard.className = "daily-schedule-card";
       evCard.style.backgroundColor = `${color}1f`; // soft pastel tint
       evCard.style.borderLeft = `6px solid ${color}`;
-      evCard.title = `Click to edit ${ev.title}`;
+      evCard.title = `Click to edit ${ev.title}${isRepeating ? ' (Repeats ' + ev.repeat + ')' : ''}`;
 
       evCard.innerHTML = `
         <div class="daily-card-title">${ev.title}</div>
@@ -1110,6 +1169,7 @@ function renderDailyScheduleView(mount, titleLabel, events) {
             <span>${avatar}</span>
             <span>${name}</span>
           </span>
+          ${repeatTag}
           ${ev.location ? `<span class="daily-card-location">📍 ${ev.location}</span>` : ""}
         </div>
       `;
@@ -1156,7 +1216,7 @@ function renderDayView(mount, titleLabel, events, daysCount = 1) {
 
     const container = col.querySelector(".week-col-events");
     const dayEvents = events
-      .filter((e) => e.date === dateIso)
+      .filter((e) => isEventOnDate(e, dateIso))
       .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
 
     if (dayEvents.length === 0) {
@@ -1211,7 +1271,7 @@ function renderMonthView(mount, titleLabel, events) {
     cell.className = `month-cell ${isToday ? "today" : ""}`;
     cell.innerHTML = `<span class="month-cell-num">${day}</span>`;
 
-    const dayEvents = events.filter((e) => e.date === dateIso);
+    const dayEvents = events.filter((e) => isEventOnDate(e, dateIso));
     for (const ev of dayEvents.slice(0, 3)) {
       const m = getMember(ev.memberId);
       const dot = document.createElement("div");
@@ -1270,10 +1330,15 @@ function createEventCard(ev, detailed = false) {
   const card = document.createElement("div");
   card.className = "event-card";
   card.style.borderLeftColor = m.color;
+  const isRepeating = ev.repeat && ev.repeat !== "none";
+  const repeatIcon = isRepeating ? `<span title="Repeats ${ev.repeat}" style="font-size: 0.75rem; opacity: 0.9; margin-right: 2px;">🔁</span>` : "";
   card.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <span class="event-card-time">${ev.time || "All Day"}${ev.endTime ? " - " + ev.endTime : ""}</span>
-      <span style="font-size: 0.85rem;" title="${m.name}">${m.avatar || "👤"}</span>
+      <div style="display: flex; align-items: center; gap: 4px;">
+        ${repeatIcon}
+        <span style="font-size: 0.85rem;" title="${m.name}">${m.avatar || "👤"}</span>
+      </div>
     </div>
     <div class="event-card-title">${ev.title}</div>
     ${ev.location ? `<div class="event-card-loc">📍 ${ev.location}</div>` : ""}
@@ -1303,6 +1368,14 @@ function openEventDetail(ev) {
 
   const endTimeInput = document.getElementById("ev-end-time");
   if (endTimeInput) endTimeInput.value = ev.endTime && ev.endTime !== "All Day" ? ev.endTime : "10:00";
+
+  const repInput = document.getElementById("ev-repeat");
+  if (repInput) repInput.value = ev.repeat || "none";
+
+  const untilInput = document.getElementById("ev-repeat-until");
+  if (untilInput) untilInput.value = ev.repeatUntil || "";
+
+  toggleRepeatUntilVisibility();
 
   populateSelectDropdowns();
   const memberSel = document.getElementById("ev-member");
@@ -2728,6 +2801,12 @@ function openNewEventModal() {
   const endTm = document.getElementById("ev-end-time");
   if (endTm) endTm.value = "10:00";
 
+  const rep = document.getElementById("ev-repeat");
+  if (rep) rep.value = "none";
+  const repUntil = document.getElementById("ev-repeat-until");
+  if (repUntil) repUntil.value = "";
+  toggleRepeatUntilVisibility();
+
   populateSelectDropdowns();
   openModal("modal-event");
 }
@@ -2742,8 +2821,10 @@ async function saveEvent(e) {
   const memberId = document.getElementById("ev-member").value;
   const location = document.getElementById("ev-loc").value.trim();
   const notes = document.getElementById("ev-notes").value.trim();
+  const repeat = (document.getElementById("ev-repeat") && document.getElementById("ev-repeat").value) || "none";
+  const repeatUntil = (document.getElementById("ev-repeat-until") && document.getElementById("ev-repeat-until").value) || null;
 
-  const payload = { title, date, time, endTime, memberId, location, notes };
+  const payload = { title, date, time, endTime, memberId, location, notes, repeat, repeatUntil };
 
   if (eventId) {
     // Edit / Update existing event

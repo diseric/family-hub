@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.21.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.22.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -417,6 +417,24 @@
             <div class="form-group">
               <label>End Time</label>
               <input type="time" id="ev-end-time" value="10:00" required />
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Repeat / Recurrence</label>
+              <select id="ev-repeat" onchange="toggleRepeatUntilVisibility()">
+                <option value="none">Does not repeat</option>
+                <option value="daily">Daily (Every day)</option>
+                <option value="weekdays">Every weekday (Mon - Fri)</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Every 2 weeks (Bi-weekly)</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+            <div class="form-group" id="ev-repeat-until-group" style="display: none;">
+              <label>Repeat Until (optional)</label>
+              <input type="date" id="ev-repeat-until" />
             </div>
           </div>
           <div class="form-group">
@@ -1291,7 +1309,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.21.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.21.0"></script>
+  <!-- Main JavaScript Engine (v2.22.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.22.0"></script>
 </body>
 </html>

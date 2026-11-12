@@ -422,6 +422,8 @@ class EventModel(BaseModel):
     category: str = "General"
     location: str = ""
     notes: str = ""
+    repeat: Optional[str] = "none"
+    repeatUntil: Optional[str] = None
 
 @app.post("/api/events")
 def create_event(ev: EventModel):
