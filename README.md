@@ -9,8 +9,10 @@ An open-source, touch-optimized family organization hub designed for kitchen dis
 ## ✨ Features & Functionality
 
 ### 🏠 The Home Screen Overview
-- **Unified Family Command Center**: Combines your Calendar, Today's Tasks, Family Lists, and Timers into a single, cohesive dashboard.
-- **Customizable Panes**: Choose which panes to show alongside your calendar using the **⚙️ Customize** menu (toggle Tasks, Lists, or both; choose default Calendar view).
+- **Unified Family Command Center**: Combines your interactive Calendar and Today's Tasks side rail into a clean dashboard.
+- **Time-of-Day Auto-Displaying Tasks**: Automatically surfaces routines matching the current time of day (**Morning**, **Afternoon**, or **Evening**) with a 1-tap period switcher.
+- **Stacked Row Layout**: Tasks are stacked in full-width vertical rows per child for natural reading and easy touch tapping on wall displays and tablets.
+- **Customizable Panes**: Choose which panes to show alongside your calendar using the **⚙️ Customize** menu (toggle Tasks on/off, choose default Calendar view and task filter).
 - **Universal Add Button (`+ Add ▾`)**: One-tap quick menu to instantly create a **New Event**, **New Task/Routine**, **New List Item**, or **Start a Timer**.
 - **Responsive Layout**: Side-by-side split on kitchen wall displays and iPad landscape; vertically responsive stack on smartphones.
 
@@ -39,6 +41,7 @@ An open-source, touch-optimized family organization hub designed for kitchen dis
 
 ### 📋 Chores & Daily Routines Tracker
 - **Multi-Member Assignment**: Assign tasks or habits to multiple children simultaneously with independent tracking per child.
+- **⚡ Up for Grabs Tasks**: Create open tasks (e.g. *Feeding pets*, *Emptying trash*) claimable by whichever child finishes first to earn stars.
 - **Pre-Set Age Routines**: Built-in curated habit sets:
   - **Toddlers & Preschoolers (2–4)**: Go potty, get dressed, brush teeth & hair, put away toys.
   - **Early Elementary (5–8)**: Make bed, get dressed, brush teeth, clear plate, pack backpack & water bottle, feed pets.
@@ -48,6 +51,8 @@ An open-source, touch-optimized family organization hub designed for kitchen dis
 
 ### ⭐ Star Goals & Rewards System
 - **Gamified Motivation**: Kids earn star points for completing chores and redeem them for customizable reward goals (e.g. *50 ⭐ Ice Cream Trip*, *100 ⭐ Movie Night*).
+- **🤝 Shared Collective Goals**: Goals assigned to multiple children pool their earned stars together into a collective total (e.g. Child A: 10 ⭐ + Child B: 5 ⭐ = 15 ⭐ toward the goal).
+- **Fair Proportional Redemption**: When redeeming shared goals, stars are deducted proportionally so no child ever goes negative.
 - **Visual Progress Bars**: Real-time progress indicators per child showing stars accumulated vs. required.
 - **Participation Settings**: Exclude parents/adults from the rewards leaderboard so participating kids' cards expand to fill the screen.
 - **Auto-Renewing Goals & Redemption History**: Rewards can renew automatically or track historical redemptions with timestamps.
@@ -117,6 +122,69 @@ The first time you load the app, the **Guided Setup Wizard** will launch to conf
 3. Family Member Profiles (Name, Emoji Avatar, and Custom Theme Color)
 4. Google Calendar iCal sync links
 5. Starter Lists & Chores
+
+---
+
+## ☁️ Option: Free Cloud Hosting on Google Cloud Platform ($0/mo Always Free)
+
+If you don't have a 24/7 home server or Raspberry Pi, you can host Family Hub in the cloud completely free using the **Google Cloud Platform (GCP) Always Free Tier**.
+
+### GCP Always Free Tier Inclusions:
+- **1 `e2-micro` VM instance** per month (2 vCPUs, 1 GB RAM)
+- **30 GB Standard Persistent Disk**
+- **Eligible Regions**: `us-central1` (Iowa), `us-east1` (South Carolina), or `us-west1` (Oregon)
+- **100% Free**: Pair with **Cloudflare Tunnel** (no static IP reservation costs and no open firewall ports required).
+
+### Step 1: Create the Free Tier VM
+
+Using the [Google Cloud Console](https://console.cloud.google.com/) or the `gcloud` CLI:
+
+```bash
+gcloud compute instances create skylight-hub \
+  --project=YOUR_PROJECT_ID \
+  --zone=us-central1-a \
+  --machine-type=e2-micro \
+  --image-family=debian-12 \
+  --image-project=debian-cloud \
+  --boot-disk-size=30GB \
+  --boot-disk-type=pd-standard
+```
+
+### Step 2: Connect to Your VM & Configure Swap
+
+Connect to your instance via SSH:
+```bash
+gcloud compute ssh skylight-hub --zone=us-central1-a
+```
+
+*(Recommended)* Add a 1 GB swap file to give your `e2-micro` instance comfortable memory headroom:
+```bash
+sudo fallocate -l 1G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+### Step 3: Install Docker
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+### Step 4: Clone & Launch Family Hub
+
+```bash
+git clone https://github.com/diseric/family-hub.git
+cd family-hub
+docker compose up -d --build
+```
+
+### Step 5: Connect Securely via Cloudflare Tunnel
+Follow the [Remote Access with Cloudflare Tunnel](#-remote-access-with-cloudflare-tunnel--zero-trust-authentication) instructions below. Because Cloudflare Tunnel connects outbound from the VM to Cloudflare, you **do not** need to open any ports in GCP VPC firewall, and you **do not** need a paid external static IP.
 
 ---
 
