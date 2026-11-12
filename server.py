@@ -125,7 +125,7 @@ DEFAULT_SETTINGS = {
     "googlePhotosCount": 0,
     "aiProvider": "gemini",
     "aiApiKey": "",
-    "aiModel": "gemini-1.5-flash",
+    "aiModel": "gemini-3.8-flash",
     "aiBaseUrl": "",
 }
 
@@ -147,8 +147,8 @@ def load_db() -> Dict[str, Any]:
                         s["aiProvider"] = "gemini"
                     if "aiApiKey" not in s:
                         s["aiApiKey"] = ""
-                    if "aiModel" not in s or s["aiModel"] == "gemini-2.0-flash":
-                        s["aiModel"] = "gemini-1.5-flash"
+                    if "aiModel" not in s or s["aiModel"] in ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]:
+                        s["aiModel"] = "gemini-3.8-flash"
                     if "aiBaseUrl" not in s:
                         s["aiBaseUrl"] = ""
                     save_db(data)
@@ -1452,21 +1452,18 @@ class AITestRequest(BaseModel):
     model: Optional[str] = ""
     baseUrl: Optional[str] = ""
 
-def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-1.5-flash") -> str:
+def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-3.8-flash") -> str:
     if not api_key:
         raise ValueError("Google Gemini API key is missing. Please set your key in Settings ⚙️.")
-    m = model.strip() or "gemini-1.5-flash"
+    m = model.strip() or "gemini-3.8-flash"
     if m.startswith("models/"):
         m = m[7:]
     
-    # Try requested model, with automatic fallback for 404s (e.g. 2.0-flash vs 2.0-flash-exp vs 1.5-flash)
+    # Try requested model, with automatic fallback for 404s
     models_to_try = [m]
-    if m == "gemini-2.0-flash":
-        models_to_try.append("gemini-2.0-flash-exp")
-    if "gemini-1.5-flash" not in models_to_try:
-        models_to_try.append("gemini-1.5-flash")
-    if "gemini-1.5-pro" not in models_to_try:
-        models_to_try.append("gemini-1.5-pro")
+    for fallback in ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]:
+        if fallback not in models_to_try:
+            models_to_try.append(fallback)
 
     last_err = None
     for target_model in models_to_try:
@@ -1601,10 +1598,12 @@ def call_ollama_api(prompt: str, model: str = "qwen2.5-coder:14b", base_url: str
     return data.get("response", "")
 
 def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> str:
-    s = settings or db.get("settings", {})
-    provider = (s.get("aiProvider") or os.environ.get("AI_PROVIDER") or "gemini").lower().strip()
+    db = load_db()
+    db_settings = db.get("settings", {})
+    s = settings or {}
+    provider = (s.get("aiProvider") or db_settings.get("aiProvider") or os.environ.get("AI_PROVIDER") or "gemini").lower().strip()
     
-    api_key = (s.get("aiApiKey") or "").strip()
+    api_key = (s.get("aiApiKey") or db_settings.get("aiApiKey") or "").strip()
     if not api_key:
         if provider == "gemini":
             api_key = os.environ.get("GEMINI_API_KEY", "")
@@ -1613,13 +1612,13 @@ def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> s
         elif provider == "anthropic":
             api_key = os.environ.get("ANTHROPIC_API_KEY", "")
 
-    model = (s.get("aiModel") or "").strip()
-    base_url = (s.get("aiBaseUrl") or "").strip()
+    model = (s.get("aiModel") or db_settings.get("aiModel") or "").strip()
+    base_url = (s.get("aiBaseUrl") or db_settings.get("aiBaseUrl") or "").strip()
 
     if provider == "gemini":
         if not api_key:
             raise ValueError("Google Gemini API key not configured. Please add your Gemini key in Settings ⚙️.")
-        return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-1.5-flash")
+        return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-3.8-flash")
     elif provider == "openai":
         if not api_key:
             raise ValueError("OpenAI API key not configured. Please add your OpenAI key in Settings ⚙️.")
@@ -1634,7 +1633,7 @@ def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> s
         return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
     else:
         if api_key:
-            return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-1.5-flash")
+            return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-3.8-flash")
         return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
 
 def parse_ai_events_json(raw_answer: str) -> List[Dict[str, Any]]:

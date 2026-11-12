@@ -3925,7 +3925,8 @@ function openMagicImport() {
   populateSelectDropdowns();
   const s = appState.settings || {};
   const prov = s.aiProvider || "gemini";
-  const model = s.aiModel && s.aiModel !== "gemini-2.0-flash" ? s.aiModel : (prov === "gemini" ? "gemini-1.5-flash" : "default");
+  const isOldGemini = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"].includes(s.aiModel);
+  const model = s.aiModel && !isOldGemini ? s.aiModel : (prov === "gemini" ? "gemini-3.8-flash" : "default");
   const hasKey = !!s.aiApiKey || prov === "ollama";
 
   const labelEl = document.getElementById("magic-provider-label");
@@ -4047,9 +4048,9 @@ function handleAiProviderChange() {
     }
     if (keyGroup) keyGroup.style.display = "block";
     if (baseGroup) baseGroup.style.display = "none";
-    defaultModel = "gemini-1.5-flash";
-    if (modelHint) modelHint.textContent = "Recommended: gemini-1.5-flash (fast, reliable & free tier)";
-    presets = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"];
+    defaultModel = "gemini-3.8-flash";
+    if (modelHint) modelHint.textContent = "Recommended: gemini-3.8-flash (ultra-fast) or gemini-3.5-flash-lite";
+    presets = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash-lite"];
     if (badge) { badge.textContent = "Google Gemini"; badge.style.color = "#0284c7"; badge.style.background = "rgba(14, 165, 233, 0.15)"; }
   } else if (provider === "openai") {
     if (lblKey) lblKey.textContent = "OpenAI API Key";
@@ -4129,8 +4130,9 @@ async function testAiConnection() {
   const baseUrl = document.getElementById("set-ai-baseurl") ? document.getElementById("set-ai-baseurl").value.trim() : "";
   const statusEl = document.getElementById("ai-test-status");
   const btn = document.getElementById("btn-test-ai");
+  const effectiveKey = apiKey || (appState.settings ? (appState.settings.aiApiKey || "") : "");
 
-  if (provider !== "ollama" && !apiKey) {
+  if (provider !== "ollama" && !effectiveKey) {
     statusEl.innerHTML = `<span style="color: #ef4444; font-weight: 600;">⚠️ Please enter an API key first</span>`;
     return;
   }
@@ -4142,7 +4144,7 @@ async function testAiConnection() {
     const res = await fetch("/api/ai/test", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider, apiKey, model, baseUrl })
+      body: JSON.stringify({ provider, apiKey: effectiveKey, model, baseUrl })
     });
     const data = await res.json();
     if (data.status === "ok") {
@@ -5318,7 +5320,8 @@ function openSettingsModal() {
   const aiKeyEl = document.getElementById("set-ai-apikey");
   if (aiKeyEl) aiKeyEl.value = s.aiApiKey || "";
   const aiModelEl = document.getElementById("set-ai-model");
-  if (aiModelEl) aiModelEl.value = (s.aiModel && s.aiModel !== "gemini-2.0-flash") ? s.aiModel : "gemini-1.5-flash";
+  const isOldGemini = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"].includes(s.aiModel);
+  if (aiModelEl) aiModelEl.value = (s.aiModel && !isOldGemini) ? s.aiModel : "gemini-3.8-flash";
   const aiBaseEl = document.getElementById("set-ai-baseurl");
   if (aiBaseEl) aiBaseEl.value = s.aiBaseUrl || "";
   handleAiProviderChange();

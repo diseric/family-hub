@@ -136,7 +136,7 @@ Family Hub includes **🪄 Magic Import** powered by your preferred AI service:
 1. Tap **⚙️ Settings** on the left navigation bar.
 2. Scroll down to **🤖 AI Assistant & Schedule Extractor**.
 3. Choose your provider:
-   - **Google Gemini** (Recommended): Fast, highly accurate, and free tier available via [Google AI Studio](https://aistudio.google.com/apikey).
+   - **Google Gemini** (Recommended): Fast, highly accurate, and free tier available via [Google AI Studio](https://aistudio.google.com/apikey). Supports `gemini-3.8-flash` as well as `gemini-3.5-flash-lite`, alongside stable legacy IDs like `gemini-3.6-flash` and `gemini-3.1-flash-lite` through [Google AI Studio](https://aistudio.google.com/docs/models).
    - **OpenAI**: Use `gpt-4o-mini` or `gpt-4o` with your OpenAI platform key.
    - **Anthropic Claude**: Use `claude-3-5-haiku-20241022` or Sonnet with your Anthropic key.
    - **Local Ollama**: Self-hosted, private, and 100% offline (point to `http://localhost:11434`).
