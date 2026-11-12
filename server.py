@@ -786,6 +786,12 @@ class MemberModel(BaseModel):
     color: str
     avatar: str = "👤"
 
+class MemberUpdateModel(BaseModel):
+    name: Optional[str] = None
+    color: Optional[str] = None
+    avatar: Optional[str] = None
+    points: Optional[int] = None
+
 @app.post("/api/members")
 def create_member(m: MemberModel):
     new_id = m.id or f"m_{int(time.time()*1000)}"
@@ -795,6 +801,34 @@ def create_member(m: MemberModel):
     db.setdefault("members", []).append(item)
     save_db(db)
     return item
+
+@app.put("/api/members/{member_id}")
+def update_member(member_id: str, m: MemberUpdateModel):
+    for mem in db.get("members", []):
+        if mem["id"] == member_id:
+            if m.name is not None:
+                mem["name"] = m.name
+            if m.color is not None:
+                mem["color"] = m.color
+            if m.avatar is not None:
+                mem["avatar"] = m.avatar
+            if m.points is not None:
+                mem["points"] = max(0, m.points)
+            save_db(db)
+            return {"status": "ok", "member": mem}
+    raise HTTPException(status_code=404, detail="Member not found")
+
+@app.post("/api/members/{member_id}/points")
+def set_member_points(member_id: str, data: Dict[str, Any]):
+    for mem in db.get("members", []):
+        if mem["id"] == member_id:
+            if "points" in data:
+                mem["points"] = max(0, int(data["points"]))
+            elif "delta" in data:
+                mem["points"] = max(0, mem.get("points", 0) + int(data["delta"]))
+            save_db(db)
+            return {"status": "ok", "member": mem}
+    raise HTTPException(status_code=404, detail="Member not found")
 
 @app.delete("/api/members/{member_id}")
 def delete_member(member_id: str):

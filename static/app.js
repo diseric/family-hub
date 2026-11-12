@@ -947,14 +947,19 @@ function renderChores() {
   for (const m of sortedMembers) {
     if (m.id === "m5") continue;
     const card = document.createElement("div");
-    card.style.cssText = `background: var(--bg-card); padding: 10px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.75rem; min-width: 170px;`;
+    card.style.cssText = `background: var(--bg-card); padding: 10px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.75rem; min-width: 170px; cursor: pointer; transition: all 0.15s ease;`;
+    card.title = `Click to edit ${m.name}'s points`;
     card.innerHTML = `
       <span style="font-size: 2rem;">${m.avatar}</span>
-      <div>
+      <div style="flex: 1;">
         <div style="font-weight: 700; font-size: 1rem;">${m.name}</div>
-        <div style="color: var(--accent-gold); font-weight: 800; font-size: 1.1rem;">${m.points || 0} ⭐</div>
+        <div style="color: var(--accent-gold); font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; gap: 4px;">
+          <span>${m.points || 0} ⭐</span>
+          <span style="font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;">✏️</span>
+        </div>
       </div>
     `;
+    card.onclick = () => openEditPointsModal(m.id);
     lb.appendChild(card);
   }
 
@@ -1978,15 +1983,74 @@ function renderSettingsMembers() {
     return;
   }
   container.innerHTML = appState.members.map(m => `
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: var(--bg-hover); border-radius: 6px; border: 1px solid var(--border-color);">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-size: 1.2rem;">${m.avatar || "👤"}</span>
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border-color);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.3rem;">${m.avatar || "👤"}</span>
         <span style="width: 14px; height: 14px; border-radius: 50%; background: ${m.color || "#0284c7"}; display: inline-block;"></span>
-        <span style="font-weight: 600; font-size: 0.9rem;">${m.name}</span>
+        <span style="font-weight: 600; font-size: 0.92rem;">${m.name}</span>
       </div>
-      <button type="button" onclick="deleteMemberFromSettings('${m.id}')" title="Delete Profile" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1rem; padding: 2px 6px;">🗑️</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <button type="button" onclick="openEditPointsModal('${m.id}')" title="Edit ${m.name}'s points" style="background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.35); color: var(--accent-gold); font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: var(--radius-pill); cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <span>${m.points || 0} ⭐</span>
+          <span style="font-size: 0.7rem;">✏️</span>
+        </button>
+        <button type="button" onclick="deleteMemberFromSettings('${m.id}')" title="Delete Profile" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1rem; padding: 2px 6px;">🗑️</button>
+      </div>
     </div>
   `).join("");
+}
+
+function openEditPointsModal(memberId) {
+  const m = getMember(memberId);
+  if (!m) return;
+
+  const idEl = document.getElementById("pts-member-id");
+  if (idEl) idEl.value = m.id;
+
+  const avEl = document.getElementById("pts-member-avatar");
+  if (avEl) avEl.textContent = m.avatar || "👤";
+
+  const nmEl = document.getElementById("pts-member-name");
+  if (nmEl) nmEl.textContent = `${m.name}'s Reward Points`;
+
+  const inputEl = document.getElementById("pts-input");
+  if (inputEl) inputEl.value = m.points !== undefined ? m.points : 0;
+
+  openModal("modal-points");
+}
+
+function adjustPointsInput(delta) {
+  const inputEl = document.getElementById("pts-input");
+  if (!inputEl) return;
+  const cur = parseInt(inputEl.value || "0", 10);
+  inputEl.value = Math.max(0, cur + delta);
+}
+
+function setPointsInput(val) {
+  const inputEl = document.getElementById("pts-input");
+  if (inputEl) inputEl.value = val;
+}
+
+async function saveMemberPoints(e) {
+  e.preventDefault();
+  const memberId = document.getElementById("pts-member-id")?.value;
+  const points = parseInt(document.getElementById("pts-input")?.value || "0", 10);
+  if (!memberId) return;
+
+  try {
+    const res = await fetch(`/api/members/${memberId}/points`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ points: Math.max(0, points) }),
+    });
+    if (res.ok) {
+      await loadState();
+      renderSettingsMembers();
+      closeModal("modal-points");
+    }
+  } catch (err) {
+    alert("Error updating points: " + err.message);
+  }
 }
 
 async function addMemberFromSettings() {
