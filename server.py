@@ -553,11 +553,16 @@ class RewardModel(BaseModel):
     icon: Optional[str] = "🎁"
     starCost: int = 50
     memberId: Optional[str] = "all"
+    memberIds: Optional[List[str]] = None
+    isShared: Optional[bool] = False
     autoRenew: bool = True
     description: Optional[str] = ""
+    completed: Optional[bool] = False
+    completedAt: Optional[str] = None
 
 class RewardRedeemModel(BaseModel):
     memberId: Optional[str] = None
+    isShared: Optional[bool] = False
 
 @app.get("/api/rewards")
 def get_rewards():
@@ -618,14 +623,97 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
     if not reward:
         raise HTTPException(status_code=404, detail="Reward not found")
     
+    cost = int(reward.get("starCost", 50))
+    is_shared = (
+        (payload and payload.isShared) or
+        reward.get("isShared") is True or
+        reward.get("memberId") in ("all", "shared") or
+        (reward.get("memberIds") and (len(reward.get("memberIds")) > 1 or "all" in reward.get("memberIds")))
+    )
+
+    if is_shared:
+        # Collective redemption across participating members
+        excluded = (db.get("settings") or {}).get("excludedRewardMemberIds", [])
+        all_kids = [m for m in db.get("members", []) if m.get("id") != "m5" and m.get("id") not in excluded]
+
+        target_ids = reward.get("memberIds")
+        if target_ids and ("all" not in target_ids):
+            participating = [m for m in all_kids if m.get("id") in target_ids]
+        else:
+            participating = all_kids
+
+        if not participating:
+            raise HTTPException(status_code=400, detail="No participating members found for shared reward")
+
+        total_pts = sum(int(m.get("points", 0)) for m in participating)
+        if total_pts < cost:
+            raise HTTPException(status_code=400, detail=f"Insufficient collective stars: needs {cost} ⭐, team has {total_pts} ⭐")
+
+        # Deduct stars proportionally based on current star balances
+        remaining_to_deduct = cost
+        contributions = []
+        sorted_members = sorted(participating, key=lambda m: int(m.get("points", 0)))
+        for idx, m in enumerate(sorted_members):
+            pts = int(m.get("points", 0))
+            if idx == len(sorted_members) - 1:
+                deduct = min(pts, remaining_to_deduct)
+            else:
+                share = (pts / total_pts) if total_pts > 0 else 0
+                deduct = min(pts, int(round(share * cost)))
+                deduct = min(deduct, remaining_to_deduct)
+
+            m["points"] = pts - deduct
+            remaining_to_deduct -= deduct
+            contributions.append(f"{m.get('name', 'Member')}: {deduct} ⭐")
+
+        if remaining_to_deduct > 0:
+            for m in reversed(sorted_members):
+                pts = int(m.get("points", 0))
+                extra = min(pts, remaining_to_deduct)
+                m["points"] = pts - extra
+                remaining_to_deduct -= extra
+                if remaining_to_deduct <= 0:
+                    break
+
+        team_names = " & ".join(m.get("name", "Member") for m in participating)
+        redemption = {
+            "id": f"red_{int(time.time()*1000)}",
+            "rewardId": reward["id"],
+            "rewardTitle": reward.get("title", "Reward"),
+            "rewardIcon": reward.get("icon", "🎁"),
+            "starCost": cost,
+            "memberId": "shared",
+            "memberName": f"Shared Goal ({team_names})",
+            "memberAvatar": "🏡",
+            "contributionDetails": ", ".join(contributions),
+            "redeemedAt": datetime.now().isoformat()
+        }
+        db.setdefault("reward_redemptions", []).insert(0, redemption)
+        db["reward_redemptions"] = db["reward_redemptions"][:100]
+
+        if not reward.get("autoRenew", True):
+            reward["completed"] = True
+            reward["completedAt"] = datetime.now().isoformat()
+
+        save_db(db)
+        return {
+            "status": "ok",
+            "redemption": redemption,
+            "reward": reward,
+            "isShared": True
+        }
+
+    # Individual redemption for single member
     target_member_id = None
     if payload and payload.memberId:
         target_member_id = payload.memberId
-    elif reward.get("memberId") and reward["memberId"] != "all":
+    elif reward.get("memberId") and reward["memberId"] not in ("all", "shared"):
         target_member_id = reward["memberId"]
+    elif reward.get("memberIds") and len(reward.get("memberIds")) == 1 and reward["memberIds"][0] != "all":
+        target_member_id = reward["memberIds"][0]
     else:
         raise HTTPException(status_code=400, detail="Member ID is required to redeem reward")
-    
+
     target_member = None
     for m in db.get("members", []):
         if m.get("id") == target_member_id:
@@ -633,15 +721,14 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
             break
     if not target_member:
         raise HTTPException(status_code=404, detail="Member not found")
-    
-    cost = int(reward.get("starCost", 50))
+
     current_pts = int(target_member.get("points", 0))
     if current_pts < cost:
         raise HTTPException(status_code=400, detail=f"Insufficient stars: needs {cost} ⭐, has {current_pts} ⭐")
-    
+
     # Deduct stars
     target_member["points"] = current_pts - cost
-    
+
     redemption = {
         "id": f"red_{int(time.time()*1000)}",
         "rewardId": reward["id"],
@@ -655,17 +742,18 @@ def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
     }
     db.setdefault("reward_redemptions", []).insert(0, redemption)
     db["reward_redemptions"] = db["reward_redemptions"][:100]
-    
+
     if not reward.get("autoRenew", True):
         reward["completed"] = True
         reward["completedAt"] = datetime.now().isoformat()
-        
+
     save_db(db)
     return {
         "status": "ok",
         "redemption": redemption,
         "member": target_member,
-        "reward": reward
+        "reward": reward,
+        "isShared": False
     }
 
 @app.get("/api/reward-redemptions")

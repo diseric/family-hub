@@ -2471,6 +2471,63 @@ function setRewardsFilter(filterKey) {
   renderRewards();
 }
 
+function getRewardParticipatingMembers(reward) {
+  const excluded = (appState.settings && Array.isArray(appState.settings.excludedRewardMemberIds))
+    ? appState.settings.excludedRewardMemberIds
+    : [];
+  const activeKids = (appState.members || []).filter((m) => m.id !== "m5" && !excluded.includes(m.id));
+
+  if (reward.memberIds && Array.isArray(reward.memberIds) && !reward.memberIds.includes("all")) {
+    const list = activeKids.filter((m) => reward.memberIds.includes(m.id));
+    return list.length > 0 ? list : activeKids;
+  }
+  if (reward.memberId && reward.memberId !== "all" && reward.memberId !== "shared") {
+    const m = activeKids.find((x) => x.id === reward.memberId);
+    return m ? [m] : [];
+  }
+  return activeKids;
+}
+
+function getRewardProgress(reward) {
+  const members = getRewardParticipatingMembers(reward);
+  const isShared = (
+    reward.memberId === "all" ||
+    reward.memberId === "shared" ||
+    reward.isShared === true ||
+    (reward.memberIds && (reward.memberIds.length > 1 || reward.memberIds.includes("all")))
+  );
+
+  const starCost = reward.starCost || 50;
+  let totalStars = 0;
+  const memberBreakdown = members.map((m) => {
+    const pts = m.points || 0;
+    totalStars += pts;
+    return {
+      id: m.id,
+      name: m.name,
+      avatar: m.avatar || "👤",
+      color: m.color || "#0284c7",
+      points: pts
+    };
+  });
+
+  const currentStars = isShared ? totalStars : (members[0] ? (members[0].points || 0) : 0);
+  const isReady = currentStars >= starCost && !reward.completed;
+  const pct = Math.min(100, Math.round((currentStars / starCost) * 100));
+  const needed = Math.max(0, starCost - currentStars);
+
+  return {
+    isShared,
+    members,
+    memberBreakdown,
+    currentStars,
+    starCost,
+    isReady,
+    pct,
+    needed
+  };
+}
+
 function renderRewards() {
   const grid = document.getElementById("rewards-grid");
   const lb = document.getElementById("rewards-leaderboard");
@@ -2521,16 +2578,13 @@ function renderRewards() {
     lb.appendChild(card);
   }
 
-  // Count ready to redeem for participating members
+  // Count ready to redeem (collective for shared, individual for personal)
   let readyCount = 0;
-  for (const m of appState.members) {
-    if (m.id === "m5" || excluded.includes(m.id)) continue;
-    for (const r of rewards) {
-      if (r.memberId === "all" || r.memberId === m.id) {
-        if ((m.points || 0) >= (r.starCost || 0) && !r.completed) {
-          readyCount++;
-        }
-      }
+  for (const r of rewards) {
+    if (r.completed) continue;
+    const prog = getRewardProgress(r);
+    if (prog.isReady) {
+      readyCount++;
     }
   }
   const badgeReady = document.getElementById("ready-rewards-count");
@@ -2568,14 +2622,23 @@ function renderRewards() {
     col.className = "member-tasks-column";
     col.style.borderTop = `4px solid ${member.color || "var(--primary)"}`;
 
-    // Goals for this member (assigned to member OR assigned to all)
-    let memberGoals = rewards.filter((r) => r.memberId === "all" || r.memberId === member.id);
+    // Goals for this member: personal goals OR shared collective goals where this member participates
+    let memberGoals = rewards.filter((r) => {
+      const partMembers = getRewardParticipatingMembers(r);
+      return partMembers.some((m) => m.id === member.id);
+    });
 
     // Apply Filter (all, ready, inprogress)
     if (appState.activeRewardsFilter === "ready") {
-      memberGoals = memberGoals.filter((r) => (member.points || 0) >= (r.starCost || 0) && !r.completed);
+      memberGoals = memberGoals.filter((r) => {
+        const prog = getRewardProgress(r);
+        return prog.isReady && !r.completed;
+      });
     } else if (appState.activeRewardsFilter === "inprogress") {
-      memberGoals = memberGoals.filter((r) => (member.points || 0) < (r.starCost || 0) && !r.completed);
+      memberGoals = memberGoals.filter((r) => {
+        const prog = getRewardProgress(r);
+        return !prog.isReady && !r.completed;
+      });
     }
 
     col.innerHTML = `
@@ -2583,7 +2646,7 @@ function renderRewards() {
         <div class="member-tasks-info">
           <span class="member-tasks-avatar">${member.avatar || "👤"}</span>
           <div>
-            <div class="member-tasks-name">${member.name}</div>
+            <div class="member-tasks-name">${escapeHtml(member.name)}</div>
             <div class="member-tasks-progress">
               <span class="member-points-pill" onclick="openEditPointsModal('${member.id}')" title="Adjust stars">${member.points || 0} ⭐ balance</span>
             </div>
@@ -2604,34 +2667,52 @@ function renderRewards() {
       `;
     } else {
       for (const reward of memberGoals) {
-        const currentStars = member.points || 0;
-        const starCost = reward.starCost || 50;
-        const isReady = currentStars >= starCost && !reward.completed;
-        const pct = Math.min(100, Math.round((currentStars / starCost) * 100));
-        const needed = Math.max(0, starCost - currentStars);
-        const isShared = reward.memberId === "all";
-        const assignedMember = (reward.memberId && reward.memberId !== "all") ? getMember(reward.memberId) : member;
-        const memberColor = isShared ? "#0284c7" : (assignedMember.color || member.color || "#0284c7");
-        const memberAvatar = assignedMember.avatar || member.avatar || "👤";
-        const memberName = assignedMember.name || member.name || "Member";
+        const prog = getRewardProgress(reward);
+        const isShared = prog.isShared;
+        const currentStars = prog.currentStars;
+        const starCost = prog.starCost;
+        const isReady = prog.isReady;
+        const pct = prog.pct;
+        const needed = prog.needed;
+        const memberColor = isShared ? "#8b5cf6" : (member.color || "#0284c7");
 
         const card = document.createElement("div");
-        card.className = `reward-goal-card ${isReady ? "ready-to-redeem" : ""}`;
+        card.className = `reward-goal-card ${isShared ? "shared-goal-card" : ""} ${isReady ? "ready-to-redeem" : ""}`;
         card.style.borderLeft = `5px solid ${memberColor}`;
         if (!isReady) {
-          card.style.background = `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 45%)`;
+          card.style.background = isShared
+            ? `linear-gradient(90deg, rgba(139, 92, 246, 0.12) 0%, var(--bg-surface) 50%)`
+            : `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 45%)`;
         }
+
+        const breakdownHtml = isShared
+          ? `
+            <div class="reward-shared-breakdown" style="display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 4px;">
+              ${prog.memberBreakdown.map((m) => `
+                <span style="font-size: 0.72rem; font-weight: 700; padding: 1px 7px; border-radius: 12px; background: ${m.color}18; color: ${m.color}; border: 1px solid ${m.color}35;">
+                  ${m.avatar} ${escapeHtml(m.name)}: ${m.points} ⭐
+                </span>
+              `).join("")}
+            </div>
+          `
+          : "";
+
         card.innerHTML = `
           <div class="reward-goal-header">
             <div class="reward-goal-info">
               <span class="reward-goal-icon">${reward.icon || "🎁"}</span>
               <div class="reward-goal-titles">
-                <div class="reward-goal-title">${reward.title}</div>
-                ${reward.description ? `<div class="reward-goal-desc">${reward.description}</div>` : ""}
+                <div class="reward-goal-title">${escapeHtml(reward.title)}</div>
+                ${reward.description ? `<div class="reward-goal-desc">${escapeHtml(reward.description)}</div>` : ""}
                 <div class="chore-meta" style="margin-top: 3px;">
-                  <span class="chore-member-tag" style="background: ${memberColor}18; color: ${memberColor}; border: 1px solid ${memberColor}35;">
-                    ${isShared ? "🏡 Shared Goal" : `${memberAvatar} ${memberName}`}
-                  </span>
+                  ${isShared
+                    ? `<span class="chore-member-tag" style="background: rgba(139, 92, 246, 0.18); color: #7c3aed; border: 1px solid rgba(139, 92, 246, 0.35); font-weight: 700;">
+                         🏡 Shared Goal • Collective ⭐
+                       </span>`
+                    : `<span class="chore-member-tag" style="background: ${memberColor}18; color: ${memberColor}; border: 1px solid ${memberColor}35;">
+                         ${member.avatar || "👤"} ${escapeHtml(member.name)}
+                       </span>`
+                  }
                 </div>
               </div>
             </div>
@@ -2641,13 +2722,15 @@ function renderRewards() {
             </div>
           </div>
 
+          ${breakdownHtml}
+
           <!-- Visual Progress Bar -->
-          <div style="display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 5px;">
             <div class="reward-progress-track">
-              <div class="reward-progress-fill" style="width: ${pct}%; background: ${isReady ? 'linear-gradient(90deg, #10b981, #34d399)' : `linear-gradient(90deg, ${memberColor}, #f59e0b)`};"></div>
+              <div class="reward-progress-fill" style="width: ${pct}%; background: ${isReady ? 'linear-gradient(90deg, #10b981, #34d399)' : (isShared ? 'linear-gradient(90deg, #8b5cf6, #f59e0b)' : `linear-gradient(90deg, ${memberColor}, #f59e0b)`)};"></div>
             </div>
             <div class="reward-progress-labels">
-              <span>${currentStars} / ${starCost} ⭐</span>
+              <span>${isShared ? "Collective: " : ""}${currentStars} / ${starCost} ⭐</span>
               <span>${pct}%</span>
             </div>
           </div>
@@ -2655,11 +2738,11 @@ function renderRewards() {
           <!-- Redeem Button / Status -->
           ${
             isReady
-              ? `<button type="button" class="btn-redeem active" onclick="confirmRedeemReward('${reward.id}', '${member.id}')">
-                   <span>⭐</span> REDEEM REWARD!
+              ? `<button type="button" class="btn-redeem active ${isShared ? 'shared' : ''}" onclick="confirmRedeemReward('${reward.id}', '${isShared ? "shared" : member.id}')" style="${isShared ? 'background: linear-gradient(135deg, #10b981, #059669); font-weight: 800;' : ''}">
+                   <span>${isShared ? "🎉" : "⭐"}</span> REDEEM ${isShared ? "SHARED " : ""}REWARD!
                  </button>`
               : `<button type="button" class="btn-redeem locked" disabled>
-                   <span>🔒</span> Need ${needed} more ⭐
+                   <span>🔒</span> Need ${needed} more ⭐ ${isShared ? "together" : ""}
                  </button>`
           }
         `;
@@ -2700,7 +2783,8 @@ function openEditRewardModal(rewardId) {
   document.getElementById("reward-icon").value = r.icon || "🎁";
   document.getElementById("reward-star-cost").value = r.starCost || 50;
   populateSelectDropdowns();
-  renderMultiMemberPicker("reward-members-picker", [r.memberId || "all"], true);
+  const selMembers = (r.memberIds && r.memberIds.length > 0) ? r.memberIds : [r.memberId || "all"];
+  renderMultiMemberPicker("reward-members-picker", selMembers, true);
   document.getElementById("reward-autorenew").checked = r.autoRenew !== false;
   document.getElementById("reward-desc").value = r.description || "";
   const delBtn = document.getElementById("btn-delete-reward");
@@ -2733,18 +2817,24 @@ async function saveReward(e) {
     return;
   }
 
+  const isShared = selectedMembers.length === 0 || selectedMembers.includes("all") || selectedMembers.length > 1;
+  const memberId = selectedMembers.includes("all") ? "all" : (selectedMembers.length > 1 ? "shared" : selectedMembers[0]);
+  const memberIds = selectedMembers;
+
+  const payload = {
+    title,
+    icon,
+    starCost,
+    memberId,
+    memberIds,
+    isShared,
+    autoRenew,
+    description
+  };
+  if (rewId) payload.id = rewId;
+
   try {
     if (rewId) {
-      const memberId = selectedMembers[0] || "all";
-      const payload = {
-        title,
-        icon,
-        starCost,
-        memberId,
-        autoRenew,
-        description,
-        id: rewId
-      };
       const res = await fetch(`/api/rewards/${rewId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -2753,40 +2843,8 @@ async function saveReward(e) {
       const saved = await res.json();
       const idx = (appState.rewards || []).findIndex((x) => x.id === rewId);
       if (idx !== -1) appState.rewards[idx] = saved;
-      showToast("Reward goal updated!");
-    } else if (selectedMembers.length > 1) {
-      const payloadList = selectedMembers.map((mId) => ({
-        title,
-        icon,
-        starCost,
-        memberId: mId,
-        autoRenew,
-        description
-      }));
-      const res = await fetch("/api/rewards/batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloadList)
-      });
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        appState.rewards = appState.rewards || [];
-        appState.rewards.push(...data);
-      } else if (data && Array.isArray(data.items)) {
-        appState.rewards = appState.rewards || [];
-        appState.rewards.push(...data.items);
-      }
-      showToast(`Created ${Array.isArray(data) ? data.length : (data.count || payloadList.length)} reward goals!`);
+      showToast(isShared ? "Shared collective reward goal updated!" : "Reward goal updated!");
     } else {
-      const memberId = selectedMembers[0] || "all";
-      const payload = {
-        title,
-        icon,
-        starCost,
-        memberId,
-        autoRenew,
-        description
-      };
       const res = await fetch("/api/rewards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2795,7 +2853,7 @@ async function saveReward(e) {
       const saved = await res.json();
       appState.rewards = appState.rewards || [];
       appState.rewards.push(saved);
-      showToast("Reward goal saved!");
+      showToast(isShared ? "Shared collective reward goal created!" : "Reward goal saved!");
     }
     closeModal("modal-reward");
     await loadState();
@@ -2830,8 +2888,61 @@ async function deleteReward() {
 
 async function confirmRedeemReward(rewardId, memberId) {
   const reward = (appState.rewards || []).find((x) => x.id === rewardId);
+  if (!reward) return;
+
+  const prog = getRewardProgress(reward);
+  const isShared = (memberId === "shared" || prog.isShared);
+
+  if (isShared) {
+    const cost = reward.starCost || 50;
+    const teamNames = prog.members.map((m) => m.name).join(" & ");
+    const breakdownStr = prog.memberBreakdown.map((m) => `${m.name}: ${m.points} ⭐`).join(", ");
+
+    const confirmed = await showAppConfirm(
+      `Redeem Shared Goal "${reward.title}" for ${teamNames}? This will use ${cost} ⭐ collective stars (${breakdownStr}).`,
+      {
+        title: `🎉 Redeem Shared Goal?`,
+        confirmText: `Redeem for ${cost} ⭐`,
+        isDanger: false,
+        icon: "🏡"
+      }
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/rewards/${rewardId}/redeem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isShared: true })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        showToast(err.detail || "Could not redeem reward");
+        return;
+      }
+
+      // Trigger celebratory confetti
+      if (typeof confetti === "function") {
+        confetti({
+          particleCount: 200,
+          spread: 100,
+          origin: { y: 0.6 }
+        });
+      }
+
+      await loadState();
+      renderRewards();
+      showToast(`🎉 Shared goal "${reward.title}" redeemed! Congratulations ${teamNames}!`);
+    } catch (err) {
+      console.error("Shared redemption failed:", err);
+      showToast("Failed to redeem reward");
+    }
+    return;
+  }
+
+  // Individual redemption for single member
   const member = appState.members.find((x) => x.id === memberId);
-  if (!reward || !member) return;
+  if (!member) return;
 
   const currentPts = member.points || 0;
   const newPts = Math.max(0, currentPts - reward.starCost);
@@ -2858,12 +2969,6 @@ async function confirmRedeemReward(rewardId, memberId) {
       showToast(err.detail || "Could not redeem reward");
       return;
     }
-    const data = await res.json();
-    member.points = data.member.points;
-    if (data.reward && !data.reward.autoRenew) {
-      const rIdx = (appState.rewards || []).findIndex((x) => x.id === rewardId);
-      if (rIdx !== -1) appState.rewards[rIdx] = data.reward;
-    }
 
     // Trigger celebratory confetti
     if (typeof confetti === "function") {
@@ -2874,8 +2979,8 @@ async function confirmRedeemReward(rewardId, memberId) {
       });
     }
 
+    await loadState();
     renderRewards();
-    if (appState.activeNav === "chores") renderChores();
     showToast(`🎉 ${member.name} redeemed "${reward.title}"!`);
   } catch (err) {
     console.error("Redemption failed:", err);
@@ -2907,6 +3012,7 @@ async function openRedemptionHistoryModal() {
           <div>
             <div class="redemption-history-title">${item.rewardIcon || "🎁"} ${item.rewardTitle}</div>
             <div class="redemption-history-meta">Redeemed by <strong>${item.memberName}</strong> • ${dateStr}</div>
+            ${item.contributionDetails ? `<div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Pooled stars: ${item.contributionDetails}</div>` : ""}
           </div>
         </div>
         <div class="redemption-history-cost">-${item.starCost} ⭐</div>
