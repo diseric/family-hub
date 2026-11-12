@@ -1,0 +1,23 @@
+services:
+  skylight:
+    build: .
+    image: skylight-dashboard:latest
+    container_name: skylight-dashboard
+    restart: unless-stopped
+    ports:
+      - "80:3003"
+      - "3003:3003"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - PORT=3003
+      - DATA_DIR=/app/data
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - TZ=America/Los_Angeles
+    volumes:
+      - ./data:/app/data
+      - ./static:/app/static
+      - ./server.py:/app/server.py
+
+volumes:
+  data:

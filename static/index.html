@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Skylight Calendar — Smart Family Touchscreen Display</title>
+  <link rel="stylesheet" href="/static/styles.css?v=2.3.0" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <!-- Canvas Confetti for Reward Celebrations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+  <!-- Sleep Mode Screen (Tap anywhere to wake) -->
+  <div id="sleep-overlay" class="hidden" onclick="wakeScreen()">
+    <div class="sleep-content">
+      <div id="sleep-clock-text" class="sleep-clock">10:00 PM</div>
+      <div class="sleep-hint">🌙 Screen Sleeping • Tap Anywhere to Wake</div>
+    </div>
+  </div>
+
+  <!-- Interactive Chore Reward Celebration Modal -->
+  <div id="reward-modal" class="hidden" onclick="closeReward()">
+    <div class="reward-card">
+      <div id="reward-avatar" class="reward-avatar">🎉</div>
+      <div id="reward-title" class="reward-title">Great Job, Emma!</div>
+      <div id="reward-subtitle" style="color: var(--text-muted); font-size: 1.05rem; margin-bottom: 0.5rem;">Chore Completed!</div>
+      <div id="reward-points" class="reward-points">+25 PTS</div>
+      <div id="reward-total" style="color: var(--text-secondary); font-weight: 600; font-size: 1.1rem; margin-bottom: 1.5rem;">Total Points: 255 ⭐</div>
+      <button class="btn-skylight primary" style="margin: 0 auto; padding: 12px 36px;" onclick="closeReward()">Awesome! ✨</button>
+    </div>
+  </div>
+
+  <!-- Master App Container -->
+  <div class="skylight-app-container">
+
+    <!-- Skylight Left Navigation Rail (Authentic Hardware Sidebar) -->
+    <aside class="skylight-sidebar">
+      <div class="sidebar-brand" onclick="switchNav('calendar')">
+        <div class="skylight-logo-arch">
+          <!-- Authentic Skylight Sun/Arch Symbol -->
+          <svg viewBox="0 0 36 36" fill="none">
+            <path d="M7 26 C7 15.5, 15.5 7, 26 7" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+            <path d="M13 26 C13 18.8, 18.8 13, 26 13" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+            <circle cx="26" cy="26" r="3.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <span class="brand-text">Skylight</span>
+      </div>
+
+      <!-- Core Navigation Items -->
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="calendar" onclick="switchNav('calendar')" title="Calendar">
+          <span class="nav-icon">📅</span>
+          <span class="nav-label">Calendar</span>
+        </button>
+        <button class="nav-item" data-tab="chores" onclick="switchNav('chores')" title="Tasks & Chores">
+          <span class="nav-icon">📋</span>
+          <span class="nav-label">Tasks</span>
+        </button>
+        <button class="nav-item" data-tab="lists" onclick="switchNav('lists')" title="Grocery & Lists">
+          <span class="nav-icon">🛒</span>
+          <span class="nav-label">Lists</span>
+        </button>
+        <button class="nav-item" data-tab="meals" onclick="switchNav('meals')" title="Meal Planner">
+          <span class="nav-icon">🍽️</span>
+          <span class="nav-label">Meals</span>
+        </button>
+        <button class="nav-item" data-tab="photo-frame" onclick="switchNav('photo-frame')" title="Photo Frame">
+          <span class="nav-icon">🖼️</span>
+          <span class="nav-label">Photos</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Bottom Controls -->
+      <div class="sidebar-bottom">
+        <button class="sidebar-btn" onclick="openSetupWizard()" title="First-Time Setup Wizard">
+          <span class="icon">✨</span>
+          <span class="label">Setup</span>
+        </button>
+        <button class="sidebar-btn" onclick="toggleTheme()" id="theme-toggle-btn" title="Toggle Day / Night Mode">
+          <span class="icon" id="theme-icon">🌙</span>
+          <span class="label" id="theme-label">Theme</span>
+        </button>
+        <button class="sidebar-btn" onclick="triggerSleep()" title="Sleep Screen">
+          <span class="icon">💤</span>
+          <span class="label">Sleep</span>
+        </button>
+        <button class="sidebar-btn" onclick="openSettingsModal()" title="Settings & Sync">
+          <span class="icon">⚙️</span>
+          <span class="label">Settings</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Display Canvas -->
+    <div class="skylight-main">
+
+      <!-- Top Sub-Header Bar -->
+      <header class="skylight-topbar">
+        <!-- Live Clock & Weather -->
+        <div class="clock-weather-group">
+          <div>
+            <div id="clock-display" class="live-clock-skylight">--:--</div>
+            <div id="date-display" class="live-date-skylight">Loading date...</div>
+          </div>
+
+          <!-- Weather Chip -->
+          <div id="weather-box" class="weather-chip" onclick="openWeatherModal()" title="View 5-Day Forecast">
+            <span id="weather-icon" class="weather-chip-icon">⛅</span>
+            <span class="weather-chip-temp"><span id="weather-temp">68</span>°</span>
+            <span id="weather-desc" class="weather-chip-desc">Partly Sunny</span>
+            <span id="weather-location" class="weather-chip-loc" style="display:inline-block; font-size:0.8rem; font-weight:700; color:var(--text-secondary); margin-left:4px; padding-left:6px; border-left:1px solid var(--border-subtle);">Seattle</span>
+          </div>
+        </div>
+
+        <!-- Center View Switcher Pill (Day, 3-Day, Week, Month, Schedule, Split) -->
+        <div id="cal-view-selector" class="view-mode-selector">
+          <button class="view-btn" data-view="schedule" onclick="setCalendarView('schedule')">Schedule</button>
+          <button class="view-btn" data-view="day" onclick="setCalendarView('day')">Day</button>
+          <button class="view-btn" data-view="3day" onclick="setCalendarView('3day')">3-Day</button>
+          <button class="view-btn active" data-view="week" onclick="setCalendarView('week')">Week</button>
+          <button class="view-btn" data-view="month" onclick="setCalendarView('month')">Month</button>
+          <button class="view-btn split-btn" data-view="split" onclick="toggleSplitScreen()">◫ Split Screen</button>
+        </div>
+
+        <!-- Primary Top-Right Actions -->
+        <div class="topbar-actions">
+          <button class="btn-skylight magic" onclick="openMagicImport()" title="AI Schedule Extractor">
+            <span>🪄 Magic Import</span>
+          </button>
+          <button class="btn-skylight primary" onclick="openNewEventModal()" title="Add New Event">
+            <span>+ New</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Second Line of Header: Family Members Under Weather & Schedule -->
+      <div class="skylight-toolbar-bar">
+        <!-- Family Member Filter Pills (Directly under Weather & Schedule) -->
+        <div class="toolbar-left">
+          <div id="member-pills-bar" class="member-filters">
+            <!-- Injected dynamically -->
+          </div>
+        </div>
+
+        <!-- Date Navigator & Current Period Heading -->
+        <div class="toolbar-right">
+          <div class="date-nav-group">
+            <button class="date-nav-btn" onclick="navigateDate(-1)" title="Previous">‹</button>
+            <button class="date-nav-btn" onclick="goToToday()">Today</button>
+            <button class="date-nav-btn" onclick="navigateDate(1)" title="Next">›</button>
+          </div>
+          <span id="calendar-title-label" class="active-date-heading">Week of Nov 11, 2026</span>
+          <button class="btn-skylight ghost" onclick="openSyncModal()" title="Sync External Calendars" style="padding: 6px 14px; font-size: 0.8rem;">
+            <span>🔄 Sync</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Scrollable / Viewport Workspace Area -->
+      <main class="workspace-area">
+
+        <!-- 1. CALENDAR VIEW PANEL -->
+        <section id="panel-calendar" class="view-panel">
+          <div class="calendar-panel-wrapper">
+            <div id="calendar-grid-mount" class="calendar-grid-container">
+              <!-- Rendered dynamically (Week, Month, Day, 3-Day, Schedule) -->
+            </div>
+
+            <!-- Split Screen Photo Frame Right Pane (Shown when Split Screen active) -->
+            <div id="split-photos-pane" class="split-photos-card hidden">
+              <img id="split-slideshow-img" class="photo-slide-img" src="" alt="Slideshow" />
+              <div class="photo-overlay-info">
+                <div id="split-slideshow-caption" class="photo-caption">Family Memory</div>
+                <div class="photo-meta">Rotating Photo Frame Mode</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. TASKS & CHORES PANEL -->
+        <section id="panel-chores" class="view-panel hidden">
+          <div class="tasks-header-bar">
+            <div class="tasks-title-group">
+              <h2>Family Tasks & Daily Routines</h2>
+              <p>Tap circular checkmarks to complete tasks and earn reward points!</p>
+            </div>
+            <button class="btn-skylight primary" onclick="openNewChoreModal()">+ Add New Task</button>
+          </div>
+
+          <!-- Family Leaderboard Bar -->
+          <div id="chores-leaderboard" class="chores-leaderboard">
+            <!-- Injected dynamically -->
+          </div>
+
+          <!-- Chores Grid -->
+          <div id="chores-grid" class="chores-container">
+            <!-- Injected dynamically -->
+          </div>
+        </section>
+
+        <!-- 3. TO-DO & GROCERY LISTS PANEL -->
+        <section id="panel-lists" class="view-panel hidden">
+          <div class="tasks-header-bar">
+            <div class="tasks-title-group">
+              <h2>Lists & Grocery Hub</h2>
+              <p>Syncs live between this touchscreen display and mobile phones.</p>
+            </div>
+            <button class="btn-skylight primary" onclick="openNewListModal()">+ Create New List</button>
+          </div>
+
+          <div id="lists-container" class="lists-layout">
+            <!-- Grocery List, To-Do, etc. injected here -->
+          </div>
+        </section>
+
+        <!-- 4. MEAL PLANNER PANEL -->
+        <section id="panel-meals" class="view-panel hidden">
+          <div class="tasks-header-bar">
+            <div class="tasks-title-group">
+              <h2>Weekly Meal Planner (7-Day Matrix)</h2>
+              <p>Schedule breakfast, lunch, dinner, and snacks for every day of the week.</p>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn-skylight ghost" onclick="openSyncModal()">🔄 Sync Calendars</button>
+            </div>
+          </div>
+
+          <div id="meals-grid-container" class="meals-grid">
+            <!-- Monday-Sunday Cards injected dynamically -->
+          </div>
+        </section>
+
+        <!-- 5. FULL DIGITAL PHOTO FRAME PANEL -->
+        <section id="panel-photo-frame" class="view-panel hidden">
+          <div class="frame-controls-floating">
+            <button class="btn-skylight ghost" onclick="triggerPhotoUpload()">📸 Upload Photos</button>
+            <button class="btn-skylight primary" onclick="switchNav('calendar')">✕ Exit Frame Mode</button>
+          </div>
+          <img id="full-slideshow-img" class="photo-slide-img" src="" alt="Family Memories Slideshow" />
+          <div class="photo-overlay-info">
+            <div id="full-slideshow-caption" class="photo-caption">Summer Vacation 🏖️</div>
+            <div class="photo-meta">Skylight Digital Picture Frame • Tap anywhere to pause</div>
+          </div>
+          <input type="file" id="photo-file-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(this)" />
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Modal: Add / Edit Calendar Event -->
+  <div id="modal-event" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="modal-event-title">Add Calendar Event</h2>
+        <button class="modal-close" onclick="closeModal('modal-event')">✕</button>
+      </div>
+      <form id="form-event" onsubmit="saveEvent(event)">
+        <input type="hidden" id="ev-id" value="" />
+        <div class="modal-body">
+          <div id="ev-synced-banner" style="display:none; background:rgba(66, 133, 244, 0.1); border:1px solid rgba(66, 133, 244, 0.3); border-radius:6px; padding:6px 10px; font-size:0.8rem; color:#1d4ed8; margin-bottom:12px;">
+            📅 Synced Calendar Event
+          </div>
+          <div class="form-group">
+            <label>Event Title</label>
+            <input type="text" id="ev-title" required placeholder="e.g. Soccer Practice or Piano Lesson" />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="ev-date" required />
+            </div>
+            <div class="form-group">
+              <label>Assigned Family Member</label>
+              <select id="ev-member">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Start Time</label>
+              <input type="time" id="ev-time" value="09:00" required />
+            </div>
+            <div class="form-group">
+              <label>End Time</label>
+              <input type="time" id="ev-end-time" value="10:00" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Location (optional)</label>
+            <input type="text" id="ev-loc" placeholder="e.g. Community Center Field" />
+          </div>
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <textarea id="ev-notes" rows="2" placeholder="Uniform, water bottle, etc."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" class="btn-skylight danger" id="ev-btn-delete" onclick="deleteCurrentEvent()" style="display: none; background: #ef4444; color: white;">🗑️ Delete Event</button>
+          <div style="display: flex; gap: 0.75rem; margin-left: auto;">
+            <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-event')">Cancel</button>
+            <button type="submit" class="btn-skylight primary" id="ev-btn-submit">Save Event</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Magic Import (AI Scheduling) -->
+  <div id="modal-magic" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header" style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(236, 72, 153, 0.05));">
+        <h2>🪄 Magic Import (AI Schedule Extraction)</h2>
+        <button class="modal-close" onclick="closeModal('modal-magic')">✕</button>
+      </div>
+      <form id="form-magic" onsubmit="submitMagicImport(event)">
+        <div class="modal-body">
+          <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">
+            Paste raw text from school emails, sports schedules, or upload a PDF roster. Our local AI will automatically extract dates, times, titles, and locations straight to your calendar!
+          </p>
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="margin: 0;">Schedule Text or Document</label>
+              <div>
+                <input type="file" id="magic-file-input" accept=".txt,.csv,.pdf,.ics" style="display: none;" onchange="handleMagicFileUpload(event)" />
+                <button type="button" class="btn-skylight ghost" style="padding: 4px 12px; font-size: 0.8rem;" onclick="document.getElementById('magic-file-input').click()">
+                  📄 Upload PDF / File
+                </button>
+              </div>
+            </div>
+            <textarea id="magic-text" rows="8" placeholder="Paste schedule text or upload a PDF above...
+e.g.
+Saturday 10/14 - 9:00am Practice vs Hawks at City Park
+Sunday 10/15 - 1:30pm Championship Game vs Tigers at Memorial Stadium
+Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Assign Extracted Events to Member</label>
+            <select id="magic-member">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+          <div id="magic-status-box" style="display: none; padding: 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); color: #0284c7; font-weight: 600;">
+            Extracting schedule events with AI on local server...
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-magic')">Cancel</button>
+          <button type="submit" id="btn-magic-submit" class="btn-skylight magic">⚡ Extract & Populate Calendar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Sync External Calendars (Google, Apple, Outlook, Cozi, Yahoo) -->
+  <div id="modal-sync" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 650px;">
+      <div class="modal-header">
+        <h2>🔄 Universal Calendar Syncing</h2>
+        <button class="modal-close" onclick="closeModal('modal-sync')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.25rem;">
+          Connect your family's external iCal or WebCal calendar feeds. Events from Google Calendar, Apple/iCloud, Microsoft Outlook, Yahoo, and Cozi synchronize automatically.
+        </p>
+        <div id="feeds-list" style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+          <!-- Feed items injected dynamically -->
+        </div>
+
+        <h3 style="font-size: 1.1rem; margin-bottom: 0.75rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
+          + Add New Calendar Feed
+        </h3>
+        <form id="form-feed" onsubmit="addCalendarFeed(event)">
+          <div class="form-group">
+            <label>Feed Name</label>
+            <input type="text" id="feed-name" required placeholder="e.g. Mom's Work Google Calendar" />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Provider</label>
+              <select id="feed-provider">
+                <option value="Google">Google Calendar</option>
+                <option value="Apple">Apple iCloud Calendar</option>
+                <option value="Outlook">Microsoft Outlook / Office 365</option>
+                <option value="Yahoo">Yahoo Calendar</option>
+                <option value="Cozi">Cozi Family Organizer</option>
+                <option value="Custom">Other (iCal / WebCal)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Assign to Family Member</label>
+              <select id="feed-member">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Public or Secret iCal / .ics Feed URL</label>
+            <input type="url" id="feed-url" required placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" />
+          </div>
+          <div class="form-group">
+            <label>Accent Color</label>
+            <input type="color" id="feed-color" value="#0284c7" />
+          </div>
+          <button type="submit" class="btn-skylight primary" style="width: 100%;">Connect Calendar Feed</button>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-sync')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add New Chore -->
+  <div id="modal-chore" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>+ Add Family Task / Chore</h2>
+        <button class="modal-close" onclick="closeModal('modal-chore')">✕</button>
+      </div>
+      <form id="form-chore" onsubmit="saveChore(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Chore Title</label>
+            <input type="text" id="ch-title" required placeholder="e.g. Empty dishwasher, Practice piano" />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Assign To</label>
+              <select id="ch-member">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Reward Points</label>
+              <input type="number" id="ch-points" value="10" min="1" max="100" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Frequency</label>
+            <select id="ch-freq">
+              <option value="Daily">Daily Routine</option>
+              <option value="Weekly">Weekly Task</option>
+              <option value="As Needed">As Needed / One-Time</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-chore')">Cancel</button>
+          <button type="submit" class="btn-skylight primary">Add Chore</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add New Custom List -->
+  <div id="modal-list" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>+ Create New Custom List</h2>
+        <button class="modal-close" onclick="closeModal('modal-list')">✕</button>
+      </div>
+      <form id="form-list" onsubmit="saveCustomList(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>List Title (with emoji)</label>
+            <input type="text" id="nl-title" required placeholder="e.g. 🎒 Camping Trip Packing" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-list')">Cancel</button>
+          <button type="submit" class="btn-skylight primary">Create List</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Weather Forecast Details -->
+  <div id="modal-weather" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>🌤️ Local Weather Forecast</h2>
+        <button class="modal-close" onclick="closeModal('modal-weather')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
+          <div id="mw-icon" style="font-size: 3.5rem;">☁️</div>
+          <div id="mw-temp" style="font-size: 2.75rem; font-weight: 700; font-family: var(--font-display);">68°F</div>
+          <div id="mw-desc" style="color: var(--text-muted); font-size: 1.1rem;">Partly Sunny</div>
+          <div id="mw-location" style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 4px;">Seattle, WA</div>
+        </div>
+
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem; font-weight: 700;">5-Day Forecast</h3>
+        <div id="forecast-cards-container" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; text-align: center;">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-weather')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Settings & Sleep Schedule -->
+  <div id="modal-settings" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 600px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <h2>⚙️ Device & Family Settings</h2>
+        <button class="modal-close" onclick="closeModal('modal-settings')">✕</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; flex: 1;">
+        <!-- Setup Wizard Quick Launch -->
+        <div style="background: linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(245, 158, 11, 0.08)); border: 1px solid rgba(2, 132, 199, 0.25); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 2px;">✨ First-Time Setup Wizard</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">Guide device setup, family profiles, and Google Calendar sync.</div>
+          </div>
+          <button type="button" class="btn-skylight primary" onclick="closeModal('modal-settings'); openSetupWizard();" style="padding: 7px 14px; font-size: 0.85rem;">Launch Wizard</button>
+        </div>
+
+        <!-- Family Members Management -->
+        <div style="margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>👨‍👩‍👧‍👦 Family Profiles</span>
+          </h3>
+          <div id="settings-members-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+            <!-- Rendered dynamically -->
+          </div>
+          <div style="background: var(--bg-hover); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">+ Add Family Member</div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <input type="text" id="new-mem-name" placeholder="Name (e.g. Eric)" style="flex: 2; min-width: 120px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
+              <input type="text" id="new-mem-avatar" placeholder="Emoji" value="👤" style="width: 50px; text-align: center; padding: 6px 4px; font-size: 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
+              <input type="color" id="new-mem-color" value="#0284c7" style="width: 40px; height: 32px; border: none; cursor: pointer; border-radius: 6px; background: transparent;" />
+              <button type="button" class="btn-skylight primary" onclick="addMemberFromSettings()" style="padding: 6px 12px; font-size: 0.85rem;">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <form id="form-settings" onsubmit="saveSettings(event)">
+          <div class="form-group">
+            <label>Device Name</label>
+            <input type="text" id="set-device-name" value="Kitchen Skylight Hub" required />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label>Automatic Sleep Time (Screen Off)</label>
+              <input type="time" id="set-sleep-time" value="22:00" required />
+            </div>
+            <div class="form-group">
+              <label>Automatic Wake Time (Screen On)</label>
+              <input type="time" id="set-wake-time" value="06:30" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Weather Location (City, State / Country)</label>
+            <input type="text" id="set-weather-loc" value="Seattle, WA" required />
+          </div>
+          <div class="form-group">
+            <label>Magic Import Skylight Forwarding Email Address</label>
+            <input type="email" id="set-skylight-email" value="family-hub@skylight.local" required />
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+            <button type="submit" class="btn-skylight primary">Save Preferences</button>
+          </div>
+        </form>
+
+        <!-- Danger Zone: Reset / Clean Slate -->
+        <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color);">
+          <div style="font-size: 0.85rem; font-weight: 700; color: #ef4444; margin-bottom: 0.4rem;">⚠️ Data Management</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(239, 68, 68, 0.08); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(239, 68, 68, 0.2);">
+            <div>
+              <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">Reset All Data to Clean Slate</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Permanently removes sample events, chores, meals, and demo items.</div>
+            </div>
+            <button type="button" class="btn-skylight danger" onclick="resetCleanData()" style="padding: 6px 14px; font-size: 0.8rem; background: #ef4444; color: white;">Clear All Data</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 0.75rem 1.5rem;">
+        <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-settings')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- First-Time Setup Wizard Modal -->
+  <div id="modal-wizard" class="modal-overlay hidden">
+    <div class="wizard-card">
+      <!-- Wizard Header & Progress Stepper -->
+      <div class="wizard-header">
+        <div class="wizard-brand">
+          <div class="skylight-logo-arch" style="width: 28px; height: 28px;">
+            <svg viewBox="0 0 36 36" fill="none">
+              <path d="M7 26 C7 15.5, 15.5 7, 26 7" stroke="#0284c7" stroke-width="4" stroke-linecap="round"/>
+              <path d="M13 26 C13 18.8, 18.8 13, 26 13" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+              <circle cx="26" cy="26" r="3.5" fill="#0284c7"/>
+            </svg>
+          </div>
+          <span class="brand-text">Skylight Hub Setup Wizard</span>
+        </div>
+
+        <div class="wizard-stepper">
+          <div class="wizard-step-node active" id="wiz-node-1" onclick="goToWizardStep(1)">
+            <div class="wizard-step-circle">1</div>
+            <span class="wizard-step-label">Hub</span>
+          </div>
+          <div class="wizard-step-node" id="wiz-node-2" onclick="goToWizardStep(2)">
+            <div class="wizard-step-circle">2</div>
+            <span class="wizard-step-label">Family</span>
+          </div>
+          <div class="wizard-step-node" id="wiz-node-3" onclick="goToWizardStep(3)">
+            <div class="wizard-step-circle">3</div>
+            <span class="wizard-step-label">Google Cal</span>
+          </div>
+          <div class="wizard-step-node" id="wiz-node-4" onclick="goToWizardStep(4)">
+            <div class="wizard-step-circle">4</div>
+            <span class="wizard-step-label">Routines</span>
+          </div>
+          <div class="wizard-step-node" id="wiz-node-5" onclick="goToWizardStep(5)">
+            <div class="wizard-step-circle">5</div>
+            <span class="wizard-step-label">Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wizard Body / Panes -->
+      <div class="wizard-body">
+
+        <!-- STEP 1: Hub & Weather -->
+        <div class="wizard-pane active" id="wiz-pane-1">
+          <h2 class="wizard-pane-title">🏡 Name Your Hub & Set Location</h2>
+          <p class="wizard-pane-subtitle">Personalize your touchscreen display name, home weather forecasts, and automatic sleep hours.</p>
+
+          <div class="form-group">
+            <label>Device Name (Display Title)</label>
+            <input type="text" id="wiz-device-name" value="Kitchen Skylight Hub 15&quot;" placeholder="e.g. Kitchen Hub, Family Center" required />
+          </div>
+
+          <div class="form-group">
+            <label>Home Location (City, State / Country)</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="wiz-weather-loc" value="Seattle, WA" placeholder="e.g. Seattle, WA or Dallas, TX" style="flex: 1;" />
+              <button type="button" class="btn-skylight ghost" onclick="checkWizardWeather()" style="white-space: nowrap; padding: 6px 14px; font-size: 0.85rem;">📍 Test Weather</button>
+            </div>
+            <div id="wiz-weather-status" class="live-status-card" style="display: none;"></div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+            <div class="form-group">
+              <label>Automatic Wake Time</label>
+              <input type="time" id="wiz-wake-time" value="06:30" required />
+            </div>
+            <div class="form-group">
+              <label>Automatic Sleep Time</label>
+              <input type="time" id="wiz-sleep-time" value="22:00" required />
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: Family Profiles -->
+        <div class="wizard-pane" id="wiz-pane-2">
+          <h2 class="wizard-pane-title">👨‍👩‍👧‍👦 Family Profiles & Colors</h2>
+          <p class="wizard-pane-subtitle">Give every member of your home their own signature color badge and avatar. All calendar events and chores will be clearly color-coded.</p>
+
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.03em;">Current Family Members</div>
+          <div id="wiz-members-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem;">
+            <!-- Populated dynamically -->
+          </div>
+
+          <div style="background: var(--bg-card); padding: 1rem; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <div style="font-weight: 700; font-size: 0.88rem; margin-bottom: 0.6rem;">+ Add Family Member</div>
+            <div style="display: flex; gap: 8px; margin-bottom: 0.75rem;">
+              <input type="text" id="wiz-new-mem-name" placeholder="Member name (e.g. Sarah, Lucas)" style="flex: 1; padding: 7px 10px; font-size: 0.9rem;" />
+              <button type="button" class="btn-skylight primary" onclick="addMemberFromWizard()" style="padding: 7px 16px; font-size: 0.88rem;">Add Member</button>
+            </div>
+
+            <!-- Emoji Avatar Selector -->
+            <div style="margin-bottom: 0.75rem;">
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Choose Emoji Avatar</div>
+              <div class="emoji-avatar-picker" id="wiz-avatar-picker">
+                <button type="button" class="emoji-btn selected" onclick="selectWizardAvatar('👨')">👨</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('👩')">👩</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('👧')">👧</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('👦')">👦</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('👶')">👶</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('👵')">👵</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('👴')">👴</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('🐶')">🐶</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('🐱')">🐱</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('🏡')">🏡</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('💼')">💼</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('⚽')">⚽</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('🎨')">🎨</button>
+                <button type="button" class="emoji-btn" onclick="selectWizardAvatar('🎵')">🎵</button>
+              </div>
+              <input type="hidden" id="wiz-selected-avatar" value="👨" />
+            </div>
+
+            <!-- Color Palette Selector -->
+            <div>
+              <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted);">Choose Badge Color</div>
+              <div class="color-swatch-picker" id="wiz-color-picker">
+                <button type="button" class="color-swatch-btn selected" style="background: #0284c7;" onclick="selectWizardColor('#0284c7')"></button>
+                <button type="button" class="color-swatch-btn" style="background: #ec4899;" onclick="selectWizardColor('#ec4899')"></button>
+                <button type="button" class="color-swatch-btn" style="background: #10b981;" onclick="selectWizardColor('#10b981')"></button>
+                <button type="button" class="color-swatch-btn" style="background: #f59e0b;" onclick="selectWizardColor('#f59e0b')"></button>
+                <button type="button" class="color-swatch-btn" style="background: #8b5cf6;" onclick="selectWizardColor('#8b5cf6')"></button>
+                <button type="button" class="color-swatch-btn" style="background: #ef4444;" onclick="selectWizardColor('#ef4444')"></button>
+                <button type="button" class="color-swatch-btn" style="background: #06b6d4;" onclick="selectWizardColor('#06b6d4')"></button>
+                <button type="button" class="color-swatch-btn" style="background: #84cc16;" onclick="selectWizardColor('#84cc16')"></button>
+              </div>
+              <input type="hidden" id="wiz-selected-color" value="#0284c7" />
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: Google Calendar Sync -->
+        <div class="wizard-pane" id="wiz-pane-3">
+          <div class="gcal-header">
+            <div class="gcal-icon-wrap">
+              📅
+            </div>
+            <div>
+              <h2 class="wizard-pane-title" style="margin-bottom: 2px;">Connect Google Calendar</h2>
+              <div style="font-size: 0.85rem; color: var(--text-muted);">Sync work, personal, and family events continuously with live updates.</div>
+            </div>
+          </div>
+
+          <!-- Step-by-Step Instructions -->
+          <div class="gcal-instructions">
+            <strong style="color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+              <span>💡</span> How to get your Google Calendar Secret iCal Address:
+            </strong>
+            <ol>
+              <li>On your computer or laptop, go to <a href="https://calendar.google.com" target="_blank" style="color: var(--skylight-blue); text-decoration: underline; font-weight: 600;">calendar.google.com</a>.</li>
+              <li>In the left panel under <em>"My calendars"</em>, hover over the calendar you want to sync and click the three dots <strong>⋮</strong> &gt; <strong>Settings and sharing</strong>.</li>
+              <li>Scroll down to the <strong>"Integrate calendar"</strong> section.</li>
+              <li>Copy the link labeled <strong>"Secret address in iCal format"</strong> (or Public address if public).</li>
+            </ol>
+            <div style="margin-top: 6px; font-size: 0.77rem; color: var(--text-muted);">
+              Format example: <code>https://calendar.google.com/calendar/ical/user%40gmail.com/private-xxxxxx/basic.ics</code>
+            </div>
+          </div>
+
+          <div class="gcal-connect-card">
+            <div class="form-group">
+              <label>Google Calendar Secret iCal URL</label>
+              <input type="url" id="wiz-gcal-url" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics" required />
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label>Calendar Display Name</label>
+                <input type="text" id="wiz-gcal-name" value="Google Calendar" placeholder="e.g. Dad's Work Cal, Family Cal" />
+              </div>
+              <div class="form-group">
+                <label>Assign to Family Profile</label>
+                <select id="wiz-gcal-member">
+                  <!-- Populated dynamically -->
+                </select>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 0.5rem;">
+              <button type="button" class="btn-skylight primary" onclick="testAndConnectGoogleCal()" id="wiz-btn-connect-gcal" style="padding: 8px 18px; font-size: 0.88rem;">
+                <span>🔗 Test & Connect Calendar</span>
+              </button>
+            </div>
+
+            <!-- Live Status Feedback Card -->
+            <div id="wiz-gcal-status" class="live-status-card" style="display: none;"></div>
+          </div>
+
+          <!-- Connected Feeds in Wizard -->
+          <div id="wiz-feeds-section" style="margin-top: 1.25rem; display: none;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Connected Calendars</div>
+            <div id="wiz-connected-feeds" style="display: flex; flex-direction: column; gap: 6px;"></div>
+          </div>
+        </div>
+
+        <!-- STEP 4: Lists & Routines -->
+        <div class="wizard-pane" id="wiz-pane-4">
+          <h2 class="wizard-pane-title">🪄 Starter Lists & Magic Import</h2>
+          <p class="wizard-pane-subtitle">Choose starter lists for your kitchen display and configure your AI forwarding address.</p>
+
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Enable Starter Lists</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <label style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); cursor: pointer;">
+              <input type="checkbox" id="wiz-list-grocery" checked style="width: 18px; height: 18px;" />
+              <div>
+                <div style="font-weight: 600; font-size: 0.88rem;">🛒 Grocery List</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Milk, bread, produce, pantry</div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); cursor: pointer;">
+              <input type="checkbox" id="wiz-list-todo" checked style="width: 18px; height: 18px;" />
+              <div>
+                <div style="font-weight: 600; font-size: 0.88rem;">✅ Household To-Do</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Chores, home errands</div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); cursor: pointer;">
+              <input type="checkbox" id="wiz-list-school" checked style="width: 18px; height: 18px;" />
+              <div>
+                <div style="font-weight: 600; font-size: 0.88rem;">🎒 School & Activities</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Permission slips, gear</div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); cursor: pointer;">
+              <input type="checkbox" id="wiz-list-packing" style="width: 18px; height: 18px;" />
+              <div>
+                <div style="font-weight: 600; font-size: 0.88rem;">🧳 Packing Checklist</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">Trips, weekend getaways</div>
+              </div>
+            </label>
+          </div>
+
+          <div style="background: var(--bg-card); padding: 1rem 1.25rem; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.4rem;">
+              <span style="font-size: 1.2rem;">🪄</span>
+              <strong style="font-size: 0.92rem;">Magic Import Email Address</strong>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 0.75rem;">
+              Forward school newsletters, PDF sports schedules, or camp emails to this address. Our on-device AI model extracts event dates and titles straight to your calendar!
+            </p>
+            <input type="email" id="wiz-skylight-email" value="family-hub@skylight.local" placeholder="family-hub@skylight.local" />
+          </div>
+        </div>
+
+        <!-- STEP 5: Ready! -->
+        <div class="wizard-pane" id="wiz-pane-5">
+          <div style="text-align: center; padding: 1rem 0;">
+            <div style="font-size: 3rem; margin-bottom: 0.5rem; animation: popIn 0.4s ease-out;">🎉</div>
+            <h2 class="wizard-pane-title" style="font-size: 1.6rem; margin-bottom: 0.4rem;">Your Skylight Hub is Ready!</h2>
+            <p class="wizard-pane-subtitle" style="max-width: 460px; margin: 0 auto 1.5rem;">All your settings, family profiles, and Google Calendar sync have been configured.</p>
+
+            <!-- Summary Review Card -->
+            <div id="wiz-summary-card" style="background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; padding: 1.25rem; text-align: left; max-width: 500px; margin: 0 auto 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.04);">
+              <!-- Populated dynamically -->
+            </div>
+
+            <button type="button" class="btn-skylight primary" onclick="finishSetupWizard()" style="padding: 12px 36px; font-size: 1.05rem; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);">
+              🚀 Launch Skylight Hub
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Wizard Footer Navigation -->
+      <div class="wizard-footer">
+        <div>
+          <button type="button" class="btn-skylight ghost" id="wiz-btn-back" onclick="wizardBack()" style="display: none;">‹ Back</button>
+          <button type="button" class="btn-skylight ghost" id="wiz-btn-skip" onclick="wizardSkip()" style="display: none; font-size: 0.8rem;">Skip Google Calendar</button>
+        </div>
+        <div>
+          <button type="button" class="btn-skylight primary" id="wiz-btn-next" onclick="wizardNext()">Next Step ›</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Engine (v2.3.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.3.0"></script>
+</body>
+</html>

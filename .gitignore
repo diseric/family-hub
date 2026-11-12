@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Application database and uploaded media
+data/skylight_db.json
+data/photos/*
+!data/photos/.gitkeep
+data/*.json
+
+# Local environment
+.env
+.DS_Store
+Thumbs.db
