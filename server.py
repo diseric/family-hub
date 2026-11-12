@@ -565,6 +565,20 @@ def create_reward(rew: RewardModel):
     save_db(db)
     return item
 
+@app.post("/api/rewards/batch")
+def create_rewards_batch(rewards: List[RewardModel]):
+    added = []
+    base_time = int(time.time() * 1000)
+    for idx, rew in enumerate(rewards):
+        new_id = rew.id or f"rew_{base_time}_{idx}"
+        item = rew.dict()
+        item["id"] = new_id
+        item["createdAt"] = datetime.now().isoformat()
+        db.setdefault("rewards", []).append(item)
+        added.append(item)
+    save_db(db)
+    return added
+
 @app.put("/api/rewards/{reward_id}")
 def update_reward(reward_id: str, rew: RewardModel):
     for i, r in enumerate(db.get("rewards", [])):

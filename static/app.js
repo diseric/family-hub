@@ -223,6 +223,122 @@ function populateSelectDropdowns() {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-Member Selection Helpers (Tasks, Routines, Rewards)
+// ---------------------------------------------------------------------------
+function renderMultiMemberPicker(containerId, selectedIds = [], isReward = false) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = "";
+
+  const selSet = new Set((selectedIds && selectedIds.length > 0) ? selectedIds : ["all"]);
+  const excludedRewards = (isReward && appState.settings && Array.isArray(appState.settings.excludedRewardMemberIds))
+    ? appState.settings.excludedRewardMemberIds
+    : [];
+
+  // Entire Family (Shared)
+  const isAllSelected = selSet.has("all");
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.className = `member-chip-select ${isAllSelected ? "selected" : ""}`;
+  allBtn.dataset.memberId = "all";
+  allBtn.style.setProperty("--member-color", "var(--primary)");
+  allBtn.onclick = () => handleMemberChipClick(containerId, "all");
+  allBtn.innerHTML = `
+    <span class="member-chip-avatar">🏡</span>
+    <span class="member-chip-name">${isReward ? "Entire Family (Shared Goal)" : "Entire Family (Shared)"}</span>
+    <span class="member-chip-check">✓</span>
+  `;
+  container.appendChild(allBtn);
+
+  // Individual Members
+  for (const m of appState.members || []) {
+    if (m.id === "m5") continue;
+    if (isReward && excludedRewards.includes(m.id)) continue;
+
+    const isSelected = selSet.has(m.id);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `member-chip-select ${isSelected ? "selected" : ""}`;
+    btn.dataset.memberId = m.id;
+    btn.style.setProperty("--member-color", m.color || "var(--primary)");
+    btn.onclick = () => handleMemberChipClick(containerId, m.id);
+    btn.innerHTML = `
+      <span class="member-chip-avatar">${m.avatar || "👤"}</span>
+      <span class="member-chip-name">${escapeHtml(m.name)}</span>
+      <span class="member-chip-check">✓</span>
+    `;
+    container.appendChild(btn);
+  }
+
+  syncPickerToHiddenInput(containerId);
+}
+
+function getSelectedPickerMembers(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return ["all"];
+  const selected = Array.from(container.querySelectorAll(".member-chip-select.selected"))
+    .map((btn) => btn.dataset.memberId)
+    .filter(Boolean);
+  return selected.length > 0 ? selected : ["all"];
+}
+
+function handleMemberChipClick(containerId, clickedVal) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const allBtn = container.querySelector(`.member-chip-select[data-member-id="all"]`);
+  const clickedBtn = container.querySelector(`.member-chip-select[data-member-id="${clickedVal}"]`);
+  if (!clickedBtn) return;
+
+  if (clickedVal === "all") {
+    container.querySelectorAll(".member-chip-select").forEach((b) => b.classList.remove("selected"));
+    allBtn.classList.add("selected");
+  } else {
+    if (allBtn) allBtn.classList.remove("selected");
+    clickedBtn.classList.toggle("selected");
+
+    const anySelected = container.querySelectorAll(".member-chip-select.selected").length > 0;
+    if (!anySelected && allBtn) {
+      allBtn.classList.add("selected");
+    }
+  }
+
+  syncPickerToHiddenInput(containerId);
+}
+
+function toggleAllPickerMembers(containerId, selectAll) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const allBtn = container.querySelector(`.member-chip-select[data-member-id="all"]`);
+  const individualBtns = Array.from(container.querySelectorAll(`.member-chip-select:not([data-member-id="all"])`));
+
+  if (selectAll) {
+    if (allBtn) allBtn.classList.remove("selected");
+    individualBtns.forEach((b) => b.classList.add("selected"));
+  } else {
+    individualBtns.forEach((b) => b.classList.remove("selected"));
+    if (allBtn) allBtn.classList.add("selected");
+  }
+
+  syncPickerToHiddenInput(containerId);
+}
+
+function syncPickerToHiddenInput(containerId) {
+  const hiddenInputMap = {
+    "ch-members-picker": "ch-member",
+    "reward-members-picker": "reward-member-id",
+    "preset-members-picker": "preset-member-select"
+  };
+  const hiddenInputId = hiddenInputMap[containerId];
+  if (hiddenInputId) {
+    const hiddenEl = document.getElementById(hiddenInputId);
+    if (hiddenEl) {
+      const currentSelected = getSelectedPickerMembers(containerId);
+      hiddenEl.value = currentSelected[0] || "all";
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Weather Widget Display & Forecast Modal
 // ---------------------------------------------------------------------------
 function renderWeather() {
@@ -1563,9 +1679,7 @@ function getChoreFrequencyCategory(freq) {
 }
 
 function openNewChoreForMember(memberId) {
-  openNewChoreModal();
-  const mSel = document.getElementById("ch-member");
-  if (mSel && memberId) mSel.value = memberId;
+  openNewChoreModal(memberId);
 }
 
 // ---------------------------------------------------------------------------
@@ -2074,14 +2188,15 @@ function renderRewards() {
   }
 }
 
-function openNewRewardModal() {
+function openNewRewardModal(preferredMemberId) {
   document.getElementById("modal-reward-title").textContent = "+ Add Reward Goal";
   document.getElementById("reward-id").value = "";
   document.getElementById("reward-title").value = "";
   document.getElementById("reward-icon").value = "🍦";
   document.getElementById("reward-star-cost").value = 50;
   populateSelectDropdowns();
-  document.getElementById("reward-member-id").value = "all";
+  const selMember = preferredMemberId || "all";
+  renderMultiMemberPicker("reward-members-picker", [selMember], true);
   document.getElementById("reward-autorenew").checked = true;
   document.getElementById("reward-desc").value = "";
   const delBtn = document.getElementById("btn-delete-reward");
@@ -2090,8 +2205,7 @@ function openNewRewardModal() {
 }
 
 function openNewRewardForMember(memberId) {
-  openNewRewardModal();
-  document.getElementById("reward-member-id").value = memberId;
+  openNewRewardModal(memberId);
 }
 
 function openEditRewardModal(rewardId) {
@@ -2103,7 +2217,7 @@ function openEditRewardModal(rewardId) {
   document.getElementById("reward-icon").value = r.icon || "🎁";
   document.getElementById("reward-star-cost").value = r.starCost || 50;
   populateSelectDropdowns();
-  document.getElementById("reward-member-id").value = r.memberId || "all";
+  renderMultiMemberPicker("reward-members-picker", [r.memberId || "all"], true);
   document.getElementById("reward-autorenew").checked = r.autoRenew !== false;
   document.getElementById("reward-desc").value = r.description || "";
   const delBtn = document.getElementById("btn-delete-reward");
@@ -2124,41 +2238,84 @@ function setRewardCost(cost) {
 async function saveReward(e) {
   e.preventDefault();
   const rewId = document.getElementById("reward-id").value;
-  const payload = {
-    title: document.getElementById("reward-title").value.trim(),
-    icon: document.getElementById("reward-icon").value.trim() || "🎁",
-    starCost: parseInt(document.getElementById("reward-star-cost").value) || 50,
-    memberId: document.getElementById("reward-member-id").value,
-    autoRenew: document.getElementById("reward-autorenew").checked,
-    description: document.getElementById("reward-desc").value.trim()
-  };
+  const title = document.getElementById("reward-title").value.trim();
+  const icon = document.getElementById("reward-icon").value.trim() || "🎁";
+  const starCost = parseInt(document.getElementById("reward-star-cost").value) || 50;
+  const autoRenew = document.getElementById("reward-autorenew").checked;
+  const description = document.getElementById("reward-desc").value.trim();
+  const selectedMembers = getSelectedPickerMembers("reward-members-picker");
+
+  if (!title) {
+    showToast("Please enter a reward title");
+    return;
+  }
 
   try {
-    let res;
     if (rewId) {
-      res = await fetch(`/api/rewards/${rewId}`, {
+      const memberId = selectedMembers[0] || "all";
+      const payload = {
+        title,
+        icon,
+        starCost,
+        memberId,
+        autoRenew,
+        description,
+        id: rewId
+      };
+      const res = await fetch(`/api/rewards/${rewId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      const saved = await res.json();
+      const idx = (appState.rewards || []).findIndex((x) => x.id === rewId);
+      if (idx !== -1) appState.rewards[idx] = saved;
+      showToast("Reward goal updated!");
+    } else if (selectedMembers.length > 1) {
+      const payloadList = selectedMembers.map((mId) => ({
+        title,
+        icon,
+        starCost,
+        memberId: mId,
+        autoRenew,
+        description
+      }));
+      const res = await fetch("/api/rewards/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadList)
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        appState.rewards = appState.rewards || [];
+        appState.rewards.push(...data);
+      } else if (data && Array.isArray(data.items)) {
+        appState.rewards = appState.rewards || [];
+        appState.rewards.push(...data.items);
+      }
+      showToast(`Created ${Array.isArray(data) ? data.length : (data.count || payloadList.length)} reward goals!`);
     } else {
-      res = await fetch("/api/rewards", {
+      const memberId = selectedMembers[0] || "all";
+      const payload = {
+        title,
+        icon,
+        starCost,
+        memberId,
+        autoRenew,
+        description
+      };
+      const res = await fetch("/api/rewards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-    }
-    const saved = await res.json();
-    if (rewId) {
-      const idx = (appState.rewards || []).findIndex((x) => x.id === rewId);
-      if (idx !== -1) appState.rewards[idx] = saved;
-    } else {
+      const saved = await res.json();
       appState.rewards = appState.rewards || [];
       appState.rewards.push(saved);
+      showToast("Reward goal saved!");
     }
     closeModal("modal-reward");
-    renderRewards();
-    showToast("Reward goal saved!");
+    await loadState();
   } catch (err) {
     console.error("Failed to save reward:", err);
     showToast("Error saving reward goal");
@@ -3565,37 +3722,25 @@ let selectedPresetCategory = "toddler";
 let activePresetSelections = new Set();
 
 function openPresetRoutinesModal(preferredMemberId) {
-  populatePresetMemberDropdown(preferredMemberId);
+  let selMember = "all";
+  if (preferredMemberId) {
+    selMember = preferredMemberId;
+  } else if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
+    selMember = appState.activeMemberFilter;
+  }
+  renderMultiMemberPicker("preset-members-picker", [selMember]);
   selectPresetAgeCategory("toddler");
   openModal("modal-preset-routines");
 }
 
 function populatePresetMemberDropdown(preferredMemberId) {
-  const sel = document.getElementById("preset-member-select");
-  if (!sel) return;
-  sel.innerHTML = "";
-
-  const sharedOpt = document.createElement("option");
-  sharedOpt.value = "all";
-  sharedOpt.textContent = "🏡 Entire Family (Shared Routines)";
-  sel.appendChild(sharedOpt);
-
-  for (const m of appState.members) {
-    if (m.id === "m5") continue;
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = `${m.avatar || "👤"} ${m.name}`;
-    sel.appendChild(opt);
-  }
-
+  let selMember = "all";
   if (preferredMemberId) {
-    sel.value = preferredMemberId;
+    selMember = preferredMemberId;
   } else if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
-    sel.value = appState.activeMemberFilter;
-  } else if (appState.members && appState.members.length > 0) {
-    const firstNonShared = appState.members.find((m) => m.id !== "m5");
-    if (firstNonShared) sel.value = firstNonShared.id;
+    selMember = appState.activeMemberFilter;
   }
+  renderMultiMemberPicker("preset-members-picker", [selMember]);
 }
 
 function selectPresetAgeCategory(catKey) {
@@ -3711,7 +3856,7 @@ async function saveBatchPresetRoutines() {
     return;
   }
 
-  const memberId = document.getElementById("preset-member-select").value;
+  const selectedMembers = getSelectedPickerMembers("preset-members-picker");
   const frequency = document.getElementById("preset-frequency-select").value || "Daily";
   const starOverride = document.getElementById("preset-stars-select").value;
   const cat = AGE_ROUTINE_PRESETS[selectedPresetCategory];
@@ -3721,20 +3866,22 @@ async function saveBatchPresetRoutines() {
     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const payloadList = [];
-  activePresetSelections.forEach((idx) => {
-    const item = cat.items[idx];
-    if (!item) return;
-    const pts = (starOverride && starOverride !== "keep") ? parseInt(starOverride, 10) : item.points;
+  selectedMembers.forEach((memberId) => {
+    activePresetSelections.forEach((idx) => {
+      const item = cat.items[idx];
+      if (!item) return;
+      const pts = (starOverride && starOverride !== "keep") ? parseInt(starOverride, 10) : item.points;
 
-    payloadList.push({
-      title: item.title,
-      icon: item.icon,
-      memberId: memberId,
-      points: pts,
-      frequency: frequency,
-      isRoutine: true,
-      timeOfDay: item.timeOfDay || "morning",
-      daysOfWeek: daysOfWeek
+      payloadList.push({
+        title: item.title,
+        icon: item.icon,
+        memberId: memberId,
+        points: pts,
+        frequency: frequency,
+        isRoutine: true,
+        timeOfDay: item.timeOfDay || "morning",
+        daysOfWeek: daysOfWeek
+      });
     });
   });
 
@@ -3754,16 +3901,18 @@ async function saveBatchPresetRoutines() {
       confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
     }
 
-    const memberObj = appState.members.find((m) => m.id === memberId);
-    const mName = memberObj ? memberObj.name : "Family";
-    showToast(`🎉 Added ${payloadList.length} routines for ${mName}!`);
+    const memberNames = selectedMembers.map((mId) => {
+      const m = (appState.members || []).find((x) => x.id === mId);
+      return m ? m.name : "Family";
+    }).join(", ");
+    showToast(`🎉 Added ${payloadList.length} routines for ${memberNames}!`);
   } catch (err) {
     console.error("Batch preset error:", err);
     showToast("Error creating pre-set routines");
   }
 }
 
-function openNewChoreModal() {
+function openNewChoreModal(preferredMemberId) {
   const form = document.getElementById("form-chore");
   if (form) form.reset();
   const idEl = document.getElementById("ch-id");
@@ -3789,14 +3938,13 @@ function openNewChoreModal() {
 
   populateSelectDropdowns();
 
-  const mSel = document.getElementById("ch-member");
-  if (mSel) {
-    if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
-      mSel.value = appState.activeMemberFilter;
-    } else if (appState.members && appState.members.length > 0) {
-      mSel.value = appState.members[0].id;
-    }
+  let selMember = "all";
+  if (preferredMemberId) {
+    selMember = preferredMemberId;
+  } else if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
+    selMember = appState.activeMemberFilter;
   }
+  renderMultiMemberPicker("ch-members-picker", [selMember]);
 
   openModal("modal-chore");
 }
@@ -3817,8 +3965,7 @@ function openEditChoreModal(choreId) {
   if (iconEl) iconEl.value = chore.icon || "🪥";
 
   populateSelectDropdowns();
-  const mEl = document.getElementById("ch-member");
-  if (mEl && chore.memberId) mEl.value = chore.memberId;
+  renderMultiMemberPicker("ch-members-picker", [chore.memberId || "all"]);
 
   const ptsEl = document.getElementById("ch-points");
   if (ptsEl) ptsEl.value = chore.points !== undefined ? chore.points : 10;
@@ -3871,7 +4018,7 @@ async function saveChore(e) {
   e.preventDefault();
   const choreId = document.getElementById("ch-id").value;
   const title = document.getElementById("ch-title").value.trim();
-  const memberId = document.getElementById("ch-member").value;
+  const selectedMembers = getSelectedPickerMembers("ch-members-picker");
   const points = parseInt(document.getElementById("ch-points").value, 10) || 10;
   const frequency = document.getElementById("ch-freq").value;
   const isRoutine = document.getElementById("ch-is-routine").value === "true";
@@ -3879,36 +4026,73 @@ async function saveChore(e) {
   const daysOfWeek = getSelectedRoutineDays();
   const icon = document.getElementById("ch-icon").value.trim() || "";
 
-  const payload = {
-    title,
-    memberId,
-    points,
-    frequency,
-    isRoutine,
-    timeOfDay,
-    daysOfWeek,
-    icon
-  };
+  if (!title) {
+    showToast("Please enter a title");
+    return;
+  }
 
   try {
     if (choreId) {
+      const memberId = selectedMembers[0] || "all";
+      const payload = {
+        title,
+        memberId,
+        points,
+        frequency,
+        isRoutine,
+        timeOfDay,
+        daysOfWeek,
+        icon,
+        id: choreId
+      };
       await fetch(`/api/chores/${choreId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, id: choreId }),
+        body: JSON.stringify(payload),
       });
+      showToast(isRoutine ? "Routine updated!" : "Task updated!");
+    } else if (selectedMembers.length > 1) {
+      const payloadList = selectedMembers.map((mId) => ({
+        title,
+        memberId: mId,
+        points,
+        frequency,
+        isRoutine,
+        timeOfDay,
+        daysOfWeek,
+        icon
+      }));
+      const res = await fetch("/api/chores/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadList),
+      });
+      const data = await res.json();
+      showToast(`Created ${data.count || payloadList.length} routines!`);
     } else {
+      const memberId = selectedMembers[0] || "all";
+      const payload = {
+        title,
+        memberId,
+        points,
+        frequency,
+        isRoutine,
+        timeOfDay,
+        daysOfWeek,
+        icon
+      };
       await fetch("/api/chores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      showToast(isRoutine ? "Routine saved!" : "Task saved!");
     }
     await loadState();
     if (appState.splitScreen) renderSplitSidePane();
     closeModal("modal-chore");
-    showToast(isRoutine ? "Routine saved!" : "Task saved!");
   } catch (err) {
+    console.error("Error saving chore:", err);
     alert("Error saving chore: " + err.message);
   }
 }

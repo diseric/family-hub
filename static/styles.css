@@ -3699,3 +3699,54 @@ body {
   background: rgba(245, 158, 11, 0.05);
 }
 
+/* Multi-Member Selection Pills for Chores, Routines & Rewards */
+.multi-member-picker {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.member-chip-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.member-chip-select:hover {
+  background: var(--bg-hover);
+  border-color: var(--member-color, var(--primary));
+  transform: translateY(-1px);
+}
+
+.member-chip-select.selected {
+  border-color: var(--member-color, var(--primary));
+  background: color-mix(in srgb, var(--member-color, var(--primary)) 14%, var(--bg-card));
+  color: var(--text-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.member-chip-select input[type="checkbox"] {
+  display: none;
+}
+
+.member-chip-select .member-chip-check {
+  display: none;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--member-color, var(--primary));
+}
+
+.member-chip-select.selected .member-chip-check {
+  display: inline-block;
+}
+
