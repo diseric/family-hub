@@ -3827,7 +3827,8 @@ body {
 }
 
 .home-side-container.single-pane .home-profile-tasks-list {
-  max-height: calc(100vh - 260px);
+  max-height: none;
+  overflow-y: visible;
 }
 
 .home-pane-header {
@@ -3906,8 +3907,28 @@ body {
   padding: 4px;
 }
 
-/* Horizontal scrolling carousels for profiles and lists */
-.home-tasks-scroll,
+/* Stacked rows for profiles and tasks */
+.home-tasks-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 12px;
+  flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-tasks-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.home-tasks-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
 .home-lists-scroll {
   display: flex;
   gap: 10px;
@@ -3919,29 +3940,27 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-.home-tasks-scroll::-webkit-scrollbar,
 .home-lists-scroll::-webkit-scrollbar {
   height: 5px;
 }
 
-.home-tasks-scroll::-webkit-scrollbar-thumb,
 .home-lists-scroll::-webkit-scrollbar-thumb {
   background: var(--border-color);
   border-radius: 4px;
 }
 
-/* Profile Task Card */
+/* Profile Task Card - Stacked in full-width rows */
 .home-profile-card {
-  flex: 0 0 215px;
-  min-width: 215px;
-  max-width: 240px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 0 auto;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  scroll-snap-align: start;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
 }
 
@@ -3979,9 +3998,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  overflow-y: auto;
-  flex: 1;
-  max-height: 175px;
+  overflow-y: visible;
+  flex: none;
+  max-height: none;
 }
 
 .home-task-item {
