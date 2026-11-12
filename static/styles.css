@@ -606,8 +606,31 @@ body {
   animation: fadeIn 0.25s ease-out;
 }
 
-#panel-chores, #panel-lists, #panel-meals {
-  overflow-y: auto;
+#panel-chores,
+#panel-rewards,
+#panel-lists,
+#panel-meals {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: contain;
+  padding-bottom: 3.5rem;
+}
+
+/* Sleek custom scrollbars for touch & kiosk */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
 }
 
 .view-panel.hidden {

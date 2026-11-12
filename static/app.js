@@ -45,6 +45,7 @@ async function init() {
   initScreensaverActivityListeners();
   resetScreensaverIdleTimer();
   requestScreenWakeLock();
+  initDragToScroll();
 
   // If first-time setup has not been completed, launch the wizard
   if (!appState.settings || !appState.settings.setupCompleted) {
@@ -314,6 +315,67 @@ function renderActiveNav() {
   else if (appState.activeNav === "lists") renderLists();
   else if (appState.activeNav === "meals") renderMeals();
   else if (appState.activeNav === "photo-frame") renderPhotoFrame();
+  initDragToScroll();
+}
+
+// ---------------------------------------------------------------------------
+// Universal Touch & Mouse Drag-to-Scroll Controller
+// ---------------------------------------------------------------------------
+function initDragToScroll() {
+  const panelSelectors = [
+    "#panel-chores",
+    "#panel-rewards",
+    "#panel-lists",
+    "#panel-meals",
+    ".daily-events-pane",
+  ];
+
+  panelSelectors.forEach((selector) => {
+    const el = document.querySelector(selector);
+    if (!el || el.dataset.dragScrollInit) return;
+    el.dataset.dragScrollInit = "true";
+
+    let isDown = false;
+    let startY = 0;
+    let scrollTop = 0;
+    let isDragging = false;
+
+    el.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      const target = e.target;
+      if (target.closest("button, input, select, textarea, a, .chore-checkbox, .filter-pill, .routine-filter-btn, .mini-btn, .member-points-pill, .modal-card, .btn-hub")) {
+        return;
+      }
+      isDown = true;
+      isDragging = false;
+      startY = e.pageY;
+      scrollTop = el.scrollTop;
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDown) return;
+      const dy = e.pageY - startY;
+      if (Math.abs(dy) > 5) {
+        isDragging = true;
+        el.scrollTop = scrollTop - dy;
+      }
+    });
+
+    window.addEventListener("mouseup", (e) => {
+      if (isDown) {
+        isDown = false;
+        if (isDragging) {
+          const captureClick = (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+            window.removeEventListener("click", captureClick, true);
+          };
+          window.addEventListener("click", captureClick, true);
+        }
+        isDragging = false;
+      }
+    });
+  });
 }
 
 function setCalendarView(viewName) {
