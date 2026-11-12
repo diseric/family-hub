@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.32.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.33.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -896,6 +896,95 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
       </div>
     </div>
   </div>
+
+  <!-- Modal: Edit Family Member Profile (Name, Avatar, Color) -->
+  <div id="modal-edit-member" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2 id="modal-edit-member-title">✏️ Edit Family Profile</h2>
+        <button class="modal-close" onclick="closeModal('modal-edit-member')">✕</button>
+      </div>
+      <form id="form-edit-member" onsubmit="saveMemberProfile(event)">
+        <input type="hidden" id="edit-mem-id" value="" />
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 1.15rem; padding: 1.25rem;">
+          
+          <!-- Live Profile Preview Card -->
+          <div style="display: flex; align-items: center; gap: 14px; background: var(--bg-hover); padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border-color);">
+            <div id="edit-mem-preview-avatar" style="font-size: 2.8rem; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));">👤</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="edit-mem-preview-color" style="width: 14px; height: 14px; border-radius: 50%; background: #0284c7; display: inline-block; box-shadow: 0 0 4px rgba(0,0,0,0.2);"></span>
+                <span id="edit-mem-preview-name" style="font-weight: 700; font-size: 1.15rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Member Name</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 3px;">Profile Preview (Live)</div>
+            </div>
+          </div>
+
+          <!-- Name Input -->
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="edit-mem-name" required placeholder="e.g. Eric, Brady, Emma, Mom" oninput="updateMemberPreview()" style="font-size: 1rem; font-weight: 600;" />
+          </div>
+
+          <!-- Avatar Emoji Input & Touch Preset Palette -->
+          <div class="form-group">
+            <label>Avatar Emoji (Type or tap an icon below)</label>
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+              <input type="text" id="edit-mem-avatar" required value="👤" maxlength="4" style="width: 58px; text-align: center; font-size: 1.6rem; padding: 4px;" oninput="updateMemberPreview()" />
+              <span style="font-size: 0.78rem; color: var(--text-muted);">Shown on calendar events, chores, and rewards</span>
+            </div>
+            <!-- Touch Preset Avatars -->
+            <div class="icon-presets" style="gap: 6px;">
+              <span class="icon-chip" onclick="selectMemberAvatar('👨')">👨</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👩')">👩</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👦')">👦</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👧')">👧</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👶')">👶</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🧑')">🧑</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🧔')">🧔</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👱‍♀️')">👱‍♀️</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👵')">👵</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👴')">👴</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🐶')">🐶</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🐱')">🐱</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🦊')">🦊</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🐻')">🐻</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('⭐')">⭐</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🚀')">🚀</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('👑')">👑</span>
+              <span class="icon-chip" onclick="selectMemberAvatar('🎨')">🎨</span>
+            </div>
+          </div>
+
+          <!-- Profile Color Picker & Preset Swatches -->
+          <div class="form-group">
+            <label>Profile Color (Highlights events, routines, and star cards)</label>
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
+              <input type="color" id="edit-mem-color" value="#0284c7" style="width: 48px; height: 38px; border: none; cursor: pointer; border-radius: 8px; background: transparent;" oninput="updateMemberPreview()" />
+              <span id="edit-mem-color-hex" style="font-family: monospace; font-size: 0.9rem; font-weight: 700; color: var(--text-secondary);">#0284c7</span>
+            </div>
+            <!-- Preset Color Palette Swatches -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" onclick="selectMemberColor('#0284c7')" style="width: 28px; height: 28px; border-radius: 50%; background: #0284c7; border: 2px solid var(--border-subtle); cursor: pointer;" title="Hub Blue"></button>
+              <button type="button" onclick="selectMemberColor('#8b5cf6')" style="width: 28px; height: 28px; border-radius: 50%; background: #8b5cf6; border: 2px solid var(--border-subtle); cursor: pointer;" title="Purple"></button>
+              <button type="button" onclick="selectMemberColor('#10b981')" style="width: 28px; height: 28px; border-radius: 50%; background: #10b981; border: 2px solid var(--border-subtle); cursor: pointer;" title="Emerald Green"></button>
+              <button type="button" onclick="selectMemberColor('#f59e0b')" style="width: 28px; height: 28px; border-radius: 50%; background: #f59e0b; border: 2px solid var(--border-subtle); cursor: pointer;" title="Amber Orange"></button>
+              <button type="button" onclick="selectMemberColor('#ef4444')" style="width: 28px; height: 28px; border-radius: 50%; background: #ef4444; border: 2px solid var(--border-subtle); cursor: pointer;" title="Crimson Red"></button>
+              <button type="button" onclick="selectMemberColor('#ec4899')" style="width: 28px; height: 28px; border-radius: 50%; background: #ec4899; border: 2px solid var(--border-subtle); cursor: pointer;" title="Rose Pink"></button>
+              <button type="button" onclick="selectMemberColor('#06b6d4')" style="width: 28px; height: 28px; border-radius: 50%; background: #06b6d4; border: 2px solid var(--border-subtle); cursor: pointer;" title="Teal Cyan"></button>
+              <button type="button" onclick="selectMemberColor('#6366f1')" style="width: 28px; height: 28px; border-radius: 50%; background: #6366f1; border: 2px solid var(--border-subtle); cursor: pointer;" title="Indigo"></button>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-edit-member')">Cancel</button>
+          <button type="submit" class="btn-hub primary">Save Profile</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="modal-points" class="modal-overlay hidden">
     <div class="modal-card" style="max-width: 420px;">
       <div class="modal-header">
@@ -924,9 +1013,12 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <button type="button" class="btn-hub ghost" onclick="setPointsInput(0)" style="padding: 4px 10px; font-size: 0.8rem; color: #ef4444;">Reset (0)</button>
           </div>
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-points')">Cancel</button>
-          <button type="submit" class="btn-hub primary">Save Points</button>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+          <button type="button" class="btn-hub ghost mini-btn" onclick="closeModal('modal-points'); openEditMemberModal(document.getElementById('pts-member-id').value);" style="font-size: 0.8rem;">✏️ Edit Profile</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn-hub ghost" onclick="closeModal('modal-points')">Cancel</button>
+            <button type="submit" class="btn-hub primary">Save Points</button>
+          </div>
         </div>
       </form>
     </div>
@@ -1612,7 +1704,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.32.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.32.0"></script>
+  <!-- Main JavaScript Engine (v2.33.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.33.0"></script>
 </body>
 </html>

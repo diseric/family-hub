@@ -3972,21 +3972,136 @@ function renderSettingsMembers() {
     return;
   }
   container.innerHTML = appState.members.map(m => `
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border-color);">
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 1.3rem;">${m.avatar || "👤"}</span>
-        <span style="width: 14px; height: 14px; border-radius: 50%; background: ${m.color || "#0284c7"}; display: inline-block;"></span>
-        <span style="font-weight: 600; font-size: 0.92rem;">${m.name}</span>
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border-color); gap: 8px;">
+      <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0;" onclick="openEditMemberModal('${m.id}')" title="Click to edit ${m.name}'s name, avatar, or color">
+        <span style="font-size: 1.4rem;">${m.avatar || "👤"}</span>
+        <span style="width: 14px; height: 14px; border-radius: 50%; background: ${m.color || "#0284c7"}; display: inline-block; flex-shrink: 0; box-shadow: 0 0 3px rgba(0,0,0,0.2);"></span>
+        <span style="font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.name}</span>
+        <span style="font-size: 0.72rem; color: var(--primary); font-weight: 600; opacity: 0.85;">✏️ Edit</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <button type="button" onclick="openEditPointsModal('${m.id}')" title="Edit ${m.name}'s points" style="background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.35); color: var(--accent-gold); font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: var(--radius-pill); cursor: pointer; display: flex; align-items: center; gap: 4px;">
-          <span>${m.points || 0} ⭐</span>
-          <span style="font-size: 0.7rem;">✏️</span>
+      <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+        <button type="button" class="btn-hub ghost mini-btn" onclick="openEditMemberModal('${m.id}')" title="Edit ${m.name}'s profile" style="padding: 4px 8px; font-size: 0.78rem;">
+          ✏️ Edit Profile
         </button>
-        <button type="button" onclick="deleteMemberFromSettings('${m.id}')" title="Delete Profile" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1rem; padding: 2px 6px;">🗑️</button>
+        ${m.id !== "m5" ? `
+          <button type="button" onclick="openEditPointsModal('${m.id}')" title="Edit ${m.name}'s points" style="background: rgba(251, 191, 36, 0.15); border: 1px solid rgba(251, 191, 36, 0.35); color: var(--accent-gold); font-weight: 700; font-size: 0.8rem; padding: 4px 8px; border-radius: var(--radius-pill); cursor: pointer; display: flex; align-items: center; gap: 3px;">
+            <span>${m.points || 0} ⭐</span>
+          </button>
+          <button type="button" onclick="deleteMemberFromSettings('${m.id}')" title="Delete Profile" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1rem; padding: 2px 6px;">🗑️</button>
+        ` : ""}
       </div>
     </div>
   `).join("");
+}
+
+// ---------------------------------------------------------------------------
+// Family Member Profile Editing (Name, Avatar, Color)
+// ---------------------------------------------------------------------------
+function openEditMemberModal(memberId) {
+  const m = getMember(memberId);
+  if (!m) return;
+
+  const idEl = document.getElementById("edit-mem-id");
+  if (idEl) idEl.value = m.id;
+
+  const nameEl = document.getElementById("edit-mem-name");
+  if (nameEl) nameEl.value = m.name || "";
+
+  const avEl = document.getElementById("edit-mem-avatar");
+  if (avEl) avEl.value = m.avatar || "👤";
+
+  const colorEl = document.getElementById("edit-mem-color");
+  if (colorEl) colorEl.value = m.color || "#0284c7";
+
+  const hexEl = document.getElementById("edit-mem-color-hex");
+  if (hexEl) hexEl.textContent = m.color || "#0284c7";
+
+  const titEl = document.getElementById("modal-edit-member-title");
+  if (titEl) titEl.textContent = `✏️ Edit ${m.name}'s Profile`;
+
+  updateMemberPreview();
+  openModal("modal-edit-member");
+}
+
+function updateMemberPreview() {
+  const name = (document.getElementById("edit-mem-name")?.value || "").trim() || "Member Name";
+  const avatar = (document.getElementById("edit-mem-avatar")?.value || "").trim() || "👤";
+  const color = document.getElementById("edit-mem-color")?.value || "#0284c7";
+
+  const pName = document.getElementById("edit-mem-preview-name");
+  if (pName) pName.textContent = name;
+
+  const pAv = document.getElementById("edit-mem-preview-avatar");
+  if (pAv) pAv.textContent = avatar;
+
+  const pCol = document.getElementById("edit-mem-preview-color");
+  if (pCol) pCol.style.background = color;
+
+  const hexEl = document.getElementById("edit-mem-color-hex");
+  if (hexEl) hexEl.textContent = color;
+}
+
+function selectMemberAvatar(emoji) {
+  const avEl = document.getElementById("edit-mem-avatar");
+  if (avEl) {
+    avEl.value = emoji;
+    updateMemberPreview();
+  }
+}
+
+function selectMemberColor(hex) {
+  const colorEl = document.getElementById("edit-mem-color");
+  if (colorEl) {
+    colorEl.value = hex;
+    updateMemberPreview();
+  }
+}
+
+async function saveMemberProfile(e) {
+  e.preventDefault();
+  const memberId = document.getElementById("edit-mem-id")?.value;
+  if (!memberId) return;
+
+  const name = document.getElementById("edit-mem-name")?.value.trim();
+  const avatar = document.getElementById("edit-mem-avatar")?.value.trim() || "👤";
+  const color = document.getElementById("edit-mem-color")?.value || "#0284c7";
+
+  if (!name) {
+    showToast("Please enter a member name");
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/members/${memberId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, avatar, color }),
+    });
+
+    if (!res.ok) throw new Error("Failed to update profile");
+    const data = await res.json();
+    const updatedMember = data.member;
+
+    // Update in-memory state
+    const idx = (appState.members || []).findIndex(x => x.id === memberId);
+    if (idx !== -1) {
+      appState.members[idx] = { ...appState.members[idx], ...updatedMember };
+    }
+
+    closeModal("modal-edit-member");
+    renderSettingsMembers();
+    populateSelectDropdowns();
+    renderMemberFilters();
+    renderCalendar();
+    if (appState.activeNav === "chores") renderChores();
+    if (appState.activeNav === "rewards") renderRewards();
+    if (appState.splitScreen) renderSplitSidePane();
+
+    showToast(`Saved profile for ${updatedMember.name}!`);
+  } catch (err) {
+    console.error("Failed to update member:", err);
+    showToast("Error updating family profile");
+  }
 }
 
 function openEditPointsModal(memberId) {
