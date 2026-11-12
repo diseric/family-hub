@@ -124,6 +124,7 @@ DEFAULT_SETTINGS = {
     "setupCompleted": False,
     "daytimeScreensaverEnabled": True,
     "daytimeScreensaverTimeoutMins": 5,
+    "excludedRewardMemberIds": [],
     "googlePhotosAlbumUrl": "",
     "googlePhotosLastSynced": None,
     "googlePhotosCount": 0,
@@ -139,6 +140,9 @@ def load_db() -> Dict[str, Any]:
                     save_db(data)
                 if "reward_redemptions" not in data:
                     data["reward_redemptions"] = []
+                if "settings" in data and "excludedRewardMemberIds" not in data["settings"]:
+                    data["settings"]["excludedRewardMemberIds"] = []
+                    save_db(data)
                 return data
         except Exception as e:
             logger.error(f"Error loading state file: {e}")

@@ -199,10 +199,18 @@ function populateSelectDropdowns() {
       allOpt.textContent = "🏡 Entire Family (Shared Goal)";
       el.appendChild(allOpt);
     }
+    const excludedRewards = (appState.settings && Array.isArray(appState.settings.excludedRewardMemberIds))
+      ? appState.settings.excludedRewardMemberIds
+      : [];
     for (const m of appState.members) {
+      if (sId === "reward-member-id" && m.id === "m5") continue;
       const opt = document.createElement("option");
       opt.value = m.id;
-      opt.textContent = `${m.avatar || "👤"} ${m.name}`;
+      if (sId === "reward-member-id" && excludedRewards.includes(m.id)) {
+        opt.textContent = `${m.avatar || "👤"} ${m.name} (Excluded from Rewards)`;
+      } else {
+        opt.textContent = `${m.avatar || "👤"} ${m.name}`;
+      }
       el.appendChild(opt);
     }
     if (sId === "ch-member") {
@@ -1921,11 +1929,30 @@ function renderRewards() {
   if (lb) lb.innerHTML = "";
 
   const rewards = appState.rewards || [];
+  const excluded = (appState.settings && Array.isArray(appState.settings.excludedRewardMemberIds))
+    ? appState.settings.excludedRewardMemberIds
+    : [];
 
-  // 1. Render Family Star Balance Leaderboard Cards
+  // Update excluded summary pill on Rewards screen
+  const summaryEl = document.getElementById("rewards-excluded-summary");
+  if (summaryEl) {
+    if (excluded.length > 0) {
+      const excludedNames = appState.members
+        .filter((m) => excluded.includes(m.id))
+        .map((m) => m.name)
+        .join(", ");
+      summaryEl.innerHTML = `<span>👥 Excluded: <strong>${excludedNames}</strong> (${excluded.length})</span> <span style="text-decoration: underline; opacity: 0.85;">• Edit</span>`;
+      summaryEl.style.display = "flex";
+    } else {
+      summaryEl.innerHTML = `<span>👥 All members active</span> <span style="text-decoration: underline; opacity: 0.85;">• Edit</span>`;
+      summaryEl.style.display = "flex";
+    }
+  }
+
+  // 1. Render Family Star Balance Leaderboard Cards (participating members only)
   const sortedMembers = [...appState.members].sort((a, b) => (b.points || 0) - (a.points || 0));
   for (const m of sortedMembers) {
-    if (m.id === "m5") continue;
+    if (m.id === "m5" || excluded.includes(m.id)) continue;
     const card = document.createElement("div");
     card.className = "chores-leaderboard-card";
     card.style.borderLeft = `4px solid ${m.color || "#0284c7"}`;
@@ -1944,9 +1971,10 @@ function renderRewards() {
     lb.appendChild(card);
   }
 
-  // Count ready to redeem
+  // Count ready to redeem for participating members
   let readyCount = 0;
   for (const m of appState.members) {
+    if (m.id === "m5" || excluded.includes(m.id)) continue;
     for (const r of rewards) {
       if (r.memberId === "all" || r.memberId === m.id) {
         if ((m.points || 0) >= (r.starCost || 0) && !r.completed) {
@@ -1958,21 +1986,30 @@ function renderRewards() {
   const badgeReady = document.getElementById("ready-rewards-count");
   if (badgeReady) badgeReady.textContent = readyCount;
 
-  // 2. Identify assigned family members to display (4 columns side-by-side)
+  // 2. Identify assigned family members to display (dynamically sized columns side-by-side)
+  const participatingMembers = appState.members.filter((m) => m.id !== "m5" && !excluded.includes(m.id));
   let membersToDisplay = appState.activeMemberFilter === "all"
-    ? [...appState.members]
-    : appState.members.filter((m) => m.id === appState.activeMemberFilter);
+    ? participatingMembers
+    : participatingMembers.filter((m) => m.id === appState.activeMemberFilter);
 
   if (membersToDisplay.length === 0) {
-    grid.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-muted); width: 100%;">No family members found. Add profiles in Settings!</div>`;
+    grid.innerHTML = `
+      <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted); width: 100%; grid-column: 1 / -1;">
+        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">⭐</div>
+        <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem;">No Participating Members on Rewards Screen</div>
+        <p style="font-size: 0.85rem; max-width: 420px; margin: 0 auto 1.25rem; line-height: 1.45;">
+          All family members are currently excluded from Rewards or filtered out. Tap below to choose who participates.
+        </p>
+        <button type="button" class="btn-hub primary" onclick="openRewardsMemberExclusionModal()">Configure Participation</button>
+      </div>
+    `;
     return;
   }
 
   if (window.innerWidth <= 768) {
     grid.style.gridTemplateColumns = "1fr";
-  } else if (membersToDisplay.length === 4) {
-    grid.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
   } else {
+    // Dynamic column allocation: 2 kids = 2 wide columns side by side, 3 kids = 3 columns, etc.
     grid.style.gridTemplateColumns = `repeat(${Math.max(1, membersToDisplay.length)}, minmax(0, 1fr))`;
   }
 
@@ -2285,6 +2322,104 @@ async function openRedemptionHistoryModal() {
     }
   } catch (err) {
     listEl.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 1rem;">Failed to load history</div>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Rewards Member Exclusion & Participation Management
+// ---------------------------------------------------------------------------
+function openRewardsMemberExclusionModal() {
+  const container = document.getElementById("rewards-members-checklist");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const excluded = (appState.settings && Array.isArray(appState.settings.excludedRewardMemberIds))
+    ? appState.settings.excludedRewardMemberIds
+    : [];
+
+  const eligibleMembers = appState.members.filter((m) => m.id !== "m5");
+  if (eligibleMembers.length === 0) {
+    container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No family profiles found. Add members in Settings first!</div>`;
+  } else {
+    for (const m of eligibleMembers) {
+      const isParticipating = !excluded.includes(m.id);
+      const row = document.createElement("label");
+      row.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border-color); cursor: pointer; user-select: none; transition: background 0.15s ease;";
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 1.6rem;">${m.avatar || "👤"}</span>
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+              <span>${m.name}</span>
+              <span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${m.color || "#0284c7"};"></span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">${m.points || 0} ⭐ currently</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="participation-label" style="font-size: 0.8rem; font-weight: 700; color: ${isParticipating ? "var(--accent-green, #10b981)" : "var(--text-muted)"};">
+            ${isParticipating ? "Participating" : "Excluded"}
+          </span>
+          <input type="checkbox" class="reward-member-checkbox" data-member-id="${m.id}" ${isParticipating ? "checked" : ""} style="width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer;" onchange="
+            const label = this.parentElement.querySelector('.participation-label');
+            if (label) {
+              label.textContent = this.checked ? 'Participating' : 'Excluded';
+              label.style.color = this.checked ? 'var(--accent-green, #10b981)' : 'var(--text-muted)';
+            }
+          " />
+        </div>
+      `;
+      container.appendChild(row);
+    }
+  }
+
+  openModal("modal-rewards-members");
+}
+
+async function saveRewardsMemberExclusions() {
+  const checkboxes = document.querySelectorAll(".reward-member-checkbox");
+  const newExcluded = [];
+  checkboxes.forEach((cb) => {
+    if (!cb.checked) {
+      newExcluded.push(cb.getAttribute("data-member-id"));
+    }
+  });
+
+  if (!appState.settings) appState.settings = {};
+  appState.settings.excludedRewardMemberIds = newExcluded;
+
+  try {
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(appState.settings),
+    });
+    if (!res.ok) throw new Error("Failed to save settings");
+    const updated = await res.json();
+    appState.settings = updated;
+    closeModal("modal-rewards-members");
+    populateSelectDropdowns();
+    renderRewards();
+    updateSettingsRewardsExclusionSummary();
+    const participatingCount = appState.members.filter((m) => m.id !== "m5" && !newExcluded.includes(m.id)).length;
+    showToast(`⭐ Rewards participation saved (${participatingCount} active, ${newExcluded.length} excluded)`);
+  } catch (err) {
+    console.error("Failed to save reward exclusions:", err);
+    showToast("Error updating participation settings");
+  }
+}
+
+function updateSettingsRewardsExclusionSummary() {
+  const el = document.getElementById("settings-rewards-exclusion-summary");
+  if (!el) return;
+  const excluded = (appState.settings && Array.isArray(appState.settings.excludedRewardMemberIds))
+    ? appState.settings.excludedRewardMemberIds
+    : [];
+  if (excluded.length > 0) {
+    const names = appState.members.filter((m) => excluded.includes(m.id)).map((m) => m.name).join(", ");
+    el.textContent = `Excluded: ${names} (${excluded.length} hidden from Rewards)`;
+  } else {
+    el.textContent = "All family members participate in Rewards";
   }
 }
 
@@ -3563,6 +3698,7 @@ function openSettingsModal() {
   if (ssTimeoutEl && s.daytimeScreensaverTimeoutMins) ssTimeoutEl.value = String(s.daytimeScreensaverTimeoutMins);
   renderScreensaverStatusInSettings();
   renderSettingsMembers();
+  updateSettingsRewardsExclusionSummary();
   renderSettingsFeeds();
   updateSettingsMemberDropdown();
   renderSettingsLists();

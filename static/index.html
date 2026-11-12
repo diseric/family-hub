@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.28.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.29.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -380,7 +380,8 @@
               <h2>⭐ Family Rewards & Star Goals</h2>
               <p>Earn stars by completing chores and routines to unlock awesome rewards!</p>
             </div>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <button class="btn-hub ghost" onclick="openRewardsMemberExclusionModal()" title="Choose which family members participate in Rewards">👥 Exclude Members</button>
               <button class="btn-hub ghost" onclick="openRedemptionHistoryModal()">📜 Redemptions</button>
               <button class="btn-hub primary" onclick="openNewRewardModal()">+ Add Reward Goal</button>
             </div>
@@ -397,6 +398,9 @@
               <button type="button" class="filter-pill active" data-reward-filter="all" onclick="setRewardsFilter('all')">All Goals</button>
               <button type="button" class="filter-pill" data-reward-filter="ready" onclick="setRewardsFilter('ready')">⭐ Ready to Redeem (<span id="ready-rewards-count">0</span>)</button>
               <button type="button" class="filter-pill" data-reward-filter="inprogress" onclick="setRewardsFilter('inprogress')">In Progress</button>
+            </div>
+            <div id="rewards-excluded-summary" style="font-size: 0.8rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;" onclick="openRewardsMemberExclusionModal()">
+              <!-- Dynamically populated, e.g. "👥 2 members excluded" -->
             </div>
           </div>
 
@@ -933,6 +937,31 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
+  <!-- Modal: Exclude / Include Members in Rewards -->
+  <div id="modal-rewards-members" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2>👥 Rewards System Participation</h2>
+        <button class="modal-close" onclick="closeModal('modal-rewards-members')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.15rem; line-height: 1.45;">
+          Select which family members participate in the star rewards system. Unchecked members (e.g. parents) will be hidden from the Rewards leaderboard and goal grid, allowing participating members' columns to expand and fill the screen.
+        </p>
+        <div id="rewards-members-checklist" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Synced across all devices</span>
+        <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-rewards-members')">Cancel</button>
+          <button type="button" class="btn-hub primary" onclick="saveRewardsMemberExclusions()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Add New Custom List -->
   <div id="modal-list" class="modal-overlay hidden">
     <div class="modal-card">
@@ -998,7 +1027,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           <div id="settings-members-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
             <!-- Rendered dynamically -->
           </div>
-          <div style="background: var(--bg-hover); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="background: var(--bg-hover); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 0.75rem;">
             <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">+ Add Family Member</div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
               <input type="text" id="new-mem-name" placeholder="Name (e.g. Eric)" style="flex: 2; min-width: 120px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
@@ -1006,6 +1035,13 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
               <input type="color" id="new-mem-color" value="#0284c7" style="width: 40px; height: 32px; border: none; cursor: pointer; border-radius: 6px; background: transparent;" />
               <button type="button" class="btn-hub primary" onclick="addMemberFromSettings()" style="padding: 6px 12px; font-size: 0.85rem;">Add</button>
             </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; background: var(--bg-hover); padding: 0.75rem 0.85rem; border-radius: 8px; border: 1px solid var(--border-color); gap: 0.5rem;">
+            <div>
+              <div style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary);">⭐ Rewards Screen Participation</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);" id="settings-rewards-exclusion-summary">All family members participate</div>
+            </div>
+            <button type="button" class="btn-hub ghost mini-btn" onclick="openRewardsMemberExclusionModal()" style="font-size: 0.78rem; padding: 5px 12px; white-space: nowrap;">👥 Exclude Members</button>
           </div>
         </div>
 
@@ -1508,7 +1544,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.28.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.28.0"></script>
+  <!-- Main JavaScript Engine (v2.29.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.29.0"></script>
 </body>
 </html>
