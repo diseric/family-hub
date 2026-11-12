@@ -398,7 +398,7 @@ function renderSplitChores() {
   
   const chores = appState.activeMemberFilter === "all"
     ? (appState.chores || [])
-    : (appState.chores || []).filter((c) => c.memberId === appState.activeMemberFilter);
+    : (appState.chores || []).filter((c) => c.memberId === appState.activeMemberFilter || c.memberId === "all");
     
   const pending = chores.filter((c) => !c.completed);
   if (countBadge) countBadge.textContent = `${pending.length} left`;
@@ -1069,10 +1069,10 @@ function renderChores() {
         </div>
         <button type="button" class="btn-hub ghost mini-btn" onclick="openNewChoreForMember('${member.id}')" title="Add task for ${member.name}">+ Task</button>
       </div>
-      <div class="member-subcategories-container" id="subcats-${member.id}"></div>
+      <div class="member-subcategories-container"></div>
     `;
 
-    const subcatsContainer = col.querySelector(`#subcats-${member.id}`);
+    const subcatsContainer = col.querySelector(".member-subcategories-container");
 
     for (const sub of subcats) {
       const choresInSub = memberChores.filter(
@@ -1086,10 +1086,10 @@ function renderChores() {
           <span>${sub.icon} ${sub.label}</span>
           <span class="subcategory-badge">${choresInSub.filter(c => !c.completed).length} left</span>
         </div>
-        <div class="chore-subcategory-list" id="sublist-${member.id}-${sub.key}"></div>
+        <div class="chore-subcategory-list"></div>
       `;
 
-      const listContainer = subGroup.querySelector(`#sublist-${member.id}-${sub.key}`);
+      const listContainer = subGroup.querySelector(".chore-subcategory-list");
 
       if (choresInSub.length === 0) {
         listContainer.innerHTML = `
