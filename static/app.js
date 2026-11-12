@@ -1,4 +1,4 @@
-// Skylight Touchscreen Family Hub & Calendar Frontend
+// Family Hub Touchscreen & Calendar Frontend
 
 let appState = {
   members: [],
@@ -222,7 +222,7 @@ function openWeatherModal() {
 
 function toggleTheme() {
   const isDark = document.body.classList.toggle("theme-dark");
-  localStorage.setItem("skylight-theme", isDark ? "dark" : "light");
+  localStorage.setItem("familyhub-theme", isDark ? "dark" : "light");
   const icon = document.getElementById("theme-icon");
   const label = document.getElementById("theme-label");
   if (icon) icon.textContent = isDark ? "☀️" : "🌙";
@@ -230,7 +230,7 @@ function toggleTheme() {
 }
 
 function loadSavedTheme() {
-  const saved = localStorage.getItem("skylight-theme");
+  const saved = localStorage.getItem("familyhub-theme") || localStorage.getItem("skylight-theme");
   const icon = document.getElementById("theme-icon");
   const label = document.getElementById("theme-label");
   if (saved === "dark") {
@@ -845,8 +845,9 @@ async function editMealPrompt(day, mealType, currentVal) {
 function getActivePhotos() {
   if (appState.photos && appState.photos.length > 0) {
     return appState.photos.map((p) => ({
-      url: `/api/photos/file/${p.filename}`,
+      url: p.url || `/api/photos/file/${p.filename}`,
       caption: p.caption || "Family Memory",
+      source: p.source || "upload",
     }));
   }
   return FALLBACK_PHOTOS;
@@ -862,6 +863,7 @@ function updateSlideshowImage(imgId, captionId) {
   const capEl = document.getElementById(captionId);
 
   if (imgEl) {
+    imgEl.referrerPolicy = "no-referrer";
     imgEl.style.opacity = "0.2";
     setTimeout(() => {
       imgEl.src = current.url;
@@ -869,6 +871,11 @@ function updateSlideshowImage(imgId, captionId) {
     }, 400);
   }
   if (capEl) capEl.textContent = current.caption;
+
+  const metaEl = document.getElementById("full-slideshow-meta");
+  if (metaEl && appState.settings && appState.settings.googlePhotosAlbumUrl) {
+    metaEl.textContent = `📸 Google Photos Album • ${appState.photos.length} photos rotating • Tap to pause`;
+  }
 }
 
 function startPhotoSlideshow() {
@@ -908,6 +915,214 @@ async function handlePhotoUpload(input) {
     alert("Photo upload error: " + err.message);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Google Photos Album Controller
+// ---------------------------------------------------------------------------
+function openGooglePhotosModal() {
+  renderGooglePhotosModalStatus();
+  openModal("modal-google-photos");
+}
+
+function renderGooglePhotosStatus() {
+  const container = document.getElementById("settings-gphotos-status-card");
+  const btnSyncTop = document.getElementById("btn-sync-gphotos-top");
+  if (!container) return;
+
+  const s = appState.settings || {};
+  const albumUrl = s.googlePhotosAlbumUrl;
+  const count = s.googlePhotosCount || 0;
+  const lastSynced = s.googlePhotosLastSynced;
+
+  if (albumUrl) {
+    if (btnSyncTop) btnSyncTop.style.display = "inline-block";
+    container.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(16, 185, 129, 0.08); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.25);">
+        <div>
+          <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+            <span>📸</span> Connected Google Photos Album
+          </div>
+          <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">
+            ${count} photos synced • Last updated: ${lastSynced || "Recently"}
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-hub ghost" onclick="syncGooglePhotosAlbum()" style="font-size: 0.78rem; padding: 4px 10px;">🔄 Sync Now</button>
+          <button type="button" class="btn-hub danger" onclick="disconnectGooglePhotosAlbum()" style="font-size: 0.78rem; padding: 4px 10px; background: #ef4444; color: white;">Disconnect</button>
+        </div>
+      </div>
+    `;
+  } else {
+    if (btnSyncTop) btnSyncTop.style.display = "none";
+    container.innerHTML = `
+      <div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">
+        No Google Photos album connected yet. Paste your shared album link below to display your photos!
+      </div>
+    `;
+  }
+}
+
+function renderGooglePhotosModalStatus() {
+  const container = document.getElementById("modal-gphotos-active-card");
+  if (!container) return;
+
+  const s = appState.settings || {};
+  const albumUrl = s.googlePhotosAlbumUrl;
+  const count = s.googlePhotosCount || 0;
+  const lastSynced = s.googlePhotosLastSynced;
+
+  if (albumUrl) {
+    container.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(16, 185, 129, 0.08); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.25);">
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">✅ Album Connected & Active</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">${count} photos rotating in slideshow • Synced: ${lastSynced || "Recently"}</div>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-hub ghost" onclick="syncGooglePhotosAlbum()" style="padding: 5px 12px; font-size: 0.82rem;">🔄 Sync Now</button>
+          <button type="button" class="btn-hub danger" onclick="disconnectGooglePhotosAlbum()" style="padding: 5px 12px; font-size: 0.82rem; background: #ef4444; color: white;">Disconnect</button>
+        </div>
+      </div>
+    `;
+  } else {
+    container.innerHTML = "";
+  }
+}
+
+async function connectGooglePhotosAlbum() {
+  const input = document.getElementById("set-gphotos-url");
+  const statusEl = document.getElementById("set-gphotos-status");
+  const btn = document.getElementById("btn-connect-gphotos");
+  if (!input || !statusEl) return;
+
+  const url = input.value.trim();
+  if (!url) {
+    statusEl.className = "live-status-card error";
+    statusEl.style.display = "flex";
+    statusEl.innerHTML = `<span>⚠️</span> <span>Please paste your Google Photos shared album link.</span>`;
+    input.focus();
+    return;
+  }
+
+  statusEl.className = "live-status-card loading";
+  statusEl.style.display = "flex";
+  statusEl.innerHTML = `<span>⏳</span> <span>Connecting to Google Photos and extracting album photos...</span>`;
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch("/api/photos/google-album/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (data.status === "ok") {
+      statusEl.className = "live-status-card success";
+      statusEl.innerHTML = `<span>✅</span> <span>${data.message}</span>`;
+      input.value = "";
+      await loadState();
+      renderGooglePhotosStatus();
+      if (appState.activeNav === "photo-frame") renderPhotoFrame();
+    } else {
+      statusEl.className = "live-status-card error";
+      statusEl.innerHTML = `<span>❌</span> <span>${data.message || "Failed to sync album."}</span>`;
+    }
+  } catch (err) {
+    statusEl.className = "live-status-card error";
+    statusEl.innerHTML = `<span>❌</span> <span>Connection error: ${err.message}</span>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function connectGooglePhotosFromModal() {
+  const input = document.getElementById("modal-gphotos-url");
+  const statusEl = document.getElementById("modal-gphotos-status");
+  const btn = document.getElementById("btn-modal-gphotos-connect");
+  if (!input || !statusEl) return;
+
+  const url = input.value.trim();
+  if (!url) {
+    statusEl.className = "live-status-card error";
+    statusEl.style.display = "flex";
+    statusEl.innerHTML = `<span>⚠️</span> <span>Please paste your Google Photos shared album link.</span>`;
+    input.focus();
+    return;
+  }
+
+  statusEl.className = "live-status-card loading";
+  statusEl.style.display = "flex";
+  statusEl.innerHTML = `<span>⏳</span> <span>Connecting to Google Photos and extracting album photos...</span>`;
+  if (btn) btn.disabled = true;
+
+  try {
+    const res = await fetch("/api/photos/google-album/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const data = await res.json();
+    if (data.status === "ok") {
+      statusEl.className = "live-status-card success";
+      statusEl.innerHTML = `<span>✅</span> <span>${data.message}</span>`;
+      input.value = "";
+      await loadState();
+      renderGooglePhotosModalStatus();
+      if (appState.activeNav === "photo-frame") renderPhotoFrame();
+    } else {
+      statusEl.className = "live-status-card error";
+      statusEl.innerHTML = `<span>❌</span> <span>${data.message || "Failed to sync album."}</span>`;
+    }
+  } catch (err) {
+    statusEl.className = "live-status-card error";
+    statusEl.innerHTML = `<span>❌</span> <span>Connection error: ${err.message}</span>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function syncGooglePhotosAlbum() {
+  const s = appState.settings || {};
+  if (!s.googlePhotosAlbumUrl) {
+    alert("No Google Photos album connected yet.");
+    return;
+  }
+  try {
+    const res = await fetch("/api/photos/google-album/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: s.googlePhotosAlbumUrl }),
+    });
+    const data = await res.json();
+    if (data.status === "ok") {
+      await loadState();
+      renderGooglePhotosStatus();
+      renderGooglePhotosModalStatus();
+      if (appState.activeNav === "photo-frame") renderPhotoFrame();
+      alert(`✅ Synced! ${data.photoCount} photos imported from Google Photos.`);
+    } else {
+      alert("Error syncing album: " + (data.message || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Error syncing Google Photos album: " + err.message);
+  }
+}
+
+async function disconnectGooglePhotosAlbum() {
+  if (!confirm("Are you sure you want to disconnect this Google Photos album?")) return;
+  try {
+    const res = await fetch("/api/photos/google-album", { method: "DELETE" });
+    if (res.ok) {
+      await loadState();
+      renderGooglePhotosStatus();
+      renderGooglePhotosModalStatus();
+      if (appState.activeNav === "photo-frame") renderPhotoFrame();
+    }
+  } catch (err) {
+    console.error("Error disconnecting album:", err);
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // 6. Magic Import (AI Scheduling)
@@ -1298,8 +1513,11 @@ function openSettingsModal() {
   renderSettingsFeeds();
   updateSettingsMemberDropdown();
   renderSettingsLists();
+  renderGooglePhotosStatus();
   const statusEl = document.getElementById("set-gcal-status");
   if (statusEl) statusEl.style.display = "none";
+  const gpStatus = document.getElementById("set-gphotos-status");
+  if (gpStatus) gpStatus.style.display = "none";
   openModal("modal-settings");
 }
 
@@ -1405,7 +1623,7 @@ function renderSettingsFeeds() {
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 6px;">
-          <button type="button" class="btn-skylight ghost" onclick="syncFeedFromSettings('${f.id}')" title="Sync this calendar now" style="padding: 5px 9px; font-size: 0.82rem;">🔄 Sync</button>
+          <button type="button" class="btn-hub ghost" onclick="syncFeedFromSettings('${f.id}')" title="Sync this calendar now" style="padding: 5px 9px; font-size: 0.82rem;">🔄 Sync</button>
           <button type="button" onclick="deleteFeedFromSettings('${f.id}')" title="Delete Feed" style="background: none; border: none; cursor: pointer; color: #ef4444; font-size: 1.1rem; padding: 4px 6px;">🗑️</button>
         </div>
       </div>
@@ -1679,11 +1897,11 @@ function openSetupWizard() {
   const sleepInput = document.getElementById("wiz-sleep-time");
   const emailInput = document.getElementById("wiz-skylight-email");
 
-  if (devInput) devInput.value = s.deviceName || "Kitchen Skylight Hub 15\"";
+  if (devInput) devInput.value = s.deviceName || "Kitchen Family Hub 15\"";
   if (locInput) locInput.value = s.weatherLocation || "Seattle, WA";
   if (wakeInput) wakeInput.value = s.wakeTime || "06:30";
   if (sleepInput) sleepInput.value = s.sleepTime || "22:00";
-  if (emailInput) emailInput.value = s.skylightEmail || "family-hub@skylight.local";
+  if (emailInput) emailInput.value = s.skylightEmail || "family-hub@local";
 
   renderWizardMembers();
   updateWizardMemberDropdown();
@@ -1994,7 +2212,7 @@ function renderWizardSummary() {
   const card = document.getElementById("wiz-summary-card");
   if (!card) return;
 
-  const devName = (document.getElementById("wiz-device-name") && document.getElementById("wiz-device-name").value) || "Kitchen Skylight Hub";
+  const devName = (document.getElementById("wiz-device-name") && document.getElementById("wiz-device-name").value) || "Kitchen Family Hub";
   const weatherLoc = (document.getElementById("wiz-weather-loc") && document.getElementById("wiz-weather-loc").value) || "Seattle, WA";
   const wakeTime = (document.getElementById("wiz-wake-time") && document.getElementById("wiz-wake-time").value) || "06:30";
   const sleepTime = (document.getElementById("wiz-sleep-time") && document.getElementById("wiz-sleep-time").value) || "22:00";
@@ -2040,11 +2258,11 @@ function renderWizardSummary() {
 }
 
 async function finishSetupWizard() {
-  const deviceName = (document.getElementById("wiz-device-name") && document.getElementById("wiz-device-name").value) || "Kitchen Skylight Hub 15\"";
+  const deviceName = (document.getElementById("wiz-device-name") && document.getElementById("wiz-device-name").value) || "Kitchen Family Hub 15\"";
   const weatherLocation = (document.getElementById("wiz-weather-loc") && document.getElementById("wiz-weather-loc").value) || "Seattle, WA";
   const wakeTime = (document.getElementById("wiz-wake-time") && document.getElementById("wiz-wake-time").value) || "06:30";
   const sleepTime = (document.getElementById("wiz-sleep-time") && document.getElementById("wiz-sleep-time").value) || "22:00";
-  const skylightEmail = (document.getElementById("wiz-skylight-email") && document.getElementById("wiz-skylight-email").value) || "family-hub@skylight.local";
+  const skylightEmail = (document.getElementById("wiz-skylight-email") && document.getElementById("wiz-skylight-email").value) || "family-hub@local";
 
   const starterLists = [];
   if (document.getElementById("wiz-list-grocery") && document.getElementById("wiz-list-grocery").checked) starterLists.push("grocery");

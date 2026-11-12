@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Skylight Calendar — Smart Family Touchscreen Display</title>
-  <link rel="stylesheet" href="/static/styles.css?v=2.3.0" />
+  <title>Family Hub — Smart Family Touchscreen Display</title>
+  <link rel="stylesheet" href="/static/styles.css?v=2.6.0" />
   <link rel="manifest" href="/static/manifest.json" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
@@ -23,29 +23,28 @@
   <div id="reward-modal" class="hidden" onclick="closeReward()">
     <div class="reward-card">
       <div id="reward-avatar" class="reward-avatar">🎉</div>
-      <div id="reward-title" class="reward-title">Great Job, Emma!</div>
+      <div id="reward-title" class="reward-title">Great Job!</div>
       <div id="reward-subtitle" style="color: var(--text-muted); font-size: 1.05rem; margin-bottom: 0.5rem;">Chore Completed!</div>
       <div id="reward-points" class="reward-points">+25 PTS</div>
       <div id="reward-total" style="color: var(--text-secondary); font-weight: 600; font-size: 1.1rem; margin-bottom: 1.5rem;">Total Points: 255 ⭐</div>
-      <button class="btn-skylight primary" style="margin: 0 auto; padding: 12px 36px;" onclick="closeReward()">Awesome! ✨</button>
+      <button class="btn-hub primary" style="margin: 0 auto; padding: 12px 36px;" onclick="closeReward()">Awesome! ✨</button>
     </div>
   </div>
 
   <!-- Master App Container -->
-  <div class="skylight-app-container">
+  <div class="hub-app-container">
 
-    <!-- Skylight Left Navigation Rail (Authentic Hardware Sidebar) -->
-    <aside class="skylight-sidebar">
+    <!-- Left Navigation Rail (Hardware Sidebar) -->
+    <aside class="hub-sidebar">
       <div class="sidebar-brand" onclick="switchNav('calendar')">
-        <div class="skylight-logo-arch">
-          <!-- Authentic Skylight Sun/Arch Symbol -->
+        <div class="hub-logo-arch">
           <svg viewBox="0 0 36 36" fill="none">
             <path d="M7 26 C7 15.5, 15.5 7, 26 7" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
             <path d="M13 26 C13 18.8, 18.8 13, 26 13" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
             <circle cx="26" cy="26" r="3.5" fill="currentColor"/>
           </svg>
         </div>
-        <span class="brand-text">Skylight</span>
+        <span class="brand-text">Family Hub</span>
       </div>
 
       <!-- Core Navigation Items -->
@@ -90,15 +89,15 @@
     </aside>
 
     <!-- Main Display Canvas -->
-    <div class="skylight-main">
+    <div class="hub-main">
 
       <!-- Top Sub-Header Bar -->
-      <header class="skylight-topbar">
+      <header class="hub-topbar">
         <!-- Live Clock & Weather -->
         <div class="clock-weather-group">
           <div>
-            <div id="clock-display" class="live-clock-skylight">--:--</div>
-            <div id="date-display" class="live-date-skylight">Loading date...</div>
+            <div id="clock-display" class="live-clock-hub">--:--</div>
+            <div id="date-display" class="live-date-hub">Loading date...</div>
           </div>
 
           <!-- Weather Chip -->
@@ -122,17 +121,17 @@
 
         <!-- Primary Top-Right Actions -->
         <div class="topbar-actions">
-          <button class="btn-skylight magic" onclick="openMagicImport()" title="AI Schedule Extractor">
+          <button class="btn-hub magic" onclick="openMagicImport()" title="AI Schedule Extractor">
             <span>🪄 Magic Import</span>
           </button>
-          <button class="btn-skylight primary" onclick="openNewEventModal()" title="Add New Event">
+          <button class="btn-hub primary" onclick="openNewEventModal()" title="Add New Event">
             <span>+ New</span>
           </button>
         </div>
       </header>
 
       <!-- Second Line of Header: Family Members Under Weather & Schedule -->
-      <div class="skylight-toolbar-bar">
+      <div class="hub-toolbar-bar">
         <!-- Family Member Filter Pills (Directly under Weather & Schedule) -->
         <div class="toolbar-left">
           <div id="member-pills-bar" class="member-filters">
@@ -148,7 +147,7 @@
             <button class="date-nav-btn" onclick="navigateDate(1)" title="Next">›</button>
           </div>
           <span id="calendar-title-label" class="active-date-heading">Week of Nov 11, 2026</span>
-          <button class="btn-skylight ghost" onclick="openSyncModal()" title="Sync External Calendars" style="padding: 6px 14px; font-size: 0.8rem;">
+          <button class="btn-hub ghost" onclick="openSyncModal()" title="Sync External Calendars" style="padding: 6px 14px; font-size: 0.8rem;">
             <span>🔄 Sync</span>
           </button>
         </div>
@@ -166,7 +165,7 @@
 
             <!-- Split Screen Photo Frame Right Pane (Shown when Split Screen active) -->
             <div id="split-photos-pane" class="split-photos-card hidden">
-              <img id="split-slideshow-img" class="photo-slide-img" src="" alt="Slideshow" />
+              <img id="split-slideshow-img" class="photo-slide-img" src="" alt="Slideshow" referrerpolicy="no-referrer" />
               <div class="photo-overlay-info">
                 <div id="split-slideshow-caption" class="photo-caption">Family Memory</div>
                 <div class="photo-meta">Rotating Photo Frame Mode</div>
@@ -182,7 +181,7 @@
               <h2>Family Tasks & Daily Routines</h2>
               <p>Tap circular checkmarks to complete tasks and earn reward points!</p>
             </div>
-            <button class="btn-skylight primary" onclick="openNewChoreModal()">+ Add New Task</button>
+            <button class="btn-hub primary" onclick="openNewChoreModal()">+ Add New Task</button>
           </div>
 
           <!-- Family Leaderboard Bar -->
@@ -203,7 +202,7 @@
               <h2>Lists & Grocery Hub</h2>
               <p>Syncs live between this touchscreen display and mobile phones.</p>
             </div>
-            <button class="btn-skylight primary" onclick="openNewListModal()">+ Create New List</button>
+            <button class="btn-hub primary" onclick="openNewListModal()">+ Create New List</button>
           </div>
 
           <div id="lists-container" class="lists-layout">
@@ -219,7 +218,7 @@
               <p>Schedule breakfast, lunch, dinner, and snacks for every day of the week.</p>
             </div>
             <div style="display: flex; gap: 0.5rem;">
-              <button class="btn-skylight ghost" onclick="openSyncModal()">🔄 Sync Calendars</button>
+              <button class="btn-hub ghost" onclick="openSyncModal()">🔄 Sync Calendars</button>
             </div>
           </div>
 
@@ -231,13 +230,14 @@
         <!-- 5. FULL DIGITAL PHOTO FRAME PANEL -->
         <section id="panel-photo-frame" class="view-panel hidden">
           <div class="frame-controls-floating">
-            <button class="btn-skylight ghost" onclick="triggerPhotoUpload()">📸 Upload Photos</button>
-            <button class="btn-skylight primary" onclick="switchNav('calendar')">✕ Exit Frame Mode</button>
+            <button class="btn-hub ghost" onclick="openGooglePhotosModal()">📸 Google Photos Album</button>
+            <button class="btn-hub ghost" onclick="triggerPhotoUpload()">📁 Upload Photos</button>
+            <button class="btn-hub primary" onclick="switchNav('calendar')">✕ Exit Frame Mode</button>
           </div>
-          <img id="full-slideshow-img" class="photo-slide-img" src="" alt="Family Memories Slideshow" />
+          <img id="full-slideshow-img" class="photo-slide-img" src="" alt="Family Memories Slideshow" referrerpolicy="no-referrer" />
           <div class="photo-overlay-info">
             <div id="full-slideshow-caption" class="photo-caption">Summer Vacation 🏖️</div>
-            <div class="photo-meta">Skylight Digital Picture Frame • Tap anywhere to pause</div>
+            <div id="full-slideshow-meta" class="photo-meta">Family Hub Digital Picture Frame • Tap anywhere to pause</div>
           </div>
           <input type="file" id="photo-file-input" accept="image/*" class="hidden" onchange="handlePhotoUpload(this)" />
         </section>
@@ -297,10 +297,10 @@
           </div>
         </div>
         <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-          <button type="button" class="btn-skylight danger" id="ev-btn-delete" onclick="deleteCurrentEvent()" style="display: none; background: #ef4444; color: white;">🗑️ Delete Event</button>
+          <button type="button" class="btn-hub danger" id="ev-btn-delete" onclick="deleteCurrentEvent()" style="display: none; background: #ef4444; color: white;">🗑️ Delete Event</button>
           <div style="display: flex; gap: 0.75rem; margin-left: auto;">
-            <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-event')">Cancel</button>
-            <button type="submit" class="btn-skylight primary" id="ev-btn-submit">Save Event</button>
+            <button type="button" class="btn-hub ghost" onclick="closeModal('modal-event')">Cancel</button>
+            <button type="submit" class="btn-hub primary" id="ev-btn-submit">Save Event</button>
           </div>
         </div>
       </form>
@@ -324,7 +324,7 @@
               <label style="margin: 0;">Schedule Text or Document</label>
               <div>
                 <input type="file" id="magic-file-input" accept=".txt,.csv,.pdf,.ics" style="display: none;" onchange="handleMagicFileUpload(event)" />
-                <button type="button" class="btn-skylight ghost" style="padding: 4px 12px; font-size: 0.8rem;" onclick="document.getElementById('magic-file-input').click()">
+                <button type="button" class="btn-hub ghost" style="padding: 4px 12px; font-size: 0.8rem;" onclick="document.getElementById('magic-file-input').click()">
                   📄 Upload PDF / File
                 </button>
               </div>
@@ -346,8 +346,8 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-magic')">Cancel</button>
-          <button type="submit" id="btn-magic-submit" class="btn-skylight magic">⚡ Extract & Populate Calendar</button>
+          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-magic')">Cancel</button>
+          <button type="submit" id="btn-magic-submit" class="btn-hub magic">⚡ Extract & Populate Calendar</button>
         </div>
       </form>
     </div>
@@ -403,11 +403,43 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <label>Accent Color</label>
             <input type="color" id="feed-color" value="#0284c7" />
           </div>
-          <button type="submit" class="btn-skylight primary" style="width: 100%;">Connect Calendar Feed</button>
+          <button type="submit" class="btn-hub primary" style="width: 100%;">Connect Calendar Feed</button>
         </form>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-sync')">Close</button>
+        <button type="button" class="btn-hub ghost" onclick="closeModal('modal-sync')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Google Photos Album Sync -->
+  <div id="modal-google-photos" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <h2>📸 Google Photos Album Sync</h2>
+        <button class="modal-close" onclick="closeModal('modal-google-photos')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1rem;">
+          Display family photos from any shared Google Photos album directly on your touchscreen. Your slideshow will automatically cycle through all the photos in the album!
+        </p>
+        <div id="modal-gphotos-active-card" style="margin-bottom: 1rem;"></div>
+        <div style="background: var(--bg-hover); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div style="font-weight: 700; font-size: 0.88rem; margin-bottom: 0.4rem;">Connect Shared Album</div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            1. Open <a href="https://photos.google.com" target="_blank" style="color: #0284c7; text-decoration: underline;">Google Photos</a> and open any album.<br/>
+            2. Tap <strong>Share</strong> ➔ <strong>Create link</strong>.<br/>
+            3. Paste the link below and tap <strong>Connect & Sync</strong>.
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <input type="url" id="modal-gphotos-url" placeholder="https://photos.app.goo.gl/... or https://photos.google.com/share/..." style="flex: 1; min-width: 220px; padding: 7px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
+            <button type="button" class="btn-hub primary" onclick="connectGooglePhotosFromModal()" id="btn-modal-gphotos-connect" style="padding: 7px 16px; font-size: 0.85rem;">Connect & Sync</button>
+          </div>
+          <div id="modal-gphotos-status" class="live-status-card" style="display: none; margin-top: 0.6rem;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-hub ghost" onclick="closeModal('modal-google-photos')">Close</button>
       </div>
     </div>
   </div>
@@ -447,8 +479,8 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-chore')">Cancel</button>
-          <button type="submit" class="btn-skylight primary">Add Chore</button>
+          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-chore')">Cancel</button>
+          <button type="submit" class="btn-hub primary">Add Chore</button>
         </div>
       </form>
     </div>
@@ -469,8 +501,8 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-list')">Cancel</button>
-          <button type="submit" class="btn-skylight primary">Create List</button>
+          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-list')">Cancel</button>
+          <button type="submit" class="btn-hub primary">Create List</button>
         </div>
       </form>
     </div>
@@ -497,7 +529,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-weather')">Close</button>
+        <button type="button" class="btn-hub ghost" onclick="closeModal('modal-weather')">Close</button>
       </div>
     </div>
   </div>
@@ -525,7 +557,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
               <input type="text" id="new-mem-name" placeholder="Name (e.g. Eric)" style="flex: 2; min-width: 120px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
               <input type="text" id="new-mem-avatar" placeholder="Emoji" value="👤" style="width: 50px; text-align: center; padding: 6px 4px; font-size: 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
               <input type="color" id="new-mem-color" value="#0284c7" style="width: 40px; height: 32px; border: none; cursor: pointer; border-radius: 6px; background: transparent;" />
-              <button type="button" class="btn-skylight primary" onclick="addMemberFromSettings()" style="padding: 6px 12px; font-size: 0.85rem;">Add</button>
+              <button type="button" class="btn-hub primary" onclick="addMemberFromSettings()" style="padding: 6px 12px; font-size: 0.85rem;">Add</button>
             </div>
           </div>
         </div>
@@ -534,7 +566,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
         <div style="margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
           <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
             <span>📅 Connected Calendars (Google / iCal)</span>
-            <button type="button" class="btn-skylight ghost" onclick="syncAllFeedsFromSettings()" style="font-size: 0.75rem; padding: 4px 10px;">🔄 Sync All Now</button>
+            <button type="button" class="btn-hub ghost" onclick="syncAllFeedsFromSettings()" style="font-size: 0.75rem; padding: 4px 10px;">🔄 Sync All Now</button>
           </h3>
           <div id="settings-feeds-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
             <!-- Rendered dynamically -->
@@ -548,7 +580,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
                 <select id="set-gcal-member" style="flex: 1; min-width: 140px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);">
                   <!-- Dynamically populated -->
                 </select>
-                <button type="button" class="btn-skylight primary" onclick="addGoogleCalFromSettings()" id="btn-add-gcal-settings" style="padding: 6px 14px; font-size: 0.85rem;">Connect</button>
+                <button type="button" class="btn-hub primary" onclick="addGoogleCalFromSettings()" id="btn-add-gcal-settings" style="padding: 6px 14px; font-size: 0.85rem;">Connect</button>
               </div>
             </div>
             <div id="set-gcal-status" class="live-status-card" style="display: none; margin-top: 0.5rem;"></div>
@@ -567,17 +599,37 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">+ Create New List</div>
             <div style="display: flex; gap: 0.5rem;">
               <input type="text" id="new-list-title" placeholder="List Title (e.g. 🎒 School Supplies, 🧰 Hardware Store)" style="flex: 1; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
-              <button type="button" class="btn-skylight primary" onclick="addListFromSettings()" style="padding: 6px 12px; font-size: 0.85rem;">Create</button>
+              <button type="button" class="btn-hub primary" onclick="addListFromSettings()" style="padding: 6px 12px; font-size: 0.85rem;">Create</button>
             </div>
           </div>
         </div>
 
-        <!-- 4. Device Preferences Form -->
+        <!-- 4. Google Photos Album Sync -->
+        <div style="margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>📸 Google Photos Album Sync</span>
+            <button type="button" class="btn-hub ghost" onclick="syncGooglePhotosAlbum()" id="btn-sync-gphotos-top" style="font-size: 0.75rem; padding: 4px 10px; display: none;">🔄 Sync Album</button>
+          </h3>
+          <div id="settings-gphotos-status-card" style="margin-bottom: 0.75rem;">
+            <!-- Rendered dynamically -->
+          </div>
+          <div style="background: var(--bg-hover); padding: 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.35rem;">Connect Shared Album</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.6rem;">In Google Photos, open an album ➔ click <strong>Share</strong> ➔ <strong>Create link</strong> ➔ paste here:</div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <input type="url" id="set-gphotos-url" placeholder="https://photos.app.goo.gl/... or https://photos.google.com/share/..." style="flex: 1; min-width: 200px; padding: 6px 10px; font-size: 0.85rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); color: var(--text-primary);" />
+              <button type="button" class="btn-hub primary" onclick="connectGooglePhotosAlbum()" id="btn-connect-gphotos" style="padding: 6px 14px; font-size: 0.85rem;">Connect & Sync</button>
+            </div>
+            <div id="set-gphotos-status" class="live-status-card" style="display: none; margin-top: 0.5rem;"></div>
+          </div>
+        </div>
+
+        <!-- 5. Device Preferences Form -->
         <form id="form-settings" onsubmit="saveSettings(event)">
           <div style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">🏡 Device & Display Preferences</div>
           <div class="form-group">
             <label>Device Name (Display Title)</label>
-            <input type="text" id="set-device-name" value="Kitchen Skylight Hub" required />
+            <input type="text" id="set-device-name" value="Kitchen Family Hub" required />
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div class="form-group">
@@ -594,11 +646,11 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <input type="text" id="set-weather-loc" value="Seattle, WA" required />
           </div>
           <div class="form-group">
-            <label>Magic Import Skylight Forwarding Email Address</label>
-            <input type="email" id="set-skylight-email" value="family-hub@skylight.local" required />
+            <label>Magic Import Forwarding Email Address</label>
+            <input type="email" id="set-skylight-email" value="family-hub@local" required />
           </div>
           <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
-            <button type="submit" class="btn-skylight primary">Save Preferences</button>
+            <button type="submit" class="btn-hub primary">Save Preferences</button>
           </div>
         </form>
 
@@ -610,12 +662,12 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
               <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">Reset All Data to Clean Slate</div>
               <div style="font-size: 0.75rem; color: var(--text-muted);">Permanently removes all events, chores, meals, and custom lists.</div>
             </div>
-            <button type="button" class="btn-skylight danger" onclick="resetCleanData()" style="padding: 6px 14px; font-size: 0.8rem; background: #ef4444; color: white;">Clear All Data</button>
+            <button type="button" class="btn-hub danger" onclick="resetCleanData()" style="padding: 6px 14px; font-size: 0.8rem; background: #ef4444; color: white;">Clear All Data</button>
           </div>
         </div>
       </div>
       <div class="modal-footer" style="padding: 0.75rem 1.5rem;">
-        <button type="button" class="btn-skylight ghost" onclick="closeModal('modal-settings')">Close</button>
+        <button type="button" class="btn-hub ghost" onclick="closeModal('modal-settings')">Close</button>
       </div>
     </div>
   </div>
@@ -626,14 +678,14 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
       <!-- Wizard Header & Progress Stepper -->
       <div class="wizard-header">
         <div class="wizard-brand">
-          <div class="skylight-logo-arch" style="width: 28px; height: 28px;">
+          <div class="hub-logo-arch" style="width: 28px; height: 28px;">
             <svg viewBox="0 0 36 36" fill="none">
               <path d="M7 26 C7 15.5, 15.5 7, 26 7" stroke="#0284c7" stroke-width="4" stroke-linecap="round"/>
               <path d="M13 26 C13 18.8, 18.8 13, 26 13" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
               <circle cx="26" cy="26" r="3.5" fill="#0284c7"/>
             </svg>
           </div>
-          <span class="brand-text">Skylight Hub Setup Wizard</span>
+          <span class="brand-text">Family Hub Setup Wizard</span>
         </div>
 
         <div class="wizard-stepper">
@@ -670,14 +722,14 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
 
           <div class="form-group">
             <label>Device Name (Display Title)</label>
-            <input type="text" id="wiz-device-name" value="Kitchen Skylight Hub 15&quot;" placeholder="e.g. Kitchen Hub, Family Center" required />
+            <input type="text" id="wiz-device-name" value="Kitchen Family Hub 15&quot;" placeholder="e.g. Kitchen Hub, Family Center" required />
           </div>
 
           <div class="form-group">
             <label>Home Location (City, State / Country)</label>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="wiz-weather-loc" value="Seattle, WA" placeholder="e.g. Seattle, WA or Dallas, TX" style="flex: 1;" />
-              <button type="button" class="btn-skylight ghost" onclick="checkWizardWeather()" style="white-space: nowrap; padding: 6px 14px; font-size: 0.85rem;">📍 Test Weather</button>
+              <button type="button" class="btn-hub ghost" onclick="checkWizardWeather()" style="white-space: nowrap; padding: 6px 14px; font-size: 0.85rem;">📍 Test Weather</button>
             </div>
             <div id="wiz-weather-status" class="live-status-card" style="display: none;"></div>
           </div>
@@ -708,7 +760,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <div style="font-weight: 700; font-size: 0.88rem; margin-bottom: 0.6rem;">+ Add Family Member</div>
             <div style="display: flex; gap: 8px; margin-bottom: 0.75rem;">
               <input type="text" id="wiz-new-mem-name" placeholder="Member name (e.g. Sarah, Lucas)" style="flex: 1; padding: 7px 10px; font-size: 0.9rem;" />
-              <button type="button" class="btn-skylight primary" onclick="addMemberFromWizard()" style="padding: 7px 16px; font-size: 0.88rem;">Add Member</button>
+              <button type="button" class="btn-hub primary" onclick="addMemberFromWizard()" style="padding: 7px 16px; font-size: 0.88rem;">Add Member</button>
             </div>
 
             <!-- Emoji Avatar Selector -->
@@ -769,7 +821,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
               <span>💡</span> How to get your Google Calendar Secret iCal Address:
             </strong>
             <ol>
-              <li>On your computer or laptop, go to <a href="https://calendar.google.com" target="_blank" style="color: var(--skylight-blue); text-decoration: underline; font-weight: 600;">calendar.google.com</a>.</li>
+              <li>On your computer or laptop, go to <a href="https://calendar.google.com" target="_blank" style="color: var(--hub-blue); text-decoration: underline; font-weight: 600;">calendar.google.com</a>.</li>
               <li>In the left panel under <em>"My calendars"</em>, hover over the calendar you want to sync and click the three dots <strong>⋮</strong> &gt; <strong>Settings and sharing</strong>.</li>
               <li>Scroll down to the <strong>"Integrate calendar"</strong> section.</li>
               <li>Copy the link labeled <strong>"Secret address in iCal format"</strong> (or Public address if public).</li>
@@ -799,7 +851,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             </div>
 
             <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 0.5rem;">
-              <button type="button" class="btn-skylight primary" onclick="testAndConnectGoogleCal()" id="wiz-btn-connect-gcal" style="padding: 8px 18px; font-size: 0.88rem;">
+              <button type="button" class="btn-hub primary" onclick="testAndConnectGoogleCal()" id="wiz-btn-connect-gcal" style="padding: 8px 18px; font-size: 0.88rem;">
                 <span>🔗 Test & Connect Calendar</span>
               </button>
             </div>
@@ -860,7 +912,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 0.75rem;">
               Forward school newsletters, PDF sports schedules, or camp emails to this address. Our on-device AI model extracts event dates and titles straight to your calendar!
             </p>
-            <input type="email" id="wiz-skylight-email" value="family-hub@skylight.local" placeholder="family-hub@skylight.local" />
+            <input type="email" id="wiz-skylight-email" value="family-hub@local" placeholder="family-hub@local" />
           </div>
         </div>
 
@@ -868,7 +920,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
         <div class="wizard-pane" id="wiz-pane-5">
           <div style="text-align: center; padding: 1rem 0;">
             <div style="font-size: 3rem; margin-bottom: 0.5rem; animation: popIn 0.4s ease-out;">🎉</div>
-            <h2 class="wizard-pane-title" style="font-size: 1.6rem; margin-bottom: 0.4rem;">Your Skylight Hub is Ready!</h2>
+            <h2 class="wizard-pane-title" style="font-size: 1.6rem; margin-bottom: 0.4rem;">Your Family Hub is Ready!</h2>
             <p class="wizard-pane-subtitle" style="max-width: 460px; margin: 0 auto 1.5rem;">All your settings, family profiles, and Google Calendar sync have been configured.</p>
 
             <!-- Summary Review Card -->
@@ -876,8 +928,8 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
               <!-- Populated dynamically -->
             </div>
 
-            <button type="button" class="btn-skylight primary" onclick="finishSetupWizard()" style="padding: 12px 36px; font-size: 1.05rem; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);">
-              🚀 Launch Skylight Hub
+            <button type="button" class="btn-hub primary" onclick="finishSetupWizard()" style="padding: 12px 36px; font-size: 1.05rem; font-weight: 700; border-radius: 10px; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);">
+              🚀 Launch Family Hub
             </button>
           </div>
         </div>
@@ -887,17 +939,17 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
       <!-- Wizard Footer Navigation -->
       <div class="wizard-footer">
         <div>
-          <button type="button" class="btn-skylight ghost" id="wiz-btn-back" onclick="wizardBack()" style="display: none;">‹ Back</button>
-          <button type="button" class="btn-skylight ghost" id="wiz-btn-skip" onclick="wizardSkip()" style="display: none; font-size: 0.8rem;">Skip Google Calendar</button>
+          <button type="button" class="btn-hub ghost" id="wiz-btn-back" onclick="wizardBack()" style="display: none;">‹ Back</button>
+          <button type="button" class="btn-hub ghost" id="wiz-btn-skip" onclick="wizardSkip()" style="display: none; font-size: 0.8rem;">Skip Google Calendar</button>
         </div>
         <div>
-          <button type="button" class="btn-skylight primary" id="wiz-btn-next" onclick="wizardNext()">Next Step ›</button>
+          <button type="button" class="btn-hub primary" id="wiz-btn-next" onclick="wizardNext()">Next Step ›</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.5.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.5.0"></script>
+  <!-- Main JavaScript Engine (v2.6.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.6.0"></script>
 </body>
 </html>

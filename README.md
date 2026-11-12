@@ -1,8 +1,8 @@
-# Skylight Family Calendar & Smart Touchscreen Hub
+# Family Hub — Smart Touchscreen Calendar & Family Dashboard
 
-An open-source, touch-optimized family organization hub replicating the authentic Skylight Calendar experience. Designed for kitchen displays, Raspberry Pi touchscreen setups, wall-mounted tablets, and always-on smart home dashboards.
+An open-source, touch-optimized family organization hub designed for kitchen displays, Raspberry Pi touchscreen setups, wall-mounted tablets, and always-on smart home dashboards.
 
-![Skylight Hub](https://images.unsplash.com/photo-1511895426328-dc8714191300?q=80&w=1200&auto=format&fit=crop)
+![Family Hub](https://images.unsplash.com/photo-1511895426328-dc8714191300?q=80&w=1200&auto=format&fit=crop)
 
 ---
 

@@ -22,14 +22,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("skylight")
+logger = logging.getLogger("familyhub")
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "./data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 PHOTOS_DIR = DATA_DIR / "photos"
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 
-STATE_FILE = DATA_DIR / "skylight_db.json"
+STATE_FILE = DATA_DIR / "familyhub_db.json"
+LEGACY_STATE_FILE = DATA_DIR / "skylight_db.json"
+if not STATE_FILE.exists() and LEGACY_STATE_FILE.exists():
+    STATE_FILE = LEGACY_STATE_FILE
+
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 
 DEFAULT_MEMBERS = [
@@ -63,7 +67,7 @@ DEFAULT_MEALS = {
 DEFAULT_FEEDS = []
 
 DEFAULT_SETTINGS = {
-    "deviceName": "Kitchen Skylight Hub 15\"",
+    "deviceName": "Kitchen Family Hub 15\"",
     "displayMode": "calendar",  # calendar, split, photo_frame
     "calendarView": "week",     # day, 3day, week, month, schedule
     "sleepEnabled": True,
@@ -75,9 +79,12 @@ DEFAULT_SETTINGS = {
     "weatherLon": -122.3321,
     "weatherUnits": "fahrenheit",
     "timezone": "America/Los_Angeles",
-    "skylightEmail": "family-hub@skylight.local",
+    "skylightEmail": "family-hub@local",
     "magicImportEnabled": True,
     "setupCompleted": False,
+    "googlePhotosAlbumUrl": "",
+    "googlePhotosLastSynced": None,
+    "googlePhotosCount": 0,
 }
 
 def load_db() -> Dict[str, Any]:
@@ -116,7 +123,7 @@ def init_sample_photos():
 
 init_sample_photos()
 
-app = FastAPI(title="Skylight Family Hub & Touchscreen Calendar")
+app = FastAPI(title="Family Hub & Smart Touchscreen Calendar")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -147,14 +154,14 @@ def geocode_location_internal(query_str: str) -> Optional[Dict[str, Any]]:
             return None
         query = urllib.parse.quote(q)
         url = f"https://geocoding-api.open-meteo.com/v1/search?name={query}&count=1&language=en&format=json"
-        req = urllib.request.Request(url, headers={"User-Agent": "SkylightFamilyHub/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "FamilyHub/1.0"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         results = data.get("results", [])
         if not results and "," in q:
             city_part = urllib.parse.quote(q.split(",")[0].strip())
             url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_part}&count=1&language=en&format=json"
-            req = urllib.request.Request(url, headers={"User-Agent": "SkylightFamilyHub/1.0"})
+            req = urllib.request.Request(url, headers={"User-Agent": "FamilyHub/1.0"})
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             results = data.get("results", [])
@@ -185,7 +192,7 @@ async def fetch_weather(force: bool = False):
     
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "SkylightFamilyCalendar/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "FamilyHub/1.0"})
         with urllib.request.urlopen(req, timeout=5) as resp:
             raw = json.loads(resp.read().decode("utf-8"))
             
@@ -542,7 +549,7 @@ async def test_feed(body: TestFeedModel):
         }
     
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 SkylightUniversalSync/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 FamilyHubSync/1.0"})
         with urllib.request.urlopen(req, timeout=12) as resp:
             ics_text = resp.read().decode("utf-8", errors="replace")
         
@@ -593,7 +600,7 @@ async def sync_feed(feed_id: str):
         url = "https://" + url[9:]
     
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 SkylightUniversalSync/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 FamilyHubSync/1.0"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             ics_text = resp.read().decode("utf-8", errors="replace")
             
@@ -632,14 +639,14 @@ def geocode_location(q: str = Query(...)):
     return {"status": "not_found", "message": "Location not found"}
 
 class SetupCompleteModel(BaseModel):
-    deviceName: Optional[str] = "Kitchen Skylight Hub 15\""
+    deviceName: Optional[str] = "Kitchen Family Hub 15\""
     weatherLocation: Optional[str] = "Seattle, WA"
     weatherLat: Optional[float] = None
     weatherLon: Optional[float] = None
     timezone: Optional[str] = "America/Los_Angeles"
     sleepTime: Optional[str] = "22:00"
     wakeTime: Optional[str] = "06:30"
-    skylightEmail: Optional[str] = "family-hub@skylight.local"
+    skylightEmail: Optional[str] = "family-hub@local"
     members: Optional[List[Dict[str, Any]]] = None
     starterLists: Optional[List[str]] = None
 
@@ -661,14 +668,14 @@ async def complete_setup(data: SetupCompleteModel):
             tz = geo["timezone"]
             loc = geo["location"]
 
-    settings["deviceName"] = data.deviceName or settings.get("deviceName", "Kitchen Skylight Hub 15\"")
+    settings["deviceName"] = data.deviceName or settings.get("deviceName", "Kitchen Family Hub 15\"")
     settings["weatherLocation"] = loc
     settings["weatherLat"] = lat if lat is not None else settings.get("weatherLat", 47.6062)
     settings["weatherLon"] = lon if lon is not None else settings.get("weatherLon", -122.3321)
     settings["timezone"] = tz or settings.get("timezone", "America/Los_Angeles")
     settings["sleepTime"] = data.sleepTime or settings.get("sleepTime", "22:00")
     settings["wakeTime"] = data.wakeTime or settings.get("wakeTime", "06:30")
-    settings["skylightEmail"] = data.skylightEmail or settings.get("skylightEmail", "family-hub@skylight.local")
+    settings["skylightEmail"] = data.skylightEmail or settings.get("skylightEmail", "family-hub@local")
     settings["setupCompleted"] = True
     
     if data.members:
@@ -863,6 +870,107 @@ def delete_photo(photo_id: str):
     save_db(db)
     return {"ok": True}
 
+# --- Google Photos Album Sync Engine ---
+def extract_google_photos_urls(album_url: str) -> List[str]:
+    album_url = album_url.strip()
+    if not album_url.startswith("http"):
+        album_url = "https://" + album_url
+
+    req = urllib.request.Request(
+        album_url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+    )
+
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        html = resp.read().decode("utf-8", errors="replace")
+
+    matches = re.findall(r'"(https://lh3\.googleusercontent\.com/[a-zA-Z0-9\-_/=\.]+)"', html)
+    if not matches:
+        matches = re.findall(r'https://lh3\.googleusercontent\.com/[a-zA-Z0-9\-_]+', html)
+
+    photos = []
+    seen = set()
+    for u in matches:
+        base = u.split("=")[0]
+        token = base.split("/")[-1]
+        # Ignore user profile icons and small avatars (tokens < 40 chars)
+        if len(token) > 40:
+            if base not in seen:
+                seen.add(base)
+                photos.append(f"{base}=w1920-h1080")
+
+    return photos
+
+class GoogleAlbumModel(BaseModel):
+    url: str
+
+@app.post("/api/photos/google-album/sync")
+async def sync_google_photos_album(body: GoogleAlbumModel):
+    url = body.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="Album URL is required")
+    
+    if "photos.app.goo.gl" not in url and "photos.google.com" not in url:
+        raise HTTPException(status_code=400, detail="Please provide a valid Google Photos shared album URL (e.g. https://photos.app.goo.gl/... or https://photos.google.com/share/...)")
+    
+    try:
+        photo_urls = extract_google_photos_urls(url)
+        if not photo_urls:
+            return {
+                "status": "error",
+                "message": "No photos found in this album. Please ensure the Google Photos album sharing link is set to 'Anyone with the link can view'."
+            }
+        
+        # Keep manually uploaded photos, replace synced Google Photos
+        existing_uploads = [p for p in db.get("photos", []) if p.get("source") != "google_photos"]
+        
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+        new_entries = []
+        for i, p_url in enumerate(photo_urls):
+            h_id = abs(hash(p_url)) % 1000000
+            new_entries.append({
+                "id": f"gp_{h_id}_{i}",
+                "url": p_url,
+                "thumbnailUrl": p_url.replace("=w1920-h1080", "=w300-h200-c"),
+                "caption": f"Google Photos Memory #{i+1}",
+                "source": "google_photos",
+                "syncedAt": now_str,
+            })
+        
+        db["photos"] = existing_uploads + new_entries
+        db.setdefault("settings", {})["googlePhotosAlbumUrl"] = url
+        db["settings"]["googlePhotosLastSynced"] = now_str
+        db["settings"]["googlePhotosCount"] = len(new_entries)
+        save_db(db)
+        
+        return {
+            "status": "ok",
+            "photoCount": len(new_entries),
+            "preview": photo_urls[:4],
+            "lastSynced": now_str,
+            "message": f"Successfully imported {len(new_entries)} photos from Google Photos album!"
+        }
+    except Exception as e:
+        logger.error(f"Error syncing Google Photos album: {e}")
+        return {
+            "status": "error",
+            "message": f"Could not sync album: {str(e)}"
+        }
+
+@app.delete("/api/photos/google-album")
+def disconnect_google_photos_album():
+    db["photos"] = [p for p in db.get("photos", []) if p.get("source") != "google_photos"]
+    if "settings" in db:
+        db["settings"]["googlePhotosAlbumUrl"] = ""
+        db["settings"]["googlePhotosLastSynced"] = None
+        db["settings"]["googlePhotosCount"] = 0
+    save_db(db)
+    return {"status": "ok", "remainingPhotos": len(db.get("photos", []))}
+
 # --- Magic Import (AI Scheduling via Local Ollama) ---
 class MagicImportRequest(BaseModel):
     text: str
@@ -950,7 +1058,7 @@ Schedule Text:
                 "time": time_val,
                 "endTime": "11:00",
                 "location": "Imported from document",
-                "notes": "Magic Import via Skylight AI",
+                "notes": "Magic Import via Family Hub AI",
             })
     
     # Save newly imported events into DB
@@ -965,7 +1073,7 @@ Schedule Text:
             "memberId": req.memberId or "m5",
             "category": "Magic Import",
             "location": item.get("location", ""),
-            "notes": item.get("notes", "Auto-extracted by Skylight AI"),
+            "notes": item.get("notes", "Auto-extracted by Family Hub AI"),
         }
         db.setdefault("events", []).append(new_ev)
         added.append(new_ev)
@@ -1020,7 +1128,7 @@ def serve_index():
     index_file = Path("static/index.html")
     if index_file.exists():
         return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>Skylight Family Hub Starting Up...</h1>")
+    return HTMLResponse("<h1>Family Hub Starting Up...</h1>")
 
 if __name__ == "__main__":
     import uvicorn

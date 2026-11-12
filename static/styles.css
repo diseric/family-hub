@@ -1,13 +1,13 @@
 /* ==========================================================================
-   Skylight Calendar & Smart Wall Hub — Official Design Theme
-   Authentic High-Contrast Touchscreen Interface (Light & Dark Modes)
+   Family Hub Calendar & Smart Wall Display — Modern Theme
+   High-Contrast Touchscreen Interface (Light & Dark Modes)
    Font: Libre Franklin & Inter
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Franklin:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Skylight Authentic Light Theme (Default Hardware Look) */
+  /* Family Hub Light Theme (Default Hardware Look) */
   --bg-app: #f4f6f9;
   --bg-sidebar: #ffffff;
   --bg-surface: #ffffff;
@@ -27,6 +27,8 @@
   --text-dim: #94a3b8;
 
   --primary: #0284c7;
+  --hub-blue: #0284c7;
+  --skylight-blue: #0284c7;
   --primary-hover: #0369a1;
   --primary-light: #e0f2fe;
 
@@ -106,6 +108,7 @@ body {
 /* --------------------------------------------------------------------------
    App Container & Sidebar Layout
    -------------------------------------------------------------------------- */
+.hub-app-container,
 .skylight-app-container {
   display: flex;
   width: 100vw;
@@ -113,7 +116,8 @@ body {
   overflow: hidden;
 }
 
-/* Skylight Left Navigation Rail (Authentic Hardware Sidebar) */
+/* Left Navigation Rail (Hardware Sidebar) */
+.hub-sidebar,
 .skylight-sidebar {
   width: var(--sidebar-width);
   height: 100vh;
@@ -137,6 +141,7 @@ body {
   cursor: pointer;
 }
 
+.hub-logo-arch,
 .skylight-logo-arch {
   width: 44px;
   height: 44px;
@@ -149,6 +154,7 @@ body {
   box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
 }
 
+.hub-logo-arch svg,
 .skylight-logo-arch svg {
   width: 26px;
   height: 26px;
@@ -259,6 +265,7 @@ body {
 /* --------------------------------------------------------------------------
    Main Display Area & Topbar
    -------------------------------------------------------------------------- */
+.hub-main,
 .skylight-main {
   flex: 1;
   display: flex;
@@ -269,6 +276,7 @@ body {
 }
 
 /* Top Sub-Header Bar */
+.hub-topbar,
 .skylight-topbar {
   display: flex;
   align-items: center;
@@ -288,6 +296,7 @@ body {
   flex-shrink: 0;
 }
 
+.live-clock-hub,
 .live-clock-skylight {
   font-family: var(--font-display);
   font-size: 1.85rem;
@@ -297,6 +306,7 @@ body {
   line-height: 1;
 }
 
+.live-date-hub,
 .live-date-skylight {
   font-size: 0.88rem;
   font-weight: 600;
@@ -391,6 +401,7 @@ body {
 }
 
 /* Second Line of Header: Toolbar Bar */
+.hub-toolbar-bar,
 .skylight-toolbar-bar {
   display: flex;
   align-items: center;
@@ -498,8 +509,8 @@ body {
   color: var(--text-primary);
 }
 
-/* Skylight Buttons */
-.btn-skylight, .btn-touch {
+/* Hub Buttons */
+.btn-hub, .btn-skylight, .btn-touch {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -515,35 +526,35 @@ body {
   white-space: nowrap;
 }
 
-.btn-skylight.primary, .btn-touch.primary {
+.btn-hub.primary, .btn-skylight.primary, .btn-touch.primary {
   background: var(--primary);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
 }
 
-.btn-skylight.primary:hover, .btn-touch.primary:hover {
+.btn-hub.primary:hover, .btn-skylight.primary:hover, .btn-touch.primary:hover {
   background: var(--primary-hover);
   transform: translateY(-1px);
 }
 
-.btn-skylight.magic, .btn-touch.magic {
+.btn-hub.magic, .btn-skylight.magic, .btn-touch.magic {
   background: var(--magic-gradient);
   color: #ffffff;
   box-shadow: var(--magic-glow);
 }
 
-.btn-skylight.magic:hover, .btn-touch.magic:hover {
+.btn-hub.magic:hover, .btn-skylight.magic:hover, .btn-touch.magic:hover {
   filter: brightness(1.1);
   transform: translateY(-1px);
 }
 
-.btn-skylight.ghost, .btn-touch:not(.primary):not(.magic) {
+.btn-hub.ghost, .btn-skylight.ghost, .btn-touch:not(.primary):not(.magic) {
   background: var(--bg-pill);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
 }
 
-.btn-skylight.ghost:hover, .btn-touch:not(.primary):not(.magic):hover {
+.btn-hub.ghost:hover, .btn-skylight.ghost:hover, .btn-touch:not(.primary):not(.magic):hover {
   background: var(--bg-card-hover);
 }
 
@@ -1326,10 +1337,12 @@ body {
    Mobile & Portrait Responsiveness
    -------------------------------------------------------------------------- */
 @media (max-width: 900px) {
+  .hub-app-container,
   .skylight-app-container {
     flex-direction: column-reverse;
   }
 
+  .hub-sidebar,
   .skylight-sidebar {
     width: 100vw;
     height: 68px;
@@ -1354,6 +1367,7 @@ body {
     padding: 0 0.5rem;
   }
 
+  .hub-topbar,
   .skylight-topbar {
     flex-wrap: wrap;
     padding: 0.75rem 1rem;
@@ -1453,8 +1467,8 @@ body {
 }
 
 .wizard-step-node.active .wizard-step-circle {
-  background: var(--skylight-blue);
-  border-color: var(--skylight-blue);
+  background: var(--hub-blue);
+  border-color: var(--hub-blue);
   color: white;
   box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.2);
 }
@@ -1572,7 +1586,7 @@ body {
   border-radius: 4px;
   font-size: 0.78rem;
   border: 1px solid var(--border-subtle);
-  color: var(--skylight-blue);
+  color: var(--hub-blue);
   word-break: break-all;
 }
 
@@ -1622,7 +1636,7 @@ body {
 
 .emoji-btn:hover, .emoji-btn.selected {
   background: var(--bg-hover);
-  border-color: var(--skylight-blue);
+  border-color: var(--hub-blue);
   transform: scale(1.1);
 }
 

@@ -1,6 +1,6 @@
 {
-  "name": "Skylight Family Calendar",
-  "short_name": "Skylight",
+  "name": "Family Hub Calendar",
+  "short_name": "Family Hub",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#090d16",
