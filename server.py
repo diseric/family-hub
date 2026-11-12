@@ -1498,9 +1498,12 @@ def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-3.8-flash") 
                 pass
             last_err = f"Gemini API error ({resp.status_code}): {err_msg}"
             
-            # If not a 404 (e.g. 400 Bad API key or 429 Quota), don't keep trying other models
-            if resp.status_code != 404:
+            # If not a 404 or 503, don't keep trying other models
+            if resp.status_code not in (404, 503):
                 break
+        except requests.exceptions.Timeout:
+            last_err = f"Gemini model {target_model} timed out, retrying with fallback..."
+            continue
         except Exception as ex:
             last_err = str(ex)
             break
