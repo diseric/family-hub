@@ -459,6 +459,10 @@ class ChoreModel(BaseModel):
     points: int = 10
     frequency: str = "Daily"
     completed: bool = False
+    isRoutine: bool = False
+    timeOfDay: Optional[str] = "morning"  # morning, afternoon, evening
+    daysOfWeek: Optional[List[str]] = None  # ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    icon: Optional[str] = ""
 
 @app.post("/api/chores")
 def create_chore(ch: ChoreModel):

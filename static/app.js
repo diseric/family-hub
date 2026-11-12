@@ -7,6 +7,7 @@ let appState = {
   rewards: [],
   rewardRedemptions: [],
   activeRewardsFilter: "all",
+  routinesPeriod: "auto", // auto, morning, afternoon, evening, all
   lists: [],
   meals: {},
   feeds: [],
@@ -1406,6 +1407,109 @@ function openEventDetail(ev) {
   openModal("modal-event");
 }
 
+function getCurrentRoutinePeriod() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "morning";    // Midnight - Noon: Morning
+  if (hour < 18) return "afternoon";  // Noon - 6pm: Afternoon
+  return "evening";                   // 6pm - Midnight: Evening
+}
+
+function setRoutinesPeriod(period) {
+  appState.routinesPeriod = period;
+  document.querySelectorAll(".routines-period-selector .period-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-period") === period);
+  });
+  renderChores();
+}
+
+function getChoreSubcategory(chore) {
+  const f = (chore.frequency || "Daily").toLowerCase();
+  if (f.includes("week")) return "Weekly";
+  if (f.includes("need") || f.includes("one") || f.includes("time")) return "As Needed";
+  const tod = (chore.timeOfDay || "morning").toLowerCase();
+  if (tod.includes("afternoon")) return "afternoon";
+  if (tod.includes("evening") || tod.includes("night")) return "evening";
+  return "morning";
+}
+
+function isChoreActiveToday(chore) {
+  if (!chore.daysOfWeek || chore.daysOfWeek.length === 0) return true;
+  const todayShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date().getDay()];
+  return chore.daysOfWeek.includes(todayShort);
+}
+
+function setChoreType(type) {
+  const isRoutine = type === "routine";
+  const btnR = document.getElementById("type-btn-routine");
+  const btnC = document.getElementById("type-btn-chore");
+  const isREl = document.getElementById("ch-is-routine");
+  const pGroup = document.getElementById("routine-period-group");
+  const dGroup = document.getElementById("routine-days-group");
+  const lblTitle = document.getElementById("lbl-chore-title");
+  const subBtn = document.getElementById("ch-btn-submit");
+
+  if (btnR) btnR.classList.toggle("active", isRoutine);
+  if (btnC) btnC.classList.toggle("active", !isRoutine);
+  if (isREl) isREl.value = isRoutine ? "true" : "false";
+  if (pGroup) pGroup.style.display = isRoutine ? "block" : "none";
+  if (dGroup) dGroup.style.display = isRoutine ? "block" : "none";
+  if (lblTitle) lblTitle.textContent = isRoutine ? "Routine Title" : "Chore Title";
+  if (subBtn && !document.getElementById("ch-id").value) {
+    subBtn.textContent = isRoutine ? "Save Routine" : "Add Chore";
+  }
+
+  const freqSel = document.getElementById("ch-freq");
+  if (freqSel) {
+    freqSel.value = isRoutine ? "Daily" : "Weekly";
+  }
+}
+
+function selectChoreEmoji(emoji) {
+  const el = document.getElementById("ch-icon");
+  if (el) el.value = emoji;
+}
+
+function setChorePoints(pts) {
+  const el = document.getElementById("ch-points");
+  if (el) el.value = pts;
+}
+
+function selectRoutineTimeOfDay(period) {
+  const input = document.getElementById("ch-time-of-day");
+  if (input) input.value = period;
+  document.querySelectorAll(".routine-period-chips .period-chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.id === `chip-time-${period}`);
+  });
+}
+
+function handleChoreFreqChange() {
+  const freq = document.getElementById("ch-freq").value;
+  const dGroup = document.getElementById("routine-days-group");
+  if (dGroup) {
+    dGroup.style.display = freq === "As Needed" ? "none" : "block";
+  }
+}
+
+function toggleRoutineDay(btn) {
+  btn.classList.toggle("active");
+}
+
+function getSelectedRoutineDays() {
+  const days = [];
+  document.querySelectorAll(".days-pill-picker .day-chip.active").forEach((btn) => {
+    days.push(btn.getAttribute("data-day"));
+  });
+  return days;
+}
+
+function setSelectedRoutineDays(daysList) {
+  const set = new Set(daysList || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+  document.querySelectorAll(".days-pill-picker .day-chip").forEach((btn) => {
+    const day = btn.getAttribute("data-day");
+    btn.classList.toggle("active", set.has(day));
+  });
+}
+
 function getChoreFrequencyCategory(freq) {
   if (!freq) return "Daily";
   const f = freq.toLowerCase();
@@ -1421,7 +1525,7 @@ function openNewChoreForMember(memberId) {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Interactive Chore Tracker with Confetti Rewards
+// 2. Interactive Chore & Routines Tracker with Confetti Rewards
 // ---------------------------------------------------------------------------
 function renderChores() {
   const grid = document.getElementById("chores-grid");
@@ -1452,7 +1556,62 @@ function renderChores() {
     lb.appendChild(card);
   }
 
-  // 2. Identify assigned family members to display (e.g. 4 members side-by-side)
+  // 2. Routines Period & Time of Day Management
+  const curPeriod = getCurrentRoutinePeriod(); // morning, afternoon, evening
+  const curPeriodTitle = curPeriod.charAt(0).toUpperCase() + curPeriod.slice(1);
+  const activePeriod = (appState.routinesPeriod === "auto" || !appState.routinesPeriod) ? curPeriod : appState.routinesPeriod;
+
+  // Update banner text & auto button pill
+  const bannerText = document.getElementById("routines-current-time-text");
+  const autoText = document.getElementById("auto-period-text");
+  if (autoText) autoText.textContent = curPeriodTitle;
+  if (bannerText) {
+    if (appState.routinesPeriod === "auto" || !appState.routinesPeriod) {
+      bannerText.innerHTML = `Current Time: <strong>${curPeriodTitle}</strong> (Auto-displaying ${curPeriodTitle} Routines)`;
+    } else if (appState.routinesPeriod === "all") {
+      bannerText.innerHTML = `Displaying: <strong>All Routines</strong> across the day`;
+    } else {
+      const pTitle = appState.routinesPeriod.charAt(0).toUpperCase() + appState.routinesPeriod.slice(1);
+      bannerText.innerHTML = `Manual Filter: <strong>${pTitle} Routines</strong> (Tap Auto to auto-switch by time of day)`;
+    }
+  }
+
+  // Highlight active period pill
+  document.querySelectorAll(".routines-period-selector .period-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-period") === (appState.routinesPeriod || "auto"));
+  });
+
+  // Define subcategories according to activePeriod
+  let subcats = [];
+  if (activePeriod === "all") {
+    subcats = [
+      { key: "morning", label: "Morning Routines", icon: "🌅" },
+      { key: "afternoon", label: "Afternoon Routines", icon: "☀️" },
+      { key: "evening", label: "Evening Routines", icon: "🌙" },
+      { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
+      { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
+    ];
+  } else if (activePeriod === "morning") {
+    subcats = [
+      { key: "morning", label: "Morning Routines (Midnight - Noon)", icon: "🌅" },
+      { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
+      { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
+    ];
+  } else if (activePeriod === "afternoon") {
+    subcats = [
+      { key: "afternoon", label: "Afternoon Routines (Noon - 6 PM)", icon: "☀️" },
+      { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
+      { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
+    ];
+  } else if (activePeriod === "evening") {
+    subcats = [
+      { key: "evening", label: "Evening Routines (6 PM - Midnight)", icon: "🌙" },
+      { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
+      { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
+    ];
+  }
+
+  // 3. Identify assigned family members to display (e.g. 4 members side-by-side)
   let membersToDisplay = appState.activeMemberFilter === "all"
     ? [...appState.members]
     : appState.members.filter((m) => m.id === appState.activeMemberFilter);
@@ -1473,12 +1632,6 @@ function renderChores() {
     grid.style.gridTemplateColumns = `repeat(${Math.min(membersToDisplay.length, 4)}, minmax(0, 1fr))`;
     lb.style.gridTemplateColumns = `repeat(${Math.min(membersToDisplay.length, 4)}, minmax(0, 1fr))`;
   }
-
-  const subcats = [
-    { key: "Daily", label: "Daily Routines", icon: "🌅" },
-    { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
-    { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
-  ];
 
   for (const member of membersToDisplay) {
     // Show each member's personal chores + shared family chores with 🏡 badge
@@ -1513,7 +1666,7 @@ function renderChores() {
 
     for (const sub of subcats) {
       const choresInSub = memberChores.filter(
-        (c) => getChoreFrequencyCategory(c.frequency) === sub.key
+        (c) => getChoreSubcategory(c) === sub.key && isChoreActiveToday(c)
       );
 
       const subGroup = document.createElement("div");
@@ -1531,7 +1684,7 @@ function renderChores() {
       if (choresInSub.length === 0) {
         listContainer.innerHTML = `
           <div class="chore-empty-sub">
-            <span>No ${sub.label.toLowerCase()}</span>
+            <span>No ${sub.label.toLowerCase()} today</span>
           </div>
         `;
       } else {
@@ -1542,9 +1695,13 @@ function renderChores() {
           card.innerHTML = `
             <div class="chore-left">
               <div class="chore-checkbox" title="Tap to mark complete">${chore.completed ? "✓" : ""}</div>
+              ${chore.icon ? `<span class="chore-emoji" title="${chore.title}">${chore.icon}</span>` : ""}
               <div class="chore-info" title="Tap to edit task">
                 <h3>${chore.title}</h3>
-                ${isShared ? `<div class="chore-meta"><span style="color: #0284c7; font-weight: 600;">🏡 Shared</span></div>` : ""}
+                <div class="chore-meta">
+                  ${isShared ? `<span style="color: #0284c7; font-weight: 600;">🏡 Shared</span>` : ""}
+                  ${chore.isRoutine && activePeriod === "all" && chore.timeOfDay ? `<span class="routine-time-badge">${chore.timeOfDay}</span>` : ""}
+                </div>
               </div>
             </div>
             <div class="chore-card-actions">
@@ -2879,13 +3036,21 @@ function openNewChoreModal() {
   const idEl = document.getElementById("ch-id");
   if (idEl) idEl.value = "";
   const titEl = document.getElementById("modal-chore-title");
-  if (titEl) titEl.textContent = "+ Add Family Task / Chore";
+  if (titEl) titEl.textContent = "+ Add Family Task / Routine";
   const subBtn = document.getElementById("ch-btn-submit");
-  if (subBtn) subBtn.textContent = "Add Chore";
+  if (subBtn) subBtn.textContent = "Save Routine";
   const delBtn = document.getElementById("ch-btn-delete");
   if (delBtn) delBtn.style.display = "none";
   const ptsEl = document.getElementById("ch-points");
   if (ptsEl) ptsEl.value = "10";
+  const iconEl = document.getElementById("ch-icon");
+  if (iconEl) iconEl.value = "🪥";
+
+  setChoreType("routine");
+  const curPeriod = getCurrentRoutinePeriod();
+  selectRoutineTimeOfDay(curPeriod);
+  setSelectedRoutineDays(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+
   populateSelectDropdowns();
 
   const mSel = document.getElementById("ch-member");
@@ -2907,10 +3072,13 @@ function openEditChoreModal(choreId) {
   const idEl = document.getElementById("ch-id");
   if (idEl) idEl.value = chore.id;
   const titEl = document.getElementById("modal-chore-title");
-  if (titEl) titEl.textContent = "✏️ Edit Family Task / Chore";
+  if (titEl) titEl.textContent = chore.isRoutine !== false ? "✏️ Edit Routine" : "✏️ Edit Family Chore";
 
   const tEl = document.getElementById("ch-title");
   if (tEl) tEl.value = chore.title || "";
+
+  const iconEl = document.getElementById("ch-icon");
+  if (iconEl) iconEl.value = chore.icon || "🪥";
 
   populateSelectDropdowns();
   const mEl = document.getElementById("ch-member");
@@ -2921,6 +3089,10 @@ function openEditChoreModal(choreId) {
 
   const freqEl = document.getElementById("ch-freq");
   if (freqEl && chore.frequency) freqEl.value = chore.frequency;
+
+  setChoreType(chore.isRoutine !== false ? "routine" : "chore");
+  selectRoutineTimeOfDay(chore.timeOfDay || "morning");
+  setSelectedRoutineDays(chore.daysOfWeek || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
 
   const subBtn = document.getElementById("ch-btn-submit");
   if (subBtn) subBtn.textContent = "Save Changes";
@@ -2963,26 +3135,40 @@ async function saveChore(e) {
   const memberId = document.getElementById("ch-member").value;
   const points = parseInt(document.getElementById("ch-points").value, 10) || 10;
   const frequency = document.getElementById("ch-freq").value;
+  const isRoutine = document.getElementById("ch-is-routine").value === "true";
+  const timeOfDay = document.getElementById("ch-time-of-day").value || "morning";
+  const daysOfWeek = getSelectedRoutineDays();
+  const icon = document.getElementById("ch-icon").value.trim() || "";
+
+  const payload = {
+    title,
+    memberId,
+    points,
+    frequency,
+    isRoutine,
+    timeOfDay,
+    daysOfWeek,
+    icon
+  };
 
   try {
     if (choreId) {
       await fetch(`/api/chores/${choreId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: choreId, title, memberId, points, frequency }),
+        body: JSON.stringify({ ...payload, id: choreId }),
       });
     } else {
       await fetch("/api/chores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, memberId, points, frequency }),
+        body: JSON.stringify(payload),
       });
     }
     await loadState();
     if (appState.splitScreen) renderSplitSidePane();
     closeModal("modal-chore");
-    const form = document.getElementById("form-chore");
-    if (form) form.reset();
+    showToast(isRoutine ? "Routine saved!" : "Task saved!");
   } catch (err) {
     alert("Error saving chore: " + err.message);
   }

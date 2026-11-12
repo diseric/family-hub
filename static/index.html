@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.22.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.23.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -285,6 +285,31 @@
           <!-- Family Leaderboard Bar -->
           <div id="chores-leaderboard" class="chores-leaderboard">
             <!-- Injected dynamically -->
+          </div>
+
+          <!-- Time of Day Routines Switcher Bar -->
+          <div class="routines-banner-bar">
+            <div class="routines-current-indicator">
+              <span class="routines-live-dot"></span>
+              <span id="routines-current-time-text">Current Time: <strong>Morning</strong> (Auto-displaying Morning Routines)</span>
+            </div>
+            <div class="routines-period-selector" id="routines-period-selector">
+              <button type="button" class="period-btn active" data-period="auto" onclick="setRoutinesPeriod('auto')" title="Auto-display routines based on time of day">
+                🕒 Auto (<span id="auto-period-text">Morning</span>)
+              </button>
+              <button type="button" class="period-btn" data-period="morning" onclick="setRoutinesPeriod('morning')" title="Show Morning routines (Midnight - Noon)">
+                🌅 Morning
+              </button>
+              <button type="button" class="period-btn" data-period="afternoon" onclick="setRoutinesPeriod('afternoon')" title="Show Afternoon routines (Noon - 6 PM)">
+                ☀️ Afternoon
+              </button>
+              <button type="button" class="period-btn" data-period="evening" onclick="setRoutinesPeriod('evening')" title="Show Evening routines (6 PM - Midnight)">
+                🌙 Evening
+              </button>
+              <button type="button" class="period-btn" data-period="all" onclick="setRoutinesPeriod('all')" title="Show all routines at any time">
+                📋 All Times
+              </button>
+            </div>
           </div>
 
           <!-- Chores Grid -->
@@ -594,46 +619,119 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Modal: Add / Edit Chore -->
+  <!-- Modal: Add / Edit Chore / Routine -->
   <div id="modal-chore" class="modal-overlay hidden">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 480px;">
       <div class="modal-header">
-        <h2 id="modal-chore-title">+ Add Family Task / Chore</h2>
+        <h2 id="modal-chore-title">+ Add Family Task / Routine</h2>
         <button class="modal-close" onclick="closeModal('modal-chore')">✕</button>
       </div>
       <form id="form-chore" onsubmit="saveChore(event)">
         <input type="hidden" id="ch-id" value="" />
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Chore Title</label>
-            <input type="text" id="ch-title" required placeholder="e.g. Empty dishwasher, Practice piano" />
+        <input type="hidden" id="ch-is-routine" value="true" />
+        <input type="hidden" id="ch-time-of-day" value="morning" />
+
+        <div class="modal-body" style="display: flex; flex-direction: column; gap: 0.9rem;">
+          <!-- Task vs Routine Mode Toggle -->
+          <div class="task-type-toggle">
+            <button type="button" class="type-pill-btn active" id="type-btn-routine" onclick="setChoreType('routine')">
+              🌅 Daily Routine
+            </button>
+            <button type="button" class="type-pill-btn" id="type-btn-chore" onclick="setChoreType('chore')">
+              📋 General Chore
+            </button>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+
+          <div class="form-group">
+            <label id="lbl-chore-title">Routine Title</label>
+            <input type="text" id="ch-title" required placeholder="e.g. Brush teeth, Make bed, Empty dishwasher" />
+          </div>
+
+          <!-- Emoji Icon Picker (Great for kids who cannot read yet!) -->
+          <div class="form-group">
+            <label>Emoji Icon (Tap to select icon for young kids)</label>
+            <div class="reward-icon-picker">
+              <input type="text" id="ch-icon" value="🪥" style="width: 48px; text-align: center; font-size: 1.4rem; padding: 4px;" />
+              <div class="icon-presets">
+                <span class="icon-chip" onclick="selectChoreEmoji('🪥')">🪥</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('🛏️')">🛏️</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('👕')">👕</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('🎒')">🎒</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('👟')">👟</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('🥛')">🥛</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('🍽️')">🍽️</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('📚')">📚</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('🛁')">🛁</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('🧸')">🧸</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('🐶')">🐶</span>
+                <span class="icon-chip" onclick="selectChoreEmoji('💤')">💤</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
             <div class="form-group">
-              <label>Assign To</label>
+              <label>Assign To Profile</label>
               <select id="ch-member">
                 <!-- Dynamically populated -->
               </select>
             </div>
             <div class="form-group">
-              <label>Reward Points</label>
-              <input type="number" id="ch-points" value="10" min="1" max="100" />
+              <label>⭐ Reward Stars</label>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <input type="number" id="ch-points" value="10" min="1" max="100" style="width: 60px; text-align: center; font-weight: 700;" />
+                <button type="button" class="btn-hub ghost mini-btn" onclick="setChorePoints(5)">5⭐</button>
+                <button type="button" class="btn-hub ghost mini-btn" onclick="setChorePoints(10)">10⭐</button>
+                <button type="button" class="btn-hub ghost mini-btn" onclick="setChorePoints(20)">20⭐</button>
+              </div>
             </div>
           </div>
-          <div class="form-group">
-            <label>Frequency</label>
-            <select id="ch-freq">
-              <option value="Daily">Daily Routine</option>
-              <option value="Weekly">Weekly Task</option>
-              <option value="As Needed">As Needed / One-Time</option>
-            </select>
+
+          <!-- In the: Morning, Afternoon, Evening -->
+          <div class="form-group" id="routine-period-group">
+            <label>In the (Time of Day)</label>
+            <div class="routine-period-chips">
+              <button type="button" class="period-chip active" id="chip-time-morning" onclick="selectRoutineTimeOfDay('morning')">
+                🌅 Morning<br/><span style="font-size: 0.68rem; font-weight: 400; opacity: 0.85;">Midnight - Noon</span>
+              </button>
+              <button type="button" class="period-chip" id="chip-time-afternoon" onclick="selectRoutineTimeOfDay('afternoon')">
+                ☀️ Afternoon<br/><span style="font-size: 0.68rem; font-weight: 400; opacity: 0.85;">Noon - 6 PM</span>
+              </button>
+              <button type="button" class="period-chip" id="chip-time-evening" onclick="selectRoutineTimeOfDay('evening')">
+                🌙 Evening<br/><span style="font-size: 0.68rem; font-weight: 400; opacity: 0.85;">6 PM - Midnight</span>
+              </button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
+            <div class="form-group">
+              <label>🔁 Every</label>
+              <select id="ch-freq" onchange="handleChoreFreqChange()">
+                <option value="Daily">Daily (Every day)</option>
+                <option value="Weekly">Weekly (Selected days)</option>
+                <option value="As Needed">As Needed / One-Time</option>
+              </select>
+            </div>
+            <div class="form-group" id="routine-days-group">
+              <label>📅 On (Days)</label>
+              <div class="days-pill-picker">
+                <button type="button" class="day-chip active" data-day="Sun" onclick="toggleRoutineDay(this)">S</button>
+                <button type="button" class="day-chip active" data-day="Mon" onclick="toggleRoutineDay(this)">M</button>
+                <button type="button" class="day-chip active" data-day="Tue" onclick="toggleRoutineDay(this)">T</button>
+                <button type="button" class="day-chip active" data-day="Wed" onclick="toggleRoutineDay(this)">W</button>
+                <button type="button" class="day-chip active" data-day="Thu" onclick="toggleRoutineDay(this)">T</button>
+                <button type="button" class="day-chip active" data-day="Fri" onclick="toggleRoutineDay(this)">F</button>
+                <button type="button" class="day-chip active" data-day="Sat" onclick="toggleRoutineDay(this)">S</button>
+              </div>
+            </div>
           </div>
         </div>
+
         <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
           <button type="button" class="btn-hub danger" id="ch-btn-delete" onclick="deleteCurrentChore()" style="display: none; background: #ef4444; color: white;">Delete Task</button>
           <div style="display: flex; gap: 0.5rem; margin-left: auto;">
             <button type="button" class="btn-hub ghost" onclick="closeModal('modal-chore')">Cancel</button>
-            <button type="submit" class="btn-hub primary" id="ch-btn-submit">Add Chore</button>
+            <button type="submit" class="btn-hub primary" id="ch-btn-submit">Save Routine</button>
           </div>
         </div>
       </form>
@@ -1309,7 +1407,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.22.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.22.0"></script>
+  <!-- Main JavaScript Engine (v2.23.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.23.0"></script>
 </body>
 </html>
