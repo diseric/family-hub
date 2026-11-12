@@ -1607,7 +1607,13 @@ async function syncGooglePhotosAlbum() {
 }
 
 async function disconnectGooglePhotosAlbum() {
-  if (!confirm("Are you sure you want to disconnect this Google Photos album?")) return;
+  const confirmed = await showAppConfirm("Are you sure you want to disconnect this Google Photos album from the display?", {
+    title: "Disconnect Album?",
+    icon: "📸",
+    confirmText: "Disconnect",
+    isDanger: true,
+  });
+  if (!confirmed) return;
   try {
     const res = await fetch("/api/photos/google-album", { method: "DELETE" });
     if (res.ok) {
@@ -1811,8 +1817,14 @@ async function triggerFeedSync(feedId) {
 }
 
 async function deleteFeed(feedId) {
-  if (confirm("Delete this calendar feed and remove its synced events?")) {
-    await fetch(`/api/feeds/${feedId}`, { method: "DELETE" });
+  const confirmed = await showAppConfirm("Are you sure you want to delete this calendar feed and remove all its synced events?", {
+    title: "Remove Calendar Feed?",
+    icon: "📅",
+    confirmText: "Remove Feed",
+    isDanger: true,
+  });
+  if (!confirmed) return;
+  await fetch(`/api/feeds/${feedId}`, { method: "DELETE" });
     await loadState();
     renderFeedsList();
     renderSettingsFeeds();
@@ -1874,6 +1886,69 @@ function openModal(id) {
 function closeModal(id) {
   const el = document.getElementById(id);
   if (el) el.classList.add("hidden");
+}
+
+function showAppConfirm(message, options = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("modal-confirm");
+    const iconEl = document.getElementById("confirm-icon");
+    const titleEl = document.getElementById("confirm-title");
+    const msgEl = document.getElementById("confirm-message");
+    const okBtn = document.getElementById("confirm-btn-ok");
+    const cancelBtn = document.getElementById("confirm-btn-cancel");
+
+    if (!modal) {
+      resolve(confirm(message));
+      return;
+    }
+
+    if (iconEl) iconEl.textContent = options.icon || (options.isDanger !== false ? "🗑️" : "❓");
+    if (titleEl) titleEl.textContent = options.title || "Confirmation";
+    if (msgEl) msgEl.textContent = message;
+
+    if (okBtn) {
+      okBtn.textContent = options.confirmText || (options.isDanger !== false ? "Delete" : "Confirm");
+      if (options.isDanger !== false) {
+        okBtn.className = "btn-hub danger";
+        okBtn.style.background = "#ef4444";
+        okBtn.style.color = "#ffffff";
+      } else {
+        okBtn.className = "btn-hub primary";
+        okBtn.style.background = "";
+        okBtn.style.color = "";
+      }
+    }
+
+    if (cancelBtn) {
+      cancelBtn.textContent = options.cancelText || "Cancel";
+    }
+
+    let settled = false;
+    const cleanup = (val) => {
+      if (settled) return;
+      settled = true;
+      closeModal("modal-confirm");
+      resolve(val);
+    };
+
+    okBtn.onclick = (e) => {
+      e.stopPropagation();
+      cleanup(true);
+    };
+
+    cancelBtn.onclick = (e) => {
+      e.stopPropagation();
+      cleanup(false);
+    };
+
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        cleanup(false);
+      }
+    };
+
+    openModal("modal-confirm");
+  });
 }
 
 function openNewEventModal() {
@@ -1948,7 +2023,13 @@ async function deleteCurrentEvent() {
   if (!eventId) return;
 
   const title = (document.getElementById("ev-title") && document.getElementById("ev-title").value) || "this event";
-  if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+  const confirmed = await showAppConfirm(`Are you sure you want to delete "${title}" from the family calendar?`, {
+    title: "Delete Event?",
+    icon: "📅",
+    confirmText: "Delete Event",
+    isDanger: true,
+  });
+  if (!confirmed) return;
 
   try {
     const res = await fetch(`/api/events/${eventId}`, { method: "DELETE" });
@@ -2024,7 +2105,13 @@ async function deleteCurrentChore() {
   if (!choreId) return;
 
   const title = (document.getElementById("ch-title") && document.getElementById("ch-title").value) || "this task";
-  if (!confirm(`Are you sure you want to permanently delete "${title}"?`)) return;
+  const confirmed = await showAppConfirm(`Are you sure you want to permanently delete "${title}"? This cannot be undone.`, {
+    title: "Delete Task?",
+    icon: "🗑️",
+    confirmText: "Delete Task",
+    isDanger: true,
+  });
+  if (!confirmed) return;
 
   try {
     const res = await fetch(`/api/chores/${choreId}`, { method: "DELETE" });
@@ -2220,7 +2307,15 @@ async function addMemberFromSettings() {
 }
 
 async function deleteMemberFromSettings(memberId) {
-  if (!confirm("Are you sure you want to remove this family member?")) return;
+  const m = getMember(memberId);
+  const name = m ? m.name : "this family member";
+  const confirmed = await showAppConfirm(`Are you sure you want to remove ${name} and their assigned tasks?`, {
+    title: "Remove Family Member?",
+    icon: "👤",
+    confirmText: "Remove Member",
+    isDanger: true,
+  });
+  if (!confirmed) return;
   try {
     const res = await fetch(`/api/members/${memberId}`, { method: "DELETE" });
     if (res.ok) {
@@ -2393,7 +2488,13 @@ async function addGoogleCalFromSettings() {
 }
 
 async function deleteFeedFromSettings(feedId) {
-  if (!confirm("Are you sure you want to remove this calendar feed and its synced events?")) return;
+  const confirmed = await showAppConfirm("Are you sure you want to remove this calendar feed and its synced events?", {
+    title: "Remove Calendar Feed?",
+    icon: "📅",
+    confirmText: "Remove Feed",
+    isDanger: true,
+  });
+  if (!confirmed) return;
   try {
     const res = await fetch(`/api/feeds/${feedId}`, { method: "DELETE" });
     if (res.ok) {
@@ -2476,7 +2577,13 @@ async function addListFromSettings() {
 }
 
 async function deleteListFromSettings(listId) {
-  if (!confirm("Are you sure you want to delete this list and all its items?")) return;
+  const confirmed = await showAppConfirm("Are you sure you want to delete this list and all its items?", {
+    title: "Delete List?",
+    icon: "🛒",
+    confirmText: "Delete List",
+    isDanger: true,
+  });
+  if (!confirmed) return;
   try {
     const res = await fetch(`/api/lists/${listId}`, { method: "DELETE" });
     if (res.ok) {
@@ -2490,7 +2597,13 @@ async function deleteListFromSettings(listId) {
 }
 
 async function resetCleanData() {
-  if (!confirm("⚠️ This will permanently remove all sample/demo events, chores, meals, and lists, resetting to a clean slate. Proceed?")) return;
+  const confirmed = await showAppConfirm("⚠️ This will permanently remove all sample/demo events, chores, meals, and lists, resetting to a clean slate. Proceed?", {
+    title: "Reset to Clean Slate?",
+    icon: "⚠️",
+    confirmText: "Reset All",
+    isDanger: true,
+  });
+  if (!confirmed) return;
   try {
     const res = await fetch("/api/reset-clean", { method: "POST" });
     if (res.ok) {
