@@ -996,7 +996,8 @@ function renderChores() {
   for (const m of sortedMembers) {
     if (m.id === "m5") continue;
     const card = document.createElement("div");
-    card.style.cssText = `background: var(--bg-card); padding: 10px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 0.75rem; min-width: 170px; cursor: pointer; transition: all 0.15s ease;`;
+    card.className = "chores-leaderboard-card";
+    card.style.borderLeft = `4px solid ${m.color || "#0284c7"}`;
     card.title = `Click to edit ${m.name}'s points`;
     card.innerHTML = `
       <span style="font-size: 2rem;">${m.avatar}</span>
