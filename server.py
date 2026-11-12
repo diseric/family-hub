@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
 import icalendar
+import requests
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -122,6 +123,10 @@ DEFAULT_SETTINGS = {
     "googlePhotosAlbumUrl": "",
     "googlePhotosLastSynced": None,
     "googlePhotosCount": 0,
+    "aiProvider": "gemini",
+    "aiApiKey": "",
+    "aiModel": "gemini-2.0-flash",
+    "aiBaseUrl": "",
 }
 
 def load_db() -> Dict[str, Any]:
@@ -134,8 +139,18 @@ def load_db() -> Dict[str, Any]:
                     save_db(data)
                 if "reward_redemptions" not in data:
                     data["reward_redemptions"] = []
-                if "settings" in data and "excludedRewardMemberIds" not in data["settings"]:
-                    data["settings"]["excludedRewardMemberIds"] = []
+                if "settings" in data:
+                    s = data["settings"]
+                    if "excludedRewardMemberIds" not in s:
+                        s["excludedRewardMemberIds"] = []
+                    if "aiProvider" not in s:
+                        s["aiProvider"] = "gemini"
+                    if "aiApiKey" not in s:
+                        s["aiApiKey"] = ""
+                    if "aiModel" not in s:
+                        s["aiModel"] = "gemini-2.0-flash"
+                    if "aiBaseUrl" not in s:
+                        s["aiBaseUrl"] = ""
                     save_db(data)
                 return data
         except Exception as e:
@@ -1430,7 +1445,244 @@ def disconnect_google_photos_album():
     save_db(db)
     return {"status": "ok", "remainingPhotos": len(db.get("photos", []))}
 
-# --- Magic Import (AI Scheduling via Local Ollama) ---
+# --- AI Assistant / Schedule Extraction Engine (Gemini, OpenAI, Claude, Ollama, Custom) ---
+class AITestRequest(BaseModel):
+    provider: str = "gemini"
+    apiKey: Optional[str] = ""
+    model: Optional[str] = ""
+    baseUrl: Optional[str] = ""
+
+def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-2.0-flash") -> str:
+    if not api_key:
+        raise ValueError("Google Gemini API key is missing. Please set your key in Settings ⚙️.")
+    m = model.strip() or "gemini-2.0-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": prompt}]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.1,
+            "responseMimeType": "application/json"
+        }
+    }
+    resp = requests.post(url, json=payload, timeout=35)
+    if resp.status_code != 200:
+        err_msg = resp.text
+        try:
+            err_json = resp.json()
+            err_msg = err_json.get("error", {}).get("message", resp.text)
+        except Exception:
+            pass
+        raise ValueError(f"Gemini API error ({resp.status_code}): {err_msg}")
+    
+    data = resp.json()
+    candidates = data.get("candidates", [])
+    if not candidates:
+        raise ValueError("Gemini returned no response candidates.")
+    parts = candidates[0].get("content", {}).get("parts", [])
+    if not parts:
+        raise ValueError("Gemini returned empty parts.")
+    return parts[0].get("text", "")
+
+def call_openai_api(prompt: str, api_key: str, model: str = "gpt-4o-mini", base_url: str = "") -> str:
+    base = (base_url or "").strip().rstrip("/") or "https://api.openai.com/v1"
+    url = f"{base}/chat/completions"
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    elif "api.openai.com" in base:
+        raise ValueError("OpenAI API key is missing. Please set your key in Settings ⚙️.")
+    
+    m = model.strip() or "gpt-4o-mini"
+    payload = {
+        "model": m,
+        "messages": [
+            {"role": "system", "content": "You are a precise calendar schedule extraction assistant. Return valid raw JSON array only."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.1
+    }
+    if "api.openai.com" in base:
+        payload["response_format"] = {"type": "json_object"}
+        
+    resp = requests.post(url, headers=headers, json=payload, timeout=40)
+    if resp.status_code != 200:
+        if "response_format" in resp.text:
+            payload.pop("response_format", None)
+            resp = requests.post(url, headers=headers, json=payload, timeout=40)
+        
+        if resp.status_code != 200:
+            err_msg = resp.text
+            try:
+                err_json = resp.json()
+                err_msg = err_json.get("error", {}).get("message", resp.text)
+            except Exception:
+                pass
+            raise ValueError(f"API error ({resp.status_code}): {err_msg}")
+    
+    data = resp.json()
+    choices = data.get("choices", [])
+    if not choices:
+        raise ValueError("API returned no choices.")
+    return choices[0].get("message", {}).get("content", "")
+
+def call_anthropic_api(prompt: str, api_key: str, model: str = "claude-3-5-haiku-20241022") -> str:
+    if not api_key:
+        raise ValueError("Anthropic API key is missing. Please set your key in Settings ⚙️.")
+    url = "https://api.anthropic.com/v1/messages"
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+    }
+    m = model.strip() or "claude-3-5-haiku-20241022"
+    payload = {
+        "model": m,
+        "max_tokens": 4096,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1
+    }
+    resp = requests.post(url, headers=headers, json=payload, timeout=40)
+    if resp.status_code != 200:
+        err_msg = resp.text
+        try:
+            err_json = resp.json()
+            err_msg = err_json.get("error", {}).get("message", resp.text)
+        except Exception:
+            pass
+        raise ValueError(f"Anthropic API error ({resp.status_code}): {err_msg}")
+    
+    data = resp.json()
+    content = data.get("content", [])
+    if not content:
+        raise ValueError("Anthropic returned empty content.")
+    return content[0].get("text", "")
+
+def call_ollama_api(prompt: str, model: str = "qwen2.5-coder:14b", base_url: str = "") -> str:
+    host = (base_url or "").strip().rstrip("/") or OLLAMA_HOST or "http://127.0.0.1:11434"
+    url = f"{host}/api/generate"
+    m = model.strip() or "qwen2.5-coder:14b"
+    payload = {
+        "model": m,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"temperature": 0.1, "num_ctx": 4096}
+    }
+    resp = requests.post(url, json=payload, timeout=45)
+    if resp.status_code != 200:
+        raise ValueError(f"Ollama error ({resp.status_code}): {resp.text}")
+    data = resp.json()
+    return data.get("response", "")
+
+def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> str:
+    s = settings or db.get("settings", {})
+    provider = (s.get("aiProvider") or os.environ.get("AI_PROVIDER") or "gemini").lower().strip()
+    
+    api_key = (s.get("aiApiKey") or "").strip()
+    if not api_key:
+        if provider == "gemini":
+            api_key = os.environ.get("GEMINI_API_KEY", "")
+        elif provider in ("openai", "custom"):
+            api_key = os.environ.get("OPENAI_API_KEY", "")
+        elif provider == "anthropic":
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+
+    model = (s.get("aiModel") or "").strip()
+    base_url = (s.get("aiBaseUrl") or "").strip()
+
+    if provider == "gemini":
+        if not api_key:
+            raise ValueError("Google Gemini API key not configured. Please add your Gemini key in Settings ⚙️.")
+        return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-2.0-flash")
+    elif provider == "openai":
+        if not api_key:
+            raise ValueError("OpenAI API key not configured. Please add your OpenAI key in Settings ⚙️.")
+        return call_openai_api(prompt, api_key=api_key, model=model or "gpt-4o-mini", base_url=base_url)
+    elif provider == "anthropic":
+        if not api_key:
+            raise ValueError("Anthropic API key not configured. Please add your Anthropic key in Settings ⚙️.")
+        return call_anthropic_api(prompt, api_key=api_key, model=model or "claude-3-5-haiku-20241022")
+    elif provider == "custom":
+        return call_openai_api(prompt, api_key=api_key, model=model or "default", base_url=base_url)
+    elif provider == "ollama":
+        return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
+    else:
+        if api_key:
+            return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-2.0-flash")
+        return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
+
+def parse_ai_events_json(raw_answer: str) -> List[Dict[str, Any]]:
+    clean = raw_answer.strip()
+    if clean.startswith("```"):
+        clean = re.sub(r'^```[a-zA-Z]*\n', '', clean)
+        clean = re.sub(r'\n```$', '', clean).strip()
+
+    try:
+        parsed = json.loads(clean)
+        if isinstance(parsed, list):
+            return parsed
+        if isinstance(parsed, dict):
+            for k in ("events", "schedule", "data", "items", "calendar"):
+                if k in parsed and isinstance(parsed[k], list):
+                    return parsed[k]
+    except Exception:
+        pass
+
+    match = re.search(r'\[\s*\{.*\}\s*\]', raw_answer, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except Exception:
+            pass
+
+    obj_match = re.search(r'\{\s*"[^"]+"\s*:\s*\[.*\]\s*\}', raw_answer, re.DOTALL)
+    if obj_match:
+        try:
+            parsed_obj = json.loads(obj_match.group(0))
+            for k in parsed_obj:
+                if isinstance(parsed_obj[k], list):
+                    return parsed_obj[k]
+        except Exception:
+            pass
+
+    return []
+
+@app.post("/api/ai/test")
+def test_ai_connection(req: AITestRequest):
+    settings = {
+        "aiProvider": req.provider,
+        "aiApiKey": req.apiKey,
+        "aiModel": req.model,
+        "aiBaseUrl": req.baseUrl
+    }
+    prompt = """Return ONLY a valid JSON array with 1 item: [{"title": "Connection Test", "date": "2026-11-13", "time": "15:00", "location": "Home"}]"""
+    t0 = time.time()
+    try:
+        raw = call_ai_service(prompt, settings=settings)
+        latency = int((time.time() - t0) * 1000)
+        events = parse_ai_events_json(raw)
+        return {
+            "status": "ok",
+            "provider": req.provider,
+            "latencyMs": latency,
+            "message": f"Successfully connected! Response time: {latency}ms",
+            "sample": events[0] if events else None
+        }
+    except Exception as e:
+        latency = int((time.time() - t0) * 1000)
+        logger.warning(f"AI test failed: {e}")
+        return {
+            "status": "error",
+            "provider": req.provider,
+            "latencyMs": latency,
+            "detail": str(e)
+        }
+
+# --- Magic Import (AI Scheduling) ---
 class MagicImportRequest(BaseModel):
     text: str
     memberId: str = "m5"
@@ -1465,32 +1717,18 @@ Schedule Text:
 {input_text}
 """
     extracted_events = []
+    used_provider = db.get("settings", {}).get("aiProvider", "gemini")
+    ai_success = False
+
     try:
-        # Call local Ollama on llmserver (e.g. qwen2.5-coder:14b or deepseek-r1:14b)
-        ollama_payload = {
-            "model": "qwen2.5-coder:14b",
-            "prompt": prompt,
-            "stream": False,
-            "options": {"temperature": 0.1, "num_ctx": 4096}
-        }
-        ollama_req = urllib.request.Request(
-            f"{OLLAMA_HOST}/api/generate",
-            data=json.dumps(ollama_payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(ollama_req, timeout=40) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            raw_answer = res_data.get("response", "")
-            
-            # Extract JSON array
-            match = re.search(r'\[\s*\{.*\}\s*\]', raw_answer, re.DOTALL)
-            if match:
-                extracted_events = json.loads(match.group(0))
-            else:
-                extracted_events = json.loads(raw_answer)
+        raw_answer = call_ai_service(prompt, db.get("settings", {}))
+        extracted_events = parse_ai_events_json(raw_answer)
+        if extracted_events:
+            ai_success = True
     except Exception as e:
-        logger.warning(f"Ollama AI extraction fallback: {e}")
+        logger.warning(f"AI schedule extraction fallback: {e}")
+
+    if not extracted_events:
         # Rule-based fallback parser for dense schedules
         lines = [line.strip() for line in input_text.splitlines() if line.strip()]
         for line in lines:
@@ -1517,7 +1755,7 @@ Schedule Text:
                 "time": time_val,
                 "endTime": "11:00",
                 "location": "Imported from document",
-                "notes": "Magic Import via Family Hub AI",
+                "notes": f"Magic Import via Family Hub AI ({used_provider})",
             })
     
     # Save newly imported events into DB
@@ -1538,7 +1776,7 @@ Schedule Text:
         added.append(new_ev)
     
     save_db(db)
-    return {"status": "ok", "count": len(added), "events": added}
+    return {"status": "ok", "count": len(added), "events": added, "aiSuccess": ai_success, "provider": used_provider}
 
 @app.post("/api/magic-import/file")
 async def magic_import_file(

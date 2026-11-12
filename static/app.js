@@ -3922,6 +3922,21 @@ async function disconnectGooglePhotosAlbum() {
 // 6. Magic Import (AI Scheduling)
 // ---------------------------------------------------------------------------
 function openMagicImport() {
+  populateSelectDropdowns();
+  const s = appState.settings || {};
+  const prov = s.aiProvider || "gemini";
+  const model = s.aiModel || (prov === "gemini" ? "gemini-2.0-flash" : "default");
+  const hasKey = !!s.aiApiKey || prov === "ollama";
+
+  const labelEl = document.getElementById("magic-provider-label");
+  const iconEl = document.getElementById("magic-provider-icon");
+  if (labelEl) {
+    const provName = prov === "gemini" ? "Google Gemini" : prov === "openai" ? "OpenAI" : prov === "anthropic" ? "Anthropic Claude" : prov === "ollama" ? "Local Ollama" : "Custom AI";
+    labelEl.textContent = `Using ${provName} (${model})${hasKey ? "" : " — ⚠️ API key not configured"}`;
+  }
+  if (iconEl) {
+    iconEl.textContent = prov === "gemini" ? "🌟" : prov === "openai" ? "⚡" : prov === "anthropic" ? "🧠" : "🦙";
+  }
   openModal("modal-magic");
 }
 
@@ -3955,8 +3970,10 @@ async function submitMagicImport(e) {
     return;
   }
 
+  const s = appState.settings || {};
+  const provName = (s.aiProvider || "gemini") === "gemini" ? "Google Gemini" : (s.aiProvider || "AI");
   statusBox.style.display = "block";
-  statusBox.textContent = "Extracting schedule events with AI on local server...";
+  statusBox.textContent = `Extracting schedule events with ${provName}...`;
   btn.disabled = true;
 
   try {
@@ -3988,10 +4005,180 @@ async function submitMagicImport(e) {
     document.getElementById("magic-text").value = "";
 
     await loadState();
-    alert(`✨ Magic Import Complete! Extracted and scheduled ${data.count} events to your calendar.`);
+    const aiSuccess = data.aiSuccess !== false;
+    const providerUsed = data.provider ? data.provider.toUpperCase() : provName;
+    if (aiSuccess) {
+      alert(`✨ Magic Import Complete! ${providerUsed} extracted and scheduled ${data.count} events to your calendar.`);
+    } else {
+      alert(`📅 Magic Import Complete! Scheduled ${data.count} events to your calendar.`);
+    }
   } catch (err) {
     statusBox.textContent = "Error: " + err.message;
     btn.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AI Assistant / Provider Configuration & Test Engine
+// ---------------------------------------------------------------------------
+function handleAiProviderChange() {
+  const providerEl = document.getElementById("set-ai-provider");
+  if (!providerEl) return;
+  const provider = providerEl.value;
+
+  const lblKey = document.getElementById("lbl-ai-apikey");
+  const keyHelp = document.getElementById("ai-key-help-link");
+  const keyGroup = document.getElementById("ai-apikey-group");
+  const baseGroup = document.getElementById("ai-baseurl-group");
+  const modelInput = document.getElementById("set-ai-model");
+  const modelHint = document.getElementById("ai-model-hint");
+  const presetsBox = document.getElementById("ai-model-presets");
+  const badge = document.getElementById("ai-active-provider-badge");
+
+  let presets = [];
+  let defaultModel = "";
+
+  if (provider === "gemini") {
+    if (lblKey) lblKey.textContent = "Google Gemini API Key";
+    if (keyHelp) {
+      keyHelp.style.display = "inline";
+      keyHelp.href = "https://aistudio.google.com/apikey";
+      keyHelp.textContent = "Get free key at Google AI Studio ↗";
+    }
+    if (keyGroup) keyGroup.style.display = "block";
+    if (baseGroup) baseGroup.style.display = "none";
+    defaultModel = "gemini-2.0-flash";
+    if (modelHint) modelHint.textContent = "Recommended: gemini-2.0-flash (fast & free tier)";
+    presets = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    if (badge) { badge.textContent = "Google Gemini"; badge.style.color = "#0284c7"; badge.style.background = "rgba(14, 165, 233, 0.15)"; }
+  } else if (provider === "openai") {
+    if (lblKey) lblKey.textContent = "OpenAI API Key";
+    if (keyHelp) {
+      keyHelp.style.display = "inline";
+      keyHelp.href = "https://platform.openai.com/api-keys";
+      keyHelp.textContent = "Get key at OpenAI Platform ↗";
+    }
+    if (keyGroup) keyGroup.style.display = "block";
+    if (baseGroup) baseGroup.style.display = "none";
+    defaultModel = "gpt-4o-mini";
+    if (modelHint) modelHint.textContent = "Default: gpt-4o-mini";
+    presets = ["gpt-4o-mini", "gpt-4o"];
+    if (badge) { badge.textContent = "OpenAI"; badge.style.color = "#10b981"; badge.style.background = "rgba(16, 185, 129, 0.15)"; }
+  } else if (provider === "anthropic") {
+    if (lblKey) lblKey.textContent = "Anthropic Claude API Key";
+    if (keyHelp) {
+      keyHelp.style.display = "inline";
+      keyHelp.href = "https://console.anthropic.com/settings/keys";
+      keyHelp.textContent = "Get key at Anthropic Console ↗";
+    }
+    if (keyGroup) keyGroup.style.display = "block";
+    if (baseGroup) baseGroup.style.display = "none";
+    defaultModel = "claude-3-5-haiku-20241022";
+    if (modelHint) modelHint.textContent = "Default: claude-3-5-haiku";
+    presets = ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"];
+    if (badge) { badge.textContent = "Anthropic Claude"; badge.style.color = "#d97706"; badge.style.background = "rgba(217, 119, 6, 0.15)"; }
+  } else if (provider === "ollama") {
+    if (keyGroup) keyGroup.style.display = "none";
+    if (baseGroup) baseGroup.style.display = "block";
+    defaultModel = "qwen2.5-coder:14b";
+    if (modelHint) modelHint.textContent = "Local Ollama model";
+    presets = ["qwen2.5-coder:14b", "llama3.2", "mistral"];
+    if (badge) { badge.textContent = "Local Ollama"; badge.style.color = "#8b5cf6"; badge.style.background = "rgba(139, 92, 246, 0.15)"; }
+  } else if (provider === "custom") {
+    if (lblKey) lblKey.textContent = "API Key (Optional / Bearer Token)";
+    if (keyHelp) keyHelp.style.display = "none";
+    if (keyGroup) keyGroup.style.display = "block";
+    if (baseGroup) baseGroup.style.display = "block";
+    defaultModel = "default";
+    if (modelHint) modelHint.textContent = "Custom endpoint model";
+    presets = ["llama-3.3-70b-versatile", "deepseek-chat", "gpt-4o-mini"];
+    if (badge) { badge.textContent = "Custom Endpoint"; badge.style.color = "#6366f1"; badge.style.background = "rgba(99, 102, 241, 0.15)"; }
+  }
+
+  if (modelInput && (!modelInput.value || modelInput.getAttribute("data-auto-set") === "true")) {
+    modelInput.value = defaultModel;
+    modelInput.setAttribute("data-auto-set", "true");
+  }
+
+  if (presetsBox) {
+    presetsBox.innerHTML = presets.map(p => `
+      <button type="button" class="btn-hub ghost mini-btn" onclick="selectAiModelPreset('${p}')" style="font-size: 0.72rem; padding: 2px 7px;">${p}</button>
+    `).join("");
+  }
+}
+
+function selectAiModelPreset(model) {
+  const input = document.getElementById("set-ai-model");
+  if (input) {
+    input.value = model;
+    input.removeAttribute("data-auto-set");
+  }
+}
+
+function toggleAiApiKeyVisibility() {
+  const el = document.getElementById("set-ai-apikey");
+  if (el) {
+    el.type = el.type === "password" ? "text" : "password";
+  }
+}
+
+async function testAiConnection() {
+  const provider = document.getElementById("set-ai-provider").value;
+  const apiKey = document.getElementById("set-ai-apikey") ? document.getElementById("set-ai-apikey").value.trim() : "";
+  const model = document.getElementById("set-ai-model") ? document.getElementById("set-ai-model").value.trim() : "";
+  const baseUrl = document.getElementById("set-ai-baseurl") ? document.getElementById("set-ai-baseurl").value.trim() : "";
+  const statusEl = document.getElementById("ai-test-status");
+  const btn = document.getElementById("btn-test-ai");
+
+  if (provider !== "ollama" && !apiKey) {
+    statusEl.innerHTML = `<span style="color: #ef4444; font-weight: 600;">⚠️ Please enter an API key first</span>`;
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  statusEl.innerHTML = `<span style="color: #0284c7;">🔄 Testing connection to ${provider}...</span>`;
+
+  try {
+    const res = await fetch("/api/ai/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, apiKey, model, baseUrl })
+    });
+    const data = await res.json();
+    if (data.status === "ok") {
+      statusEl.innerHTML = `<span style="color: #10b981; font-weight: 600;">✅ Connected! (${data.latencyMs}ms)</span>`;
+      showToast(`✨ ${provider.toUpperCase()} connected successfully (${data.latencyMs}ms)`);
+    } else {
+      const msg = data.detail || "Connection failed";
+      statusEl.innerHTML = `<span style="color: #ef4444; font-weight: 600;" title="${escapeHtml(msg)}">❌ ${escapeHtml(msg.slice(0, 65))}</span>`;
+    }
+  } catch (err) {
+    statusEl.innerHTML = `<span style="color: #ef4444; font-weight: 600;">❌ Network error: ${escapeHtml(err.message)}</span>`;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function saveAiSettings() {
+  const aiProvider = document.getElementById("set-ai-provider").value;
+  const aiApiKey = document.getElementById("set-ai-apikey") ? document.getElementById("set-ai-apikey").value.trim() : "";
+  const aiModel = document.getElementById("set-ai-model") ? document.getElementById("set-ai-model").value.trim() : "";
+  const aiBaseUrl = document.getElementById("set-ai-baseurl") ? document.getElementById("set-ai-baseurl").value.trim() : "";
+
+  try {
+    const res = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aiProvider, aiApiKey, aiModel, aiBaseUrl })
+    });
+    if (res.ok) {
+      await loadState();
+      showToast(`🤖 Saved ${aiProvider.toUpperCase()} AI settings!`);
+      const statusEl = document.getElementById("ai-test-status");
+      if (statusEl) statusEl.innerHTML = `<span style="color: #10b981; font-weight: 600;">✅ Settings saved!</span>`;
+    }
+  } catch (err) {
+    showToast("Error saving AI settings: " + err.message);
   }
 }
 
@@ -5125,6 +5312,19 @@ function openSettingsModal() {
   if (statusEl) statusEl.style.display = "none";
   const gpStatus = document.getElementById("set-gphotos-status");
   if (gpStatus) gpStatus.style.display = "none";
+
+  const aiProvEl = document.getElementById("set-ai-provider");
+  if (aiProvEl) aiProvEl.value = s.aiProvider || "gemini";
+  const aiKeyEl = document.getElementById("set-ai-apikey");
+  if (aiKeyEl) aiKeyEl.value = s.aiApiKey || "";
+  const aiModelEl = document.getElementById("set-ai-model");
+  if (aiModelEl) aiModelEl.value = s.aiModel || "gemini-2.0-flash";
+  const aiBaseEl = document.getElementById("set-ai-baseurl");
+  if (aiBaseEl) aiBaseEl.value = s.aiBaseUrl || "";
+  handleAiProviderChange();
+  const aiTestStatus = document.getElementById("ai-test-status");
+  if (aiTestStatus) aiTestStatus.innerHTML = "";
+
   openModal("modal-settings");
 }
 
@@ -5668,12 +5868,30 @@ async function saveSettings(e) {
   const slideshowIntervalSec = document.getElementById("set-slideshow-interval") ? parseInt(document.getElementById("set-slideshow-interval").value, 10) : 8;
   const daytimeScreensaverEnabled = document.getElementById("set-screensaver-enabled") ? document.getElementById("set-screensaver-enabled").checked : true;
   const daytimeScreensaverTimeoutMins = document.getElementById("set-screensaver-timeout") ? parseInt(document.getElementById("set-screensaver-timeout").value, 10) : 5;
+  const aiProvider = document.getElementById("set-ai-provider") ? document.getElementById("set-ai-provider").value : "gemini";
+  const aiApiKey = document.getElementById("set-ai-apikey") ? document.getElementById("set-ai-apikey").value.trim() : "";
+  const aiModel = document.getElementById("set-ai-model") ? document.getElementById("set-ai-model").value.trim() : "";
+  const aiBaseUrl = document.getElementById("set-ai-baseurl") ? document.getElementById("set-ai-baseurl").value.trim() : "";
 
   try {
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceName, wakeTime, sleepTime, weatherLocation, skylightEmail, splitDefault, slideshowIntervalSec, daytimeScreensaverEnabled, daytimeScreensaverTimeoutMins }),
+      body: JSON.stringify({
+        deviceName,
+        wakeTime,
+        sleepTime,
+        weatherLocation,
+        skylightEmail,
+        splitDefault,
+        slideshowIntervalSec,
+        daytimeScreensaverEnabled,
+        daytimeScreensaverTimeoutMins,
+        aiProvider,
+        aiApiKey,
+        aiModel,
+        aiBaseUrl
+      }),
     });
     const data = await res.json();
     if (data.weather) {

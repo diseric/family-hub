@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="/static/styles.css?v=2.36.11" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.36.12" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -663,8 +663,15 @@
       </div>
       <form id="form-magic" onsubmit="submitMagicImport(event)">
         <div class="modal-body">
-          <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">
-            Paste raw text from school emails, sports schedules, or upload a PDF roster. Our local AI will automatically extract dates, times, titles, and locations straight to your calendar!
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; background: var(--bg-hover); padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+              <span id="magic-provider-icon">🌟</span>
+              <span id="magic-provider-label" style="font-weight: 600; color: var(--text-primary);">Using Google Gemini (gemini-2.0-flash)</span>
+            </div>
+            <button type="button" class="btn-hub ghost mini-btn" onclick="closeModal('modal-magic'); openSettingsModal();" style="font-size: 0.72rem; padding: 2px 8px;">⚙️ AI Settings</button>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+            Paste raw text from school emails, sports schedules, or upload a PDF roster. AI will automatically extract dates, times, titles, and locations straight to your calendar!
           </p>
           <div class="form-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
@@ -1612,7 +1619,75 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
           </div>
         </div>
 
-        <!-- 5. Device Preferences Form -->
+        <!-- 5. AI Assistant & Magic Import Settings -->
+        <div style="margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 8px;">
+              <span>🤖 AI Assistant & Schedule Extractor</span>
+            </h3>
+            <span id="ai-active-provider-badge" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; background: rgba(14, 165, 233, 0.15); color: #0284c7; font-weight: 700;">Google Gemini</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45; margin: 0 0 0.85rem;">
+            Power <strong>🪄 Magic Import</strong> with your preferred AI service. Extracts dates, times, titles, and locations directly from school emails, sports schedules, and PDF documents straight to your calendar!
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 0.85rem; background: var(--bg-hover); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <!-- Provider Selector -->
+            <div>
+              <label style="font-size: 0.82rem; font-weight: 700; display: block; margin-bottom: 4px;">AI Provider</label>
+              <select id="set-ai-provider" onchange="handleAiProviderChange()" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.88rem; font-weight: 600;">
+                <option value="gemini">🌟 Google Gemini (Recommended — Fast & Free Tier Available)</option>
+                <option value="openai">⚡ OpenAI (GPT-4o-mini / GPT-4o)</option>
+                <option value="anthropic">🧠 Anthropic Claude (Claude 3.5 Haiku / Sonnet)</option>
+                <option value="ollama">🦙 Local Ollama (Private / Self-Hosted)</option>
+                <option value="custom">🔌 Custom OpenAI-Compatible (Groq, OpenRouter, DeepSeek, LocalAI)</option>
+              </select>
+            </div>
+
+            <!-- API Key Input -->
+            <div id="ai-apikey-group">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label id="lbl-ai-apikey" style="font-size: 0.82rem; font-weight: 700; margin: 0;">Gemini API Key</label>
+                <a id="ai-key-help-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style="font-size: 0.74rem; color: #0284c7; text-decoration: underline;">Get free key at Google AI Studio ↗</a>
+              </div>
+              <div style="position: relative; display: flex; align-items: center;">
+                <input type="password" id="set-ai-apikey" placeholder="Enter API Key (e.g. AIzaSy...)" style="width: 100%; padding: 8px 38px 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-family: monospace; font-size: 0.85rem;" />
+                <button type="button" class="btn-hub ghost" onclick="toggleAiApiKeyVisibility()" title="Show/Hide API Key" style="position: absolute; right: 4px; padding: 4px 8px; border: none; font-size: 0.85rem; background: transparent;">👁️</button>
+              </div>
+            </div>
+
+            <!-- Model Selection -->
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="font-size: 0.82rem; font-weight: 700; margin: 0;">Model Name</label>
+                <span id="ai-model-hint" style="font-size: 0.72rem; color: var(--text-muted);">Default: gemini-2.0-flash</span>
+              </div>
+              <input type="text" id="set-ai-model" placeholder="e.g. gemini-2.0-flash" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem;" />
+              <div id="ai-model-presets" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;"></div>
+            </div>
+
+            <!-- Base URL (Ollama or Custom) -->
+            <div id="ai-baseurl-group" style="display: none;">
+              <label style="font-size: 0.82rem; font-weight: 700; display: block; margin-bottom: 4px;">Custom Base URL / Endpoint</label>
+              <input type="text" id="set-ai-baseurl" placeholder="e.g. http://localhost:11434 or https://api.groq.com/openai/v1" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem;" />
+            </div>
+
+            <!-- Test Connection & Save Action -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; padding-top: 8px; border-top: 1px dashed var(--border-subtle);">
+              <div id="ai-test-status" style="font-size: 0.78rem; flex: 1; min-width: 0;"></div>
+              <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                <button type="button" class="btn-hub ghost" id="btn-test-ai" onclick="testAiConnection()" style="font-size: 0.8rem; padding: 6px 12px;">
+                  ⚡ Test Connection
+                </button>
+                <button type="button" class="btn-hub primary" onclick="saveAiSettings()" style="font-size: 0.8rem; padding: 6px 14px;">
+                  Save AI Keys
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Device Preferences Form -->
         <form id="form-settings" onsubmit="saveSettings(event)">
           <div style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">🏡 Device & Display Preferences</div>
           <div class="form-group">
@@ -2019,7 +2094,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.36.11 Cache Busting) -->
-  <script src="/static/app.js?v=2.36.11"></script>
+  <!-- Main JavaScript Engine (v2.36.12 Cache Busting) -->
+  <script src="/static/app.js?v=2.36.12"></script>
 </body>
 </html>
