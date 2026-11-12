@@ -625,6 +625,7 @@ function renderSplitChores() {
 
     for (const chore of choresInSub) {
       const m = getMember(chore.memberId);
+      const memberColor = m.color || "#0284c7";
       const item = document.createElement("div");
       item.className = `split-chore-item ${chore.completed ? "done" : ""}`;
       item.style.cssText = `
@@ -632,9 +633,10 @@ function renderSplitChores() {
         align-items: center;
         gap: 10px;
         padding: 8px 10px;
-        background: var(--bg-surface);
+        background: ${chore.completed ? "var(--bg-card-alt)" : `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 40%)`};
         border-radius: var(--radius-md);
         border: 1px solid var(--border-subtle);
+        border-left: 5px solid ${memberColor};
         transition: all 0.15s ease;
         ${chore.completed ? "opacity: 0.55; text-decoration: line-through;" : ""}
       `;
@@ -643,8 +645,8 @@ function renderSplitChores() {
           width: 24px;
           height: 24px;
           border-radius: 50%;
-          border: 2px solid ${chore.completed ? "var(--accent-green)" : "var(--border-color)"};
-          background: ${chore.completed ? "var(--accent-green)" : "transparent"};
+          border: 2px solid ${memberColor};
+          background: ${chore.completed ? memberColor : "transparent"};
           color: white;
           display: flex;
           align-items: center;
@@ -656,10 +658,10 @@ function renderSplitChores() {
         ">${chore.completed ? "✓" : ""}</div>
         <div class="split-chore-body" title="Tap to edit task" style="flex: 1; min-width: 0; cursor: pointer;">
           <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${chore.title}</div>
-          <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; margin-top: 1px;">
-            <span>${m.avatar} ${m.name}</span>
-            <span>•</span>
+          <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; margin-top: 2px; flex-wrap: wrap;">
+            <span class="chore-member-tag" style="background: ${memberColor}18; color: ${memberColor}; border: 1px solid ${memberColor}35;">${m.avatar} ${m.name}</span>
             <span style="color: var(--accent-gold); font-weight: 700;">+${chore.points} ⭐</span>
+            ${chore.isRoutine && chore.timeOfDay ? `<span class="routine-time-badge">${chore.timeOfDay}</span>` : ""}
           </div>
         </div>
         <button type="button" class="btn-split-chore-edit" title="Edit or delete task" style="border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 4px; font-size: 0.82rem;">✏️</button>
@@ -1777,22 +1779,37 @@ function renderChores() {
       } else {
         for (const chore of choresInSub) {
           const isShared = chore.memberId === "all" && member.id !== "all";
+          const assignedMember = (chore.memberId && chore.memberId !== "all") ? getMember(chore.memberId) : member;
+          const memberColor = isShared ? "#0284c7" : (assignedMember.color || member.color || "#0284c7");
+          const memberAvatar = assignedMember.avatar || member.avatar || "👤";
+          const memberName = assignedMember.name || member.name || "Member";
+
           const card = document.createElement("div");
           card.className = `chore-card ${chore.completed ? "done" : ""}`;
+          card.style.borderLeft = `5px solid ${memberColor}`;
+          if (!chore.completed) {
+            card.style.background = `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 45%)`;
+          } else {
+            card.style.borderLeftColor = `${memberColor}80`;
+          }
+
           card.innerHTML = `
             <div class="chore-left">
-              <div class="chore-checkbox" title="Tap to mark complete">${chore.completed ? "✓" : ""}</div>
+              <div class="chore-checkbox" title="Tap to mark complete" style="border-color: ${memberColor}; ${chore.completed ? `background-color: ${memberColor}; border-color: ${memberColor};` : ''}">${chore.completed ? "✓" : ""}</div>
               ${chore.icon ? `<span class="chore-emoji" title="${chore.title}">${chore.icon}</span>` : ""}
               <div class="chore-info" title="Tap to edit task">
                 <h3>${chore.title}</h3>
                 <div class="chore-meta">
-                  ${isShared ? `<span style="color: #0284c7; font-weight: 600;">🏡 Shared</span>` : ""}
-                  ${chore.isRoutine && activePeriod === "all" && chore.timeOfDay ? `<span class="routine-time-badge">${chore.timeOfDay}</span>` : ""}
+                  <span class="chore-member-tag" style="background: ${memberColor}18; color: ${memberColor}; border: 1px solid ${memberColor}35;">
+                    ${isShared ? "🏡 Shared" : `${memberAvatar} ${memberName}`}
+                  </span>
+                  ${chore.isRoutine && chore.timeOfDay ? `<span class="routine-time-badge">${chore.timeOfDay}</span>` : ""}
+                  ${chore.repeat && chore.repeat !== "none" ? `<span title="Repeats ${chore.repeat}" style="font-size: 0.72rem; opacity: 0.85;">🔁 ${chore.repeat}</span>` : ""}
                 </div>
               </div>
             </div>
             <div class="chore-card-actions">
-              <div class="chore-points">+${chore.points} ⭐</div>
+              <div class="chore-points" style="background: ${memberColor}18; color: ${memberColor}; border: 1px solid ${memberColor}35;">+${chore.points} ⭐</div>
               <button type="button" class="btn-chore-edit" title="Edit or delete task">✏️</button>
             </div>
           `;
@@ -2006,9 +2023,17 @@ function renderRewards() {
         const pct = Math.min(100, Math.round((currentStars / starCost) * 100));
         const needed = Math.max(0, starCost - currentStars);
         const isShared = reward.memberId === "all";
+        const assignedMember = (reward.memberId && reward.memberId !== "all") ? getMember(reward.memberId) : member;
+        const memberColor = isShared ? "#0284c7" : (assignedMember.color || member.color || "#0284c7");
+        const memberAvatar = assignedMember.avatar || member.avatar || "👤";
+        const memberName = assignedMember.name || member.name || "Member";
 
         const card = document.createElement("div");
         card.className = `reward-goal-card ${isReady ? "ready-to-redeem" : ""}`;
+        card.style.borderLeft = `5px solid ${memberColor}`;
+        if (!isReady) {
+          card.style.background = `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 45%)`;
+        }
         card.innerHTML = `
           <div class="reward-goal-header">
             <div class="reward-goal-info">
@@ -2016,11 +2041,15 @@ function renderRewards() {
               <div class="reward-goal-titles">
                 <div class="reward-goal-title">${reward.title}</div>
                 ${reward.description ? `<div class="reward-goal-desc">${reward.description}</div>` : ""}
-                ${isShared ? `<div class="chore-meta"><span style="color: #0284c7; font-weight: 600;">🏡 Shared Goal</span></div>` : ""}
+                <div class="chore-meta" style="margin-top: 3px;">
+                  <span class="chore-member-tag" style="background: ${memberColor}18; color: ${memberColor}; border: 1px solid ${memberColor}35;">
+                    ${isShared ? "🏡 Shared Goal" : `${memberAvatar} ${memberName}`}
+                  </span>
+                </div>
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
-              <span class="reward-cost-badge">${starCost} ⭐</span>
+              <span class="reward-cost-badge" style="background: ${memberColor}18; color: ${memberColor}; border: 1px solid ${memberColor}35;">${starCost} ⭐</span>
               <button type="button" class="btn-chore-edit" onclick="openEditRewardModal('${reward.id}')" title="Edit goal">✏️</button>
             </div>
           </div>
@@ -2028,7 +2057,7 @@ function renderRewards() {
           <!-- Visual Progress Bar -->
           <div style="display: flex; flex-direction: column; gap: 3px;">
             <div class="reward-progress-track">
-              <div class="reward-progress-fill" style="width: ${pct}%; ${isReady ? 'background: linear-gradient(90deg, #10b981, #34d399);' : ''}"></div>
+              <div class="reward-progress-fill" style="width: ${pct}%; background: ${isReady ? 'linear-gradient(90deg, #10b981, #34d399)' : `linear-gradient(90deg, ${memberColor}, #f59e0b)`};"></div>
             </div>
             <div class="reward-progress-labels">
               <span>${currentStars} / ${starCost} ⭐</span>
