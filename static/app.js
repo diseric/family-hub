@@ -165,7 +165,7 @@ function populateSelectDropdowns() {
     const el = document.getElementById(sId);
     if (!el) continue;
     el.innerHTML = "";
-    if (sId === "feed-member" || sId === "ev-member" || sId === "magic-member") {
+    if (sId === "feed-member" || sId === "ev-member" || sId === "magic-member" || sId === "ch-member") {
       const allOpt = document.createElement("option");
       allOpt.value = "all";
       allOpt.textContent = "🏡 Entire Family (Shared)";
@@ -408,77 +408,106 @@ function renderSplitChores() {
     return;
   }
   
-  for (const chore of chores) {
-    const m = getMember(chore.memberId);
-    const item = document.createElement("div");
-    item.className = `split-chore-item ${chore.completed ? "done" : ""}`;
-    item.style.cssText = `
+  const subcats = [
+    { key: "Daily", label: "Daily Routines", icon: "🌅" },
+    { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
+    { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
+  ];
+
+  for (const sub of subcats) {
+    const choresInSub = chores.filter(c => getChoreFrequencyCategory(c.frequency) === sub.key);
+    if (choresInSub.length === 0) continue;
+
+    const subHeader = document.createElement("div");
+    subHeader.style.cssText = `
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 8px 0 4px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: var(--bg-surface);
-      border-radius: var(--radius-md);
-      border: 1px solid var(--border-subtle);
-      transition: all 0.15s ease;
-      ${chore.completed ? "opacity: 0.55; text-decoration: line-through;" : ""}
+      justify-content: space-between;
     `;
-    item.innerHTML = `
-      <div class="split-chore-check" title="Tap to mark complete" style="
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        border: 2px solid ${chore.completed ? "var(--accent-green)" : "var(--border-color)"};
-        background: ${chore.completed ? "var(--accent-green)" : "transparent"};
-        color: white;
+    subHeader.innerHTML = `
+      <span>${sub.icon} ${sub.label}</span>
+      <span class="badge-count">${choresInSub.filter(c => !c.completed).length}</span>
+    `;
+    container.appendChild(subHeader);
+
+    for (const chore of choresInSub) {
+      const m = getMember(chore.memberId);
+      const item = document.createElement("div");
+      item.className = `split-chore-item ${chore.completed ? "done" : ""}`;
+      item.style.cssText = `
         display: flex;
         align-items: center;
-        justify-content: center;
-        font-size: 0.75rem;
-        font-weight: 700;
-        flex-shrink: 0;
-        cursor: pointer;
-      ">${chore.completed ? "✓" : ""}</div>
-      <div class="split-chore-body" title="Tap to edit task" style="flex: 1; min-width: 0; cursor: pointer;">
-        <div style="font-size: 0.86rem; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${chore.title}</div>
-        <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; margin-top: 2px;">
-          <span>${m.avatar} ${m.name}</span>
-          <span>•</span>
-          <span style="color: var(--accent-gold); font-weight: 700;">+${chore.points} ⭐</span>
+        gap: 10px;
+        padding: 8px 10px;
+        background: var(--bg-surface);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-subtle);
+        transition: all 0.15s ease;
+        ${chore.completed ? "opacity: 0.55; text-decoration: line-through;" : ""}
+      `;
+      item.innerHTML = `
+        <div class="split-chore-check" title="Tap to mark complete" style="
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          border: 2px solid ${chore.completed ? "var(--accent-green)" : "var(--border-color)"};
+          background: ${chore.completed ? "var(--accent-green)" : "transparent"};
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 700;
+          flex-shrink: 0;
+          cursor: pointer;
+        ">${chore.completed ? "✓" : ""}</div>
+        <div class="split-chore-body" title="Tap to edit task" style="flex: 1; min-width: 0; cursor: pointer;">
+          <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${chore.title}</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; margin-top: 1px;">
+            <span>${m.avatar} ${m.name}</span>
+            <span>•</span>
+            <span style="color: var(--accent-gold); font-weight: 700;">+${chore.points} ⭐</span>
+          </div>
         </div>
-      </div>
-      <button type="button" class="btn-split-chore-edit" title="Edit or delete task" style="border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 4px; font-size: 0.82rem;">✏️</button>
-    `;
+        <button type="button" class="btn-split-chore-edit" title="Edit or delete task" style="border: none; background: transparent; color: var(--text-muted); cursor: pointer; padding: 4px; font-size: 0.82rem;">✏️</button>
+      `;
 
-    const chk = item.querySelector(".split-chore-check");
-    chk.onclick = async (e) => {
-      e.stopPropagation();
-      try {
-        const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
-        const data = await res.json();
-        if (data.reward) {
-          triggerRewardConfetti(data.reward);
+      const chk = item.querySelector(".split-chore-check");
+      chk.onclick = async (e) => {
+        e.stopPropagation();
+        try {
+          const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
+          const data = await res.json();
+          if (data.reward) {
+            triggerRewardConfetti(data.reward);
+          }
+          await loadState();
+          renderSplitChores();
+        } catch (err) {
+          console.error("Failed to toggle chore:", err);
         }
-        await loadState();
-        renderSplitChores();
-      } catch (err) {
-        console.error("Failed to toggle chore:", err);
-      }
-    };
+      };
 
-    const bodyEl = item.querySelector(".split-chore-body");
-    bodyEl.onclick = (e) => {
-      e.stopPropagation();
-      openEditChoreModal(chore.id);
-    };
+      const bodyEl = item.querySelector(".split-chore-body");
+      bodyEl.onclick = (e) => {
+        e.stopPropagation();
+        openEditChoreModal(chore.id);
+      };
 
-    const editBtn = item.querySelector(".btn-split-chore-edit");
-    editBtn.onclick = (e) => {
-      e.stopPropagation();
-      openEditChoreModal(chore.id);
-    };
+      const editBtn = item.querySelector(".btn-split-chore-edit");
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        openEditChoreModal(chore.id);
+      };
 
-    container.appendChild(item);
+      container.appendChild(item);
+    }
   }
 }
 
@@ -932,6 +961,20 @@ function openEventDetail(ev) {
   openModal("modal-event");
 }
 
+function getChoreFrequencyCategory(freq) {
+  if (!freq) return "Daily";
+  const f = freq.toLowerCase();
+  if (f.includes("week")) return "Weekly";
+  if (f.includes("need") || f.includes("one") || f.includes("time")) return "As Needed";
+  return "Daily";
+}
+
+function openNewChoreForMember(memberId) {
+  openNewChoreModal();
+  const mSel = document.getElementById("ch-member");
+  if (mSel && memberId) mSel.value = memberId;
+}
+
 // ---------------------------------------------------------------------------
 // 2. Interactive Chore Tracker with Confetti Rewards
 // ---------------------------------------------------------------------------
@@ -942,7 +985,7 @@ function renderChores() {
   grid.innerHTML = "";
   if (lb) lb.innerHTML = "";
 
-  // Render Leaderboard
+  // 1. Render Leaderboard
   const sortedMembers = [...appState.members].sort((a, b) => (b.points || 0) - (a.points || 0));
   for (const m of sortedMembers) {
     if (m.id === "m5") continue;
@@ -963,66 +1006,138 @@ function renderChores() {
     lb.appendChild(card);
   }
 
-  // Filter chores
-  const chores = appState.activeMemberFilter === "all"
-    ? appState.chores
-    : appState.chores.filter((c) => c.memberId === appState.activeMemberFilter);
+  // 2. Identify assigned persons / groups to display
+  let membersToDisplay = appState.activeMemberFilter === "all"
+    ? [...appState.members]
+    : appState.members.filter((m) => m.id === appState.activeMemberFilter);
 
-  for (const chore of chores) {
-    const m = getMember(chore.memberId);
-    const card = document.createElement("div");
-    card.className = `chore-card ${chore.completed ? "done" : ""}`;
-    card.innerHTML = `
-      <div class="chore-left">
-        <div class="chore-checkbox" title="Tap to mark complete">${chore.completed ? "✓" : ""}</div>
-        <div class="chore-info" title="Tap to edit task">
-          <h3>${chore.title}</h3>
-          <div class="chore-meta">
-            <span>${m.avatar} ${m.name}</span>
-            <span>•</span>
-            <span>${chore.frequency}</span>
+  // If "all" filter is active, check if there are chores assigned to "all" (Entire Family)
+  const sharedChores = (appState.chores || []).filter((c) => c.memberId === "all");
+  if (sharedChores.length > 0 && appState.activeMemberFilter === "all") {
+    membersToDisplay.unshift({
+      id: "all",
+      name: "Entire Family (Shared)",
+      avatar: "🏡",
+      color: "#0284c7",
+      points: sharedChores.reduce((sum, c) => sum + (c.points || 0), 0),
+    });
+  }
+
+  if (membersToDisplay.length === 0) {
+    grid.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-muted); width: 100%;">No family members found. Add profiles in Settings!</div>`;
+    return;
+  }
+
+  const subcats = [
+    { key: "Daily", label: "Daily Routines", icon: "🌅" },
+    { key: "Weekly", label: "Weekly Tasks", icon: "📅" },
+    { key: "As Needed", label: "As Needed / One-Time", icon: "⚡" },
+  ];
+
+  for (const member of membersToDisplay) {
+    const memberChores = (appState.chores || []).filter((c) => c.memberId === member.id);
+    const completedCount = memberChores.filter((c) => c.completed).length;
+    const totalCount = memberChores.length;
+
+    const col = document.createElement("div");
+    col.className = "member-tasks-column";
+    col.style.borderTop = `4px solid ${member.color || "#0284c7"}`;
+
+    col.innerHTML = `
+      <div class="member-tasks-header">
+        <div class="member-tasks-info">
+          <span class="member-tasks-avatar">${member.avatar || "👤"}</span>
+          <div>
+            <div class="member-tasks-name">${member.name}</div>
+            <div class="member-tasks-progress">
+              <span>${completedCount}/${totalCount} completed</span>
+              ${member.id !== "all" ? `<span class="member-points-pill" onclick="openEditPointsModal('${member.id}')" title="Edit points">${member.points || 0} ⭐</span>` : ""}
+            </div>
           </div>
         </div>
+        <button type="button" class="btn-hub ghost mini-btn" onclick="openNewChoreForMember('${member.id}')" title="Add task for ${member.name}">+ Task</button>
       </div>
-      <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <div class="chore-points">+${chore.points} ⭐</div>
-        <button type="button" class="btn-chore-edit" title="Edit or delete task">✏️</button>
-      </div>
+      <div class="member-subcategories-container" id="subcats-${member.id}"></div>
     `;
 
-    // Clicking checkbox toggles completion
-    const chk = card.querySelector(".chore-checkbox");
-    chk.onclick = async (e) => {
-      e.stopPropagation();
-      try {
-        const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
-        const data = await res.json();
-        chore.completed = data.chore.completed;
+    const subcatsContainer = col.querySelector(`#subcats-${member.id}`);
 
-        if (data.reward) {
-          triggerRewardConfetti(data.reward);
+    for (const sub of subcats) {
+      const choresInSub = memberChores.filter(
+        (c) => getChoreFrequencyCategory(c.frequency) === sub.key
+      );
+
+      const subGroup = document.createElement("div");
+      subGroup.className = "chore-subcategory-group";
+      subGroup.innerHTML = `
+        <div class="chore-subcategory-title">
+          <span>${sub.icon} ${sub.label}</span>
+          <span class="subcategory-badge">${choresInSub.filter(c => !c.completed).length} left</span>
+        </div>
+        <div class="chore-subcategory-list" id="sublist-${member.id}-${sub.key}"></div>
+      `;
+
+      const listContainer = subGroup.querySelector(`#sublist-${member.id}-${sub.key}`);
+
+      if (choresInSub.length === 0) {
+        listContainer.innerHTML = `
+          <div class="chore-empty-sub">
+            <span>No ${sub.label.toLowerCase()}</span>
+          </div>
+        `;
+      } else {
+        for (const chore of choresInSub) {
+          const card = document.createElement("div");
+          card.className = `chore-card ${chore.completed ? "done" : ""}`;
+          card.innerHTML = `
+            <div class="chore-left">
+              <div class="chore-checkbox" title="Tap to mark complete">${chore.completed ? "✓" : ""}</div>
+              <div class="chore-info" title="Tap to edit task">
+                <h3>${chore.title}</h3>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <div class="chore-points">+${chore.points} ⭐</div>
+              <button type="button" class="btn-chore-edit" title="Edit or delete task">✏️</button>
+            </div>
+          `;
+
+          const chk = card.querySelector(".chore-checkbox");
+          chk.onclick = async (e) => {
+            e.stopPropagation();
+            try {
+              const res = await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
+              const data = await res.json();
+              chore.completed = data.chore.completed;
+              if (data.reward) {
+                triggerRewardConfetti(data.reward);
+              }
+              await loadState();
+            } catch (err) {
+              console.error("Failed to toggle chore:", err);
+            }
+          };
+
+          const editBtn = card.querySelector(".btn-chore-edit");
+          editBtn.onclick = (e) => {
+            e.stopPropagation();
+            openEditChoreModal(chore.id);
+          };
+
+          const choreInfo = card.querySelector(".chore-info");
+          choreInfo.onclick = (e) => {
+            e.stopPropagation();
+            openEditChoreModal(chore.id);
+          };
+
+          listContainer.appendChild(card);
         }
-        await loadState();
-      } catch (err) {
-        console.error("Failed to toggle chore:", err);
       }
-    };
 
-    // Clicking edit button opens modal
-    const editBtn = card.querySelector(".btn-chore-edit");
-    editBtn.onclick = (e) => {
-      e.stopPropagation();
-      openEditChoreModal(chore.id);
-    };
+      subcatsContainer.appendChild(subGroup);
+    }
 
-    // Clicking chore text also opens edit modal
-    const choreInfo = card.querySelector(".chore-info");
-    choreInfo.onclick = (e) => {
-      e.stopPropagation();
-      openEditChoreModal(chore.id);
-    };
-
-    grid.appendChild(card);
+    grid.appendChild(col);
   }
 }
 
