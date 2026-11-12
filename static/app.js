@@ -2423,10 +2423,10 @@ function triggerRewardConfetti(reward) {
   }
 
   const modal = document.getElementById("reward-modal");
-  const av = document.getElementById("reward-avatar");
-  const tit = document.getElementById("reward-title");
-  const pts = document.getElementById("reward-points");
-  const tot = document.getElementById("reward-total");
+  const av = document.getElementById("celebration-reward-avatar");
+  const tit = document.getElementById("celebration-reward-title");
+  const pts = document.getElementById("celebration-reward-points");
+  const tot = document.getElementById("celebration-reward-total");
 
   if (av) av.textContent = reward.avatar || "🎉";
   if (tit) tit.textContent = `Great Job, ${reward.member}!`;
