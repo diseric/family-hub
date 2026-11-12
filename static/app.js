@@ -1704,7 +1704,10 @@ function renderChores() {
             </div>
           </div>
         </div>
-        <button type="button" class="btn-hub ghost mini-btn" onclick="openNewChoreForMember('${member.id}')" title="Add task for ${member.name}">+ Task</button>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <button type="button" class="btn-hub ghost mini-btn" onclick="openPresetRoutinesModal('${member.id}')" title="Pre-set age routines for ${member.name}">✨ Presets</button>
+          <button type="button" class="btn-hub ghost mini-btn" onclick="openNewChoreForMember('${member.id}')" title="Add task for ${member.name}">+ Task</button>
+        </div>
       </div>
       <div class="member-subcategories-container"></div>
     `;
@@ -3465,6 +3468,301 @@ async function deleteCurrentEvent() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Age-Appropriate Routine & Chore Presets
+// ---------------------------------------------------------------------------
+const AGE_ROUTINE_PRESETS = {
+  toddler: {
+    key: "toddler",
+    title: "🧸 Toddlers & Preschoolers",
+    ageRange: "Ages 2–4",
+    description: "Focuses on 3 to 5 simple habits with heavy visual cues",
+    items: [
+      { title: "Go potty", icon: "🚽", timeOfDay: "morning", points: 10 },
+      { title: "Get dressed", icon: "👕", timeOfDay: "morning", points: 10 },
+      { title: "Eat breakfast", icon: "🥣", timeOfDay: "morning", points: 10 },
+      { title: "Brush teeth", icon: "🪥", timeOfDay: "morning", points: 10 },
+      { title: "Brush hair", icon: "🪮", timeOfDay: "morning", points: 10 },
+      { title: "Put away toys or shoes", icon: "🧸", timeOfDay: "evening", points: 10 }
+    ]
+  },
+  elementary: {
+    key: "elementary",
+    title: "🎒 Early Elementary",
+    ageRange: "Ages 5–8",
+    description: "Adds independence and school-prep steps",
+    items: [
+      { title: "Make bed", icon: "🛏️", timeOfDay: "morning", points: 10 },
+      { title: "Get dressed", icon: "👕", timeOfDay: "morning", points: 10 },
+      { title: "Brush teeth & do hair", icon: "🪥", timeOfDay: "morning", points: 10 },
+      { title: "Eat breakfast & clear plate", icon: "🥣", timeOfDay: "morning", points: 10 },
+      { title: "Pack backpack & water bottle", icon: "🎒", timeOfDay: "morning", points: 10 },
+      { title: "Feed pets", icon: "🐶", timeOfDay: "evening", points: 10 }
+    ]
+  },
+  teen: {
+    key: "teen",
+    title: "🎧 Tweens & Teens",
+    ageRange: "Ages 9+",
+    description: "Shifts toward self-management and household help",
+    items: [
+      { title: "Tidy room & make bed", icon: "🛏️", timeOfDay: "morning", points: 10 },
+      { title: "Hygiene routine (shower, deodorant, brush teeth)", icon: "🪥", timeOfDay: "morning", points: 10 },
+      { title: "Pack lunch & snacks", icon: "🥪", timeOfDay: "morning", points: 10 },
+      { title: "Unload dishwasher or wipe counters", icon: "🍽️", timeOfDay: "evening", points: 15 },
+      { title: "Check school bag & sports gear", icon: "🎒", timeOfDay: "afternoon", points: 10 }
+    ]
+  }
+};
+
+let currentChoreQuickPresetTab = "toddler";
+
+function switchChoreQuickPresetTab(tabKey) {
+  currentChoreQuickPresetTab = tabKey;
+  ["toddler", "elementary", "teen"].forEach((k) => {
+    const btn = document.getElementById(`chip-age-tab-${k}`);
+    if (btn) btn.classList.toggle("active", k === tabKey);
+  });
+  renderChoreQuickPresetChips();
+}
+
+function renderChoreQuickPresetChips() {
+  const container = document.getElementById("quick-preset-chips-box");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const preset = AGE_ROUTINE_PRESETS[currentChoreQuickPresetTab] || AGE_ROUTINE_PRESETS.toddler;
+  for (const item of preset.items) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "quick-preset-chip";
+    chip.innerHTML = `<span>${item.icon}</span> <span>${item.title}</span>`;
+    chip.title = `Click to fill: "${item.title}" (${item.timeOfDay}, ${item.points}⭐)`;
+    chip.onclick = () => applyChoreQuickPreset(item);
+    container.appendChild(chip);
+  }
+}
+
+function applyChoreQuickPreset(item) {
+  const tEl = document.getElementById("ch-title");
+  if (tEl) tEl.value = item.title;
+
+  const iconEl = document.getElementById("ch-icon");
+  if (iconEl) iconEl.value = item.icon;
+
+  const ptsEl = document.getElementById("ch-points");
+  if (ptsEl) ptsEl.value = item.points || 10;
+
+  setChoreType("routine");
+  selectRoutineTimeOfDay(item.timeOfDay || "morning");
+  showToast(`Applied preset: ${item.icon} ${item.title}`);
+}
+
+// ---------------------------------------------------------------------------
+// Batch Pre-set Age Routines Modal Controller
+// ---------------------------------------------------------------------------
+let selectedPresetCategory = "toddler";
+let activePresetSelections = new Set();
+
+function openPresetRoutinesModal(preferredMemberId) {
+  populatePresetMemberDropdown(preferredMemberId);
+  selectPresetAgeCategory("toddler");
+  openModal("modal-preset-routines");
+}
+
+function populatePresetMemberDropdown(preferredMemberId) {
+  const sel = document.getElementById("preset-member-select");
+  if (!sel) return;
+  sel.innerHTML = "";
+
+  const sharedOpt = document.createElement("option");
+  sharedOpt.value = "all";
+  sharedOpt.textContent = "🏡 Entire Family (Shared Routines)";
+  sel.appendChild(sharedOpt);
+
+  for (const m of appState.members) {
+    if (m.id === "m5") continue;
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = `${m.avatar || "👤"} ${m.name}`;
+    sel.appendChild(opt);
+  }
+
+  if (preferredMemberId) {
+    sel.value = preferredMemberId;
+  } else if (appState.activeMemberFilter && appState.activeMemberFilter !== "all") {
+    sel.value = appState.activeMemberFilter;
+  } else if (appState.members && appState.members.length > 0) {
+    const firstNonShared = appState.members.find((m) => m.id !== "m5");
+    if (firstNonShared) sel.value = firstNonShared.id;
+  }
+}
+
+function selectPresetAgeCategory(catKey) {
+  selectedPresetCategory = catKey;
+  ["toddler", "elementary", "teen"].forEach((k) => {
+    const btn = document.getElementById(`btn-age-${k}`);
+    if (btn) btn.classList.toggle("active", k === catKey);
+  });
+
+  const cat = AGE_ROUTINE_PRESETS[catKey];
+  const descEl = document.getElementById("preset-category-desc");
+  if (descEl) descEl.textContent = cat.description;
+
+  activePresetSelections = new Set(cat.items.map((_, idx) => idx));
+  renderPresetHabitsChecklist();
+  updatePresetSelectionSummary();
+}
+
+function renderPresetHabitsChecklist() {
+  const container = document.getElementById("preset-habits-checklist");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const cat = AGE_ROUTINE_PRESETS[selectedPresetCategory];
+  const starOverride = document.getElementById("preset-stars-select") ? document.getElementById("preset-stars-select").value : "10";
+
+  cat.items.forEach((item, idx) => {
+    const isChecked = activePresetSelections.has(idx);
+    const pts = (starOverride && starOverride !== "keep") ? parseInt(starOverride, 10) : item.points;
+
+    const row = document.createElement("div");
+    row.className = `preset-habit-row ${isChecked ? "selected" : ""}`;
+    row.onclick = (e) => {
+      if (e.target.tagName !== "INPUT") {
+        const cb = row.querySelector("input[type=checkbox]");
+        if (cb) {
+          cb.checked = !cb.checked;
+          togglePresetHabit(idx, cb.checked);
+        }
+      }
+    };
+
+    const periodEmoji = item.timeOfDay === "evening" ? "🌙 Evening" : item.timeOfDay === "afternoon" ? "☀️ Afternoon" : "🌅 Morning";
+
+    row.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="preset-cb-${idx}" ${isChecked ? "checked" : ""} style="width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer;" onchange="togglePresetHabit(${idx}, this.checked)" />
+        <span style="font-size: 1.5rem; line-height: 1;">${item.icon}</span>
+        <div>
+          <div style="font-weight: 700; font-size: 0.92rem; color: var(--text-primary);">${item.title}</div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <span class="routine-time-badge">${periodEmoji}</span>
+            <span>•</span>
+            <span style="color: var(--accent-gold); font-weight: 700;">${pts} ⭐</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+        ${isChecked ? "Included" : "Skip"}
+      </div>
+    `;
+
+    container.appendChild(row);
+  });
+}
+
+function togglePresetHabit(idx, checked) {
+  if (checked) {
+    activePresetSelections.add(idx);
+  } else {
+    activePresetSelections.delete(idx);
+  }
+  renderPresetHabitsChecklist();
+  updatePresetSelectionSummary();
+}
+
+function toggleSelectAllPresets() {
+  const cat = AGE_ROUTINE_PRESETS[selectedPresetCategory];
+  if (activePresetSelections.size === cat.items.length) {
+    activePresetSelections.clear();
+  } else {
+    activePresetSelections = new Set(cat.items.map((_, idx) => idx));
+  }
+  renderPresetHabitsChecklist();
+  updatePresetSelectionSummary();
+}
+
+function updatePresetHabitStars(val) {
+  renderPresetHabitsChecklist();
+}
+
+function updatePresetSelectionSummary() {
+  const count = activePresetSelections.size;
+  const summaryEl = document.getElementById("preset-count-summary");
+  if (summaryEl) summaryEl.textContent = `${count} routine${count === 1 ? "" : "s"} selected`;
+
+  const addBtn = document.getElementById("btn-add-presets");
+  if (addBtn) {
+    addBtn.disabled = count === 0;
+    addBtn.textContent = count === 0 ? "Select Routines" : `✨ Add ${count} Routine${count === 1 ? "" : "s"}`;
+  }
+
+  const cat = AGE_ROUTINE_PRESETS[selectedPresetCategory];
+  const toggleBtn = document.getElementById("btn-toggle-all-presets");
+  if (toggleBtn) {
+    toggleBtn.textContent = (count === cat.items.length) ? "Deselect All" : "Select All";
+  }
+}
+
+async function saveBatchPresetRoutines() {
+  if (activePresetSelections.size === 0) {
+    showToast("Please select at least 1 routine");
+    return;
+  }
+
+  const memberId = document.getElementById("preset-member-select").value;
+  const frequency = document.getElementById("preset-frequency-select").value || "Daily";
+  const starOverride = document.getElementById("preset-stars-select").value;
+  const cat = AGE_ROUTINE_PRESETS[selectedPresetCategory];
+
+  const daysOfWeek = frequency === "Weekly"
+    ? ["Mon", "Tue", "Wed", "Thu", "Fri"]
+    : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const payloadList = [];
+  activePresetSelections.forEach((idx) => {
+    const item = cat.items[idx];
+    if (!item) return;
+    const pts = (starOverride && starOverride !== "keep") ? parseInt(starOverride, 10) : item.points;
+
+    payloadList.push({
+      title: item.title,
+      icon: item.icon,
+      memberId: memberId,
+      points: pts,
+      frequency: frequency,
+      isRoutine: true,
+      timeOfDay: item.timeOfDay || "morning",
+      daysOfWeek: daysOfWeek
+    });
+  });
+
+  try {
+    const res = await fetch("/api/chores/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadList),
+    });
+
+    if (!res.ok) throw new Error("Failed to save routines");
+    closeModal("modal-preset-routines");
+    await loadState();
+    if (appState.splitScreen) renderSplitSidePane();
+
+    if (typeof confetti === "function") {
+      confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+    }
+
+    const memberObj = appState.members.find((m) => m.id === memberId);
+    const mName = memberObj ? memberObj.name : "Family";
+    showToast(`🎉 Added ${payloadList.length} routines for ${mName}!`);
+  } catch (err) {
+    console.error("Batch preset error:", err);
+    showToast("Error creating pre-set routines");
+  }
+}
+
 function openNewChoreModal() {
   const form = document.getElementById("form-chore");
   if (form) form.reset();
@@ -3485,6 +3783,9 @@ function openNewChoreModal() {
   const curPeriod = getCurrentRoutinePeriod();
   selectRoutineTimeOfDay(curPeriod);
   setSelectedRoutineDays(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+
+  switchChoreQuickPresetTab("toddler");
+  renderChoreQuickPresetChips();
 
   populateSelectDropdowns();
 
@@ -3528,6 +3829,9 @@ function openEditChoreModal(choreId) {
   setChoreType(chore.isRoutine !== false ? "routine" : "chore");
   selectRoutineTimeOfDay(chore.timeOfDay || "morning");
   setSelectedRoutineDays(chore.daysOfWeek || ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]);
+
+  switchChoreQuickPresetTab("toddler");
+  renderChoreQuickPresetChips();
 
   const subBtn = document.getElementById("ch-btn-submit");
   if (subBtn) subBtn.textContent = "Save Changes";

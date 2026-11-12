@@ -480,6 +480,20 @@ def create_chore(ch: ChoreModel):
     save_db(db)
     return item
 
+@app.post("/api/chores/batch")
+def create_chores_batch(chores: List[ChoreModel]):
+    added = []
+    base_time = int(time.time() * 1000)
+    for idx, ch in enumerate(chores):
+        new_id = ch.id or f"ch_{base_time}_{idx}"
+        item = ch.dict()
+        item["id"] = new_id
+        item["completedDate"] = today_str if item["completed"] else None
+        db["chores"].append(item)
+        added.append(item)
+    save_db(db)
+    return added
+
 @app.post("/api/chores/{chore_id}/toggle")
 def toggle_chore(chore_id: str):
     reward = None

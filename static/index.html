@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.30.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.31.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -330,7 +330,10 @@
               <h2>Family Tasks & Daily Routines</h2>
               <p>Tap circular checkmarks to complete tasks and earn reward points!</p>
             </div>
-            <button class="btn-hub primary" onclick="openNewChoreModal()">+ Add New Task</button>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn-hub ghost" onclick="openPresetRoutinesModal()" title="Add pre-set routines by age group (Ages 2-4, 5-8, 9+)">✨ Pre-set Routines</button>
+              <button type="button" class="btn-hub primary" onclick="openNewChoreModal()">+ Add New Task</button>
+            </div>
           </div>
 
           <!-- Family Leaderboard Bar -->
@@ -697,6 +700,21 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             </button>
           </div>
 
+          <!-- Quick-Fill Age Preset Ideas -->
+          <div style="background: var(--bg-hover); padding: 0.7rem 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-secondary);">💡 Quick-Fill Ideas by Age:</span>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" class="type-pill-btn active" id="chip-age-tab-toddler" onclick="switchChoreQuickPresetTab('toddler')" style="padding: 2px 7px; font-size: 0.7rem;">🧸 2–4 yrs</button>
+                <button type="button" class="type-pill-btn" id="chip-age-tab-elementary" onclick="switchChoreQuickPresetTab('elementary')" style="padding: 2px 7px; font-size: 0.7rem;">🎒 5–8 yrs</button>
+                <button type="button" class="type-pill-btn" id="chip-age-tab-teen" onclick="switchChoreQuickPresetTab('teen')" style="padding: 2px 7px; font-size: 0.7rem;">🎧 9+ yrs</button>
+              </div>
+            </div>
+            <div id="quick-preset-chips-box" style="display: flex; flex-wrap: wrap; gap: 5px;">
+              <!-- Dynamically rendered -->
+            </div>
+          </div>
+
           <div class="form-group">
             <label id="lbl-chore-title">Routine Title</label>
             <input type="text" id="ch-title" required placeholder="e.g. Brush teeth, Make bed, Empty dishwasher" />
@@ -793,7 +811,91 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Modal: Adjust Individual Reward Points -->
+  <!-- Modal: Add Pre-set Age-Appropriate Routines -->
+  <div id="modal-preset-routines" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 540px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <h2 style="display: flex; align-items: center; gap: 8px;">✨ Pre-set Age Routines</h2>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 2px 0 0;">Select proven daily routines tailored to your child's age group</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-preset-routines')">✕</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 1rem; padding: 1.25rem;">
+        
+        <!-- Member Selection -->
+        <div class="form-group">
+          <label style="font-weight: 700; font-size: 0.85rem;">Assign Routines To Profile</label>
+          <select id="preset-member-select" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem; width: 100%;">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <!-- Age Group Selector Cards -->
+        <div>
+          <label style="font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 6px;">Choose Age Group</label>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            <button type="button" class="preset-age-card active" id="btn-age-toddler" onclick="selectPresetAgeCategory('toddler')">
+              <div style="font-size: 1.4rem;">🧸</div>
+              <div style="font-weight: 700; font-size: 0.82rem; margin-top: 2px;">Toddlers</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">Ages 2–4</div>
+            </button>
+            <button type="button" class="preset-age-card" id="btn-age-elementary" onclick="selectPresetAgeCategory('elementary')">
+              <div style="font-size: 1.4rem;">🎒</div>
+              <div style="font-weight: 700; font-size: 0.82rem; margin-top: 2px;">Elementary</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">Ages 5–8</div>
+            </button>
+            <button type="button" class="preset-age-card" id="btn-age-teen" onclick="selectPresetAgeCategory('teen')">
+              <div style="font-size: 1.4rem;">🎧</div>
+              <div style="font-weight: 700; font-size: 0.82rem; margin-top: 2px;">Tweens/Teens</div>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">Ages 9+</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Age Group Description & Select All Toggle -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-hover); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); gap: 8px;">
+          <div id="preset-category-desc" style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.35;">
+            Focuses on 3 to 5 simple habits with heavy visual cues
+          </div>
+          <button type="button" class="btn-hub ghost mini-btn" id="btn-toggle-all-presets" onclick="toggleSelectAllPresets()" style="font-size: 0.72rem; padding: 3px 8px; white-space: nowrap;">Deselect All</button>
+        </div>
+
+        <!-- Checklist of Habits for Selected Age -->
+        <div id="preset-habits-checklist" style="display: flex; flex-direction: column; gap: 6px;">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Options: Frequency & Stars -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; background: var(--bg-hover); padding: 0.75rem 0.85rem; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div>
+            <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">🔁 Frequency</label>
+            <select id="preset-frequency-select" style="width: 100%; padding: 6px 8px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+              <option value="Daily">Daily (Every day)</option>
+              <option value="Weekly">Weekly (Mon–Fri)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.78rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px;">⭐ Reward Stars</label>
+            <select id="preset-stars-select" style="width: 100%; padding: 6px 8px; font-size: 0.82rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);" onchange="updatePresetHabitStars(this.value)">
+              <option value="keep">As defined per habit (10–15 ⭐)</option>
+              <option value="5">5 ⭐ each</option>
+              <option value="10" selected>10 ⭐ each</option>
+              <option value="20">20 ⭐ each</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <span style="font-size: 0.75rem; color: var(--text-muted);" id="preset-count-summary">6 routines selected</span>
+        <div style="display: flex; gap: 0.5rem; margin-left: auto;">
+          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-preset-routines')">Cancel</button>
+          <button type="button" class="btn-hub primary" id="btn-add-presets" onclick="saveBatchPresetRoutines()">✨ Add Selected Routines</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="modal-points" class="modal-overlay hidden">
     <div class="modal-card" style="max-width: 420px;">
       <div class="modal-header">
@@ -1510,7 +1612,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.30.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.30.0"></script>
+  <!-- Main JavaScript Engine (v2.31.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.31.0"></script>
 </body>
 </html>
