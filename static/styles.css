@@ -3756,8 +3756,8 @@ body {
 
 .home-layout-grid {
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) clamp(270px, 28vw, 340px);
+  gap: 14px;
   height: 100%;
   min-height: 0;
   padding: 2px;
@@ -3768,12 +3768,12 @@ body {
   grid-template-columns: 1fr;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 880px) {
   .home-layout-grid {
     grid-template-columns: 1fr;
     overflow-y: auto;
     height: auto;
-    gap: 16px;
+    gap: 14px;
   }
 }
 
@@ -3786,6 +3786,7 @@ body {
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   min-height: 0;
+  min-width: 0;
 }
 
 .home-calendar-pane {
@@ -3793,14 +3794,17 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 }
 
 .home-side-container {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   min-height: 0;
-  flex: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 340px;
 }
 
 .home-side-container.single-pane .home-pane-card {
@@ -3860,10 +3864,10 @@ body {
 .home-tasks-scroll,
 .home-lists-scroll {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 12px;
+  padding: 8px 10px;
   flex: 1;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
@@ -3871,7 +3875,7 @@ body {
 
 .home-tasks-scroll::-webkit-scrollbar,
 .home-lists-scroll::-webkit-scrollbar {
-  height: 6px;
+  height: 5px;
 }
 
 .home-tasks-scroll::-webkit-scrollbar-thumb,
@@ -3882,13 +3886,13 @@ body {
 
 /* Profile Task Card */
 .home-profile-card {
-  flex: 0 0 240px;
-  min-width: 240px;
-  max-width: 270px;
+  flex: 0 0 215px;
+  min-width: 215px;
+  max-width: 240px;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 10px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   scroll-snap-align: start;
@@ -3994,13 +3998,13 @@ body {
 
 /* List Card */
 .home-list-card {
-  flex: 0 0 240px;
-  min-width: 240px;
-  max-width: 270px;
+  flex: 0 0 215px;
+  min-width: 215px;
+  max-width: 240px;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 10px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   scroll-snap-align: start;
