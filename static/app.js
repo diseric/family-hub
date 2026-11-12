@@ -1037,12 +1037,20 @@ function renderSplitMeals() {
 }
 
 function navigateDate(delta) {
-  appState.currentDateOffset += delta;
+  if (appState.calendarView === "day") {
+    appState.currentDateOffset += delta;
+  } else if (appState.calendarView === "schedule") {
+    navScheduleDays(delta * 7);
+    return;
+  } else {
+    appState.currentDateOffset += delta;
+  }
   renderCalendar();
 }
 
 function goToToday() {
   appState.currentDateOffset = 0;
+  appState.selectedDailyDate = new Date().toISOString().split("T")[0];
   renderCalendar();
 }
 
@@ -1115,7 +1123,7 @@ function getFilteredEvents() {
 
 function getBaseDate() {
   const d = new Date();
-  d.setDate(d.getDate() + (appState.currentDateOffset * (appState.calendarView === "month" ? 30 : appState.calendarView === "3day" ? 3 : 7)));
+  d.setDate(d.getDate() + (appState.currentDateOffset * (appState.calendarView === "month" ? 30 : appState.calendarView === "3day" ? 3 : (appState.calendarView === "day" ? 1 : 7))));
   return d;
 }
 
@@ -1130,8 +1138,10 @@ function renderCalendar(customMountId, customTitleId, customView) {
 
   if (view === "week") {
     renderWeekView(mount, titleLabel, filteredEvents);
-  } else if (view === "day" || view === "schedule") {
-    renderDailyScheduleView(mount, titleLabel, filteredEvents);
+  } else if (view === "day") {
+    renderSingleDayView(mount, titleLabel, filteredEvents);
+  } else if (view === "schedule") {
+    renderScheduleView(mount, titleLabel, filteredEvents);
   } else if (view === "3day") {
     renderDayView(mount, titleLabel, filteredEvents, 3);
   } else if (view === "month") {
@@ -1223,13 +1233,18 @@ function openNewEventForDate(dateIso) {
   if (dInput && dateIso) dInput.value = dateIso;
 }
 
-function navDailyDay(offset) {
+function navScheduleDays(offset) {
   if (!appState.selectedDailyDate) {
     appState.selectedDailyDate = new Date().toISOString().split("T")[0];
   }
   const d = new Date(appState.selectedDailyDate + "T00:00:00");
   d.setDate(d.getDate() + offset);
   appState.selectedDailyDate = d.toISOString().split("T")[0];
+  renderCalendar();
+}
+
+function navDailyDay(offset) {
+  appState.currentDateOffset += offset;
   renderCalendar();
 }
 
@@ -1244,11 +1259,130 @@ function navMiniCalMonth(offset) {
 }
 
 function goToTodayDaily() {
+  appState.currentDateOffset = 0;
   appState.selectedDailyDate = new Date().toISOString().split("T")[0];
   renderCalendar();
 }
 
-function renderDailyScheduleView(mount, titleLabel, events) {
+// ---------------------------------------------------------------------------
+// 1A. Single Day View (Focused Single Day Timeline with Dinner & Full Cards)
+// ---------------------------------------------------------------------------
+function renderSingleDayView(mount, titleLabel, events) {
+  mount.className = "calendar-grid-container day-view-mount";
+  mount.innerHTML = "";
+
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + appState.currentDateOffset);
+  const dateIso = targetDate.toISOString().split("T")[0];
+  const todayIso = new Date().toISOString().split("T")[0];
+  const isToday = dateIso === todayIso;
+
+  const weekdayStr = targetDate.toLocaleDateString("en-US", { weekday: "long" });
+  const dateFormatted = targetDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const shortDateFormatted = targetDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  if (titleLabel) {
+    titleLabel.textContent = `${weekdayStr}, ${dateFormatted}`;
+  }
+
+  const container = document.createElement("div");
+  container.className = "single-day-view-container";
+
+  // 1. Single Day Header Banner
+  const dayHeader = document.createElement("div");
+  dayHeader.className = "single-day-header";
+  dayHeader.innerHTML = `
+    <div class="single-day-header-left">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="single-day-weekday">${weekdayStr}</span>
+        ${isToday ? '<span class="single-day-today-badge">TODAY</span>' : ''}
+      </div>
+      <div class="single-day-date-title">${dateFormatted}</div>
+    </div>
+    <div class="single-day-header-actions">
+      <button type="button" class="btn-hub ghost mini-btn" onclick="navigateDate(-1)" title="Previous Day">‹ Prev Day</button>
+      <button type="button" class="btn-hub ghost mini-btn" onclick="goToToday()">Today</button>
+      <button type="button" class="btn-hub ghost mini-btn" onclick="navigateDate(1)" title="Next Day">Next Day ›</button>
+      <button type="button" class="btn-hub primary mini-btn" onclick="openNewEventForDate('${dateIso}')">+ Add Event</button>
+    </div>
+  `;
+  container.appendChild(dayHeader);
+
+  // 2. Meal / Dinner Banner for this day
+  const weekdayName = targetDate.toLocaleDateString("en-US", { weekday: "long" });
+  const dayMeal = appState.meals && appState.meals[weekdayName];
+  const dinner = dayMeal && dayMeal.dinner && dayMeal.dinner.trim();
+  if (dinner) {
+    const mealCard = document.createElement("div");
+    mealCard.className = "daily-schedule-card meal-dinner-card";
+    mealCard.title = "Tap to open Meal Planner";
+    mealCard.innerHTML = `
+      <div class="daily-card-title">${escapeHtml(dinner)}</div>
+      <div class="daily-card-subtitle">🍽️ Tonight's Dinner (${weekdayName})</div>
+    `;
+    mealCard.onclick = () => switchNav("meals");
+    container.appendChild(mealCard);
+  }
+
+  // 3. Day's Events List
+  const dayEvents = (events || [])
+    .filter((e) => isEventOnDate(e, dateIso))
+    .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+
+  const stack = document.createElement("div");
+  stack.className = "single-day-events-stack";
+
+  if (dayEvents.length === 0) {
+    stack.innerHTML = `
+      <div class="daily-no-events">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📅</div>
+        <div style="font-weight: 700; font-size: 1.15rem; color: var(--text-primary);">No events scheduled for ${weekdayStr}, ${shortDateFormatted}</div>
+        <div style="font-size: 0.88rem; color: var(--text-muted); margin: 6px 0 18px;">Enjoy family downtime or schedule activities!</div>
+        <button type="button" class="btn-hub primary mini-btn" onclick="openNewEventForDate('${dateIso}')">+ Schedule Event</button>
+      </div>
+    `;
+  } else {
+    for (const ev of dayEvents) {
+      const m = getMember(ev.memberId);
+      const color = m ? m.color : "#0284c7";
+      const avatar = m ? m.avatar : "👤";
+      const name = m ? m.name : "Entire Family";
+      const timeDisplay = formatEventDisplayTime(ev.time, ev.endTime);
+      const isRepeating = ev.repeat && ev.repeat !== "none";
+      const repeatTag = isRepeating ? `<span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 4px;">🔁 ${ev.repeat}</span>` : "";
+
+      const evCard = document.createElement("div");
+      evCard.className = "daily-schedule-card";
+      evCard.style.backgroundColor = `${color}1f`;
+      evCard.style.borderLeft = `6px solid ${color}`;
+      evCard.title = `Click to edit ${escapeHtml(ev.title)}`;
+
+      evCard.innerHTML = `
+        <div class="daily-card-title">${escapeHtml(ev.title)}</div>
+        <div class="daily-card-subtitle">
+          <span class="daily-card-time">${timeDisplay}</span>
+          <span class="daily-card-member" style="color: ${color};">
+            <span>${avatar}</span>
+            <span>${escapeHtml(name)}</span>
+          </span>
+          ${repeatTag}
+          ${ev.location ? `<span class="daily-card-location">📍 ${escapeHtml(ev.location)}</span>` : ""}
+          ${ev.notes ? `<span class="daily-card-notes" style="font-size: 0.78rem; opacity: 0.85;">📝 ${escapeHtml(ev.notes)}</span>` : ""}
+        </div>
+      `;
+      evCard.onclick = () => openEventDetail(ev);
+      stack.appendChild(evCard);
+    }
+  }
+
+  container.appendChild(stack);
+  mount.appendChild(container);
+}
+
+// ---------------------------------------------------------------------------
+// 1B. Schedule View (Interactive Mini-Calendar + Continuous 7-Day Agenda)
+// ---------------------------------------------------------------------------
+function renderScheduleView(mount, titleLabel, events) {
   mount.className = "calendar-grid-container";
   mount.innerHTML = "";
 
@@ -1259,11 +1393,13 @@ function renderDailyScheduleView(mount, titleLabel, events) {
 
   const selectedD = new Date(appState.selectedDailyDate + "T00:00:00");
   const monthYearStr = selectedD.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const dateFormatted = selectedD.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const weekdayStr = selectedD.toLocaleDateString("en-US", { weekday: "long" });
+  
+  const endD = new Date(selectedD);
+  endD.setDate(selectedD.getDate() + 6);
+  const rangeTitle = `${selectedD.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${endD.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
   if (titleLabel) {
-    titleLabel.textContent = `${weekdayStr}, ${dateFormatted}`;
+    titleLabel.textContent = `Schedule • ${rangeTitle}`;
   }
 
   // Master 2-pane layout container
@@ -1368,99 +1504,108 @@ function renderDailyScheduleView(mount, titleLabel, events) {
   leftCard.appendChild(daysGrid);
   layout.appendChild(leftCard);
 
-  // --- RIGHT PANE: Daily Schedule Timeline Cards ---
+  // --- RIGHT PANE: Continuous 7-Day Schedule Agenda ---
   const rightPane = document.createElement("div");
-  rightPane.className = "daily-events-pane";
+  rightPane.className = "daily-events-pane schedule-agenda-pane";
 
-  // Top header with big date title e.g. Oct 27
   const header = document.createElement("div");
   header.className = "daily-events-header";
   header.innerHTML = `
     <div class="daily-header-left">
-      <h1 class="daily-selected-date">${dateFormatted}</h1>
-      <span class="daily-selected-weekday">${weekdayStr}</span>
+      <h1 class="daily-selected-date" style="font-size: 1.35rem;">Upcoming Schedule</h1>
+      <span class="daily-selected-weekday">${rangeTitle}</span>
     </div>
     <div class="daily-header-actions">
-      <button type="button" class="btn-hub ghost mini-btn" onclick="navDailyDay(-1)" title="Previous Day">‹ Prev</button>
+      <button type="button" class="btn-hub ghost mini-btn" onclick="navScheduleDays(-7)" title="Previous Week">‹ Prev Week</button>
       <button type="button" class="btn-hub ghost mini-btn" onclick="goToTodayDaily()">Today</button>
-      <button type="button" class="btn-hub ghost mini-btn" onclick="navDailyDay(1)" title="Next Day">Next ›</button>
+      <button type="button" class="btn-hub ghost mini-btn" onclick="navScheduleDays(7)" title="Next Week">Next Week ›</button>
       <button type="button" class="btn-hub primary mini-btn" onclick="openNewEventForDate('${appState.selectedDailyDate}')">+ Add Event</button>
     </div>
   `;
   rightPane.appendChild(header);
 
-  // Check today's meal dinner
-  const weekdayName = selectedD.toLocaleDateString("en-US", { weekday: "long" });
-  const dayMeal = appState.meals && appState.meals[weekdayName];
-  const dinner = dayMeal && dayMeal.dinner && dayMeal.dinner.trim();
+  // Scrollable 7-day Agenda Stack
+  const agendaStack = document.createElement("div");
+  agendaStack.className = "schedule-agenda-stack";
 
-  // Cards Stack Container
-  const stack = document.createElement("div");
-  stack.className = "daily-events-stack";
+  for (let i = 0; i < 7; i++) {
+    const curDate = new Date(selectedD);
+    curDate.setDate(selectedD.getDate() + i);
+    const dateIso = curDate.toISOString().split("T")[0];
+    const isToday = dateIso === todayIso;
 
-  // 1. Dinner Card (matches "Lasagna / For Dinner" in screenshot)
-  if (dinner) {
-    const mealCard = document.createElement("div");
-    mealCard.className = "daily-schedule-card meal-dinner-card";
-    mealCard.title = "Tap to open Meal Planner";
-    mealCard.innerHTML = `
-      <div class="daily-card-title">${dinner}</div>
-      <div class="daily-card-subtitle">🍽️ For Dinner</div>
-    `;
-    mealCard.onclick = () => switchNav("meals");
-    stack.appendChild(mealCard);
-  }
+    const weekdayName = curDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayFormatted = curDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-  // 2. Day's Events
-  const dayEvents = (events || [])
-    .filter(e => isEventOnDate(e, appState.selectedDailyDate))
-    .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+    const dayMeal = appState.meals && appState.meals[weekdayName];
+    const dinner = dayMeal && dayMeal.dinner && dayMeal.dinner.trim();
 
-  if (dayEvents.length === 0 && !dinner) {
-    stack.innerHTML = `
-      <div class="daily-no-events">
-        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📅</div>
-        <div style="font-weight: 700; font-size: 1.15rem; color: var(--text-primary);">No events scheduled for ${dateFormatted}</div>
-        <div style="font-size: 0.88rem; color: var(--text-muted); margin: 6px 0 18px;">Enjoy family downtime or schedule activities!</div>
-        <button type="button" class="btn-hub primary mini-btn" onclick="openNewEventForDate('${appState.selectedDailyDate}')">+ Schedule Event</button>
-      </div>
-    `;
-  } else {
-    for (const ev of dayEvents) {
-      const m = getMember(ev.memberId);
-      const color = m ? m.color : "#0284c7";
-      const avatar = m ? m.avatar : "👤";
-      const name = m ? m.name : "Entire Family";
-      const timeDisplay = formatEventDisplayTime(ev.time, ev.endTime);
-      const isRepeating = ev.repeat && ev.repeat !== "none";
-      const repeatTag = isRepeating ? `<span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 4px;">🔁 ${ev.repeat}</span>` : "";
+    const dayEvents = (events || [])
+      .filter((e) => isEventOnDate(e, dateIso))
+      .sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
 
-      const evCard = document.createElement("div");
-      evCard.className = "daily-schedule-card";
-      evCard.style.backgroundColor = `${color}1f`; // soft pastel tint
-      evCard.style.borderLeft = `6px solid ${color}`;
-      evCard.title = `Click to edit ${ev.title}${isRepeating ? ' (Repeats ' + ev.repeat + ')' : ''}`;
+    const dayGroup = document.createElement("div");
+    dayGroup.className = `schedule-agenda-day-group ${isToday ? "today-group" : ""}`;
 
-      evCard.innerHTML = `
-        <div class="daily-card-title">${ev.title}</div>
-        <div class="daily-card-subtitle">
-          <span class="daily-card-time">${timeDisplay}</span>
-          <span class="daily-card-member" style="color: ${color};">
-            <span>${avatar}</span>
-            <span>${name}</span>
-          </span>
-          ${repeatTag}
-          ${ev.location ? `<span class="daily-card-location">📍 ${ev.location}</span>` : ""}
+    dayGroup.innerHTML = `
+      <div class="schedule-agenda-day-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="schedule-day-icon">📅</span>
+          <span class="schedule-day-name">${isToday ? "TODAY • " : ""}${weekdayName}, ${dayFormatted}</span>
+          ${isToday ? '<span class="single-day-today-badge">TODAY</span>' : ''}
         </div>
-      `;
-      evCard.onclick = () => openEventDetail(ev);
-      stack.appendChild(evCard);
+        ${dinner ? `<span class="schedule-dinner-chip" title="Dinner: ${escapeHtml(dinner)}" onclick="switchNav('meals')">🍽️ ${escapeHtml(dinner)}</span>` : ''}
+      </div>
+      <div class="schedule-day-events-list"></div>
+    `;
+
+    const eventsList = dayGroup.querySelector(".schedule-day-events-list");
+
+    if (dayEvents.length === 0) {
+      eventsList.innerHTML = `<div class="schedule-empty-day-note">No events scheduled</div>`;
+    } else {
+      for (const ev of dayEvents) {
+        const m = getMember(ev.memberId);
+        const color = m ? m.color : "#0284c7";
+        const avatar = m ? m.avatar : "👤";
+        const name = m ? m.name : "Entire Family";
+        const timeDisplay = formatEventDisplayTime(ev.time, ev.endTime);
+        const isRepeating = ev.repeat && ev.repeat !== "none";
+        const repeatTag = isRepeating ? `<span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 4px;">🔁 ${ev.repeat}</span>` : "";
+
+        const evCard = document.createElement("div");
+        evCard.className = "daily-schedule-card";
+        evCard.style.backgroundColor = `${color}1f`;
+        evCard.style.borderLeft = `6px solid ${color}`;
+        evCard.title = `Click to edit ${escapeHtml(ev.title)}`;
+
+        evCard.innerHTML = `
+          <div class="daily-card-title">${escapeHtml(ev.title)}</div>
+          <div class="daily-card-subtitle">
+            <span class="daily-card-time">${timeDisplay}</span>
+            <span class="daily-card-member" style="color: ${color};">
+              <span>${avatar}</span>
+              <span>${escapeHtml(name)}</span>
+            </span>
+            ${repeatTag}
+            ${ev.location ? `<span class="daily-card-location">📍 ${escapeHtml(ev.location)}</span>` : ""}
+          </div>
+        `;
+        evCard.onclick = () => openEventDetail(ev);
+        eventsList.appendChild(evCard);
+      }
     }
+
+    agendaStack.appendChild(dayGroup);
   }
 
-  rightPane.appendChild(stack);
+  rightPane.appendChild(agendaStack);
   layout.appendChild(rightPane);
   mount.appendChild(layout);
+}
+
+function renderDailyScheduleView(mount, titleLabel, events) {
+  renderScheduleView(mount, titleLabel, events);
 }
 
 function renderDayView(mount, titleLabel, events, daysCount = 1) {
