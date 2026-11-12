@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="/static/styles.css?v=2.36.12" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.36.13" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -666,7 +666,7 @@
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; background: var(--bg-hover); padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
             <div style="font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
               <span id="magic-provider-icon">🌟</span>
-              <span id="magic-provider-label" style="font-weight: 600; color: var(--text-primary);">Using Google Gemini (gemini-2.0-flash)</span>
+              <span id="magic-provider-label" style="font-weight: 600; color: var(--text-primary);">Using Google Gemini (gemini-1.5-flash)</span>
             </div>
             <button type="button" class="btn-hub ghost mini-btn" onclick="closeModal('modal-magic'); openSettingsModal();" style="font-size: 0.72rem; padding: 2px 8px;">⚙️ AI Settings</button>
           </div>
@@ -1660,9 +1660,9 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
             <div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                 <label style="font-size: 0.82rem; font-weight: 700; margin: 0;">Model Name</label>
-                <span id="ai-model-hint" style="font-size: 0.72rem; color: var(--text-muted);">Default: gemini-2.0-flash</span>
+                <span id="ai-model-hint" style="font-size: 0.72rem; color: var(--text-muted);">Default: gemini-1.5-flash</span>
               </div>
-              <input type="text" id="set-ai-model" placeholder="e.g. gemini-2.0-flash" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem;" />
+              <input type="text" id="set-ai-model" placeholder="e.g. gemini-1.5-flash" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem;" />
               <div id="ai-model-presets" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px;"></div>
             </div>
 
@@ -2094,7 +2094,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.36.12 Cache Busting) -->
-  <script src="/static/app.js?v=2.36.12"></script>
+  <!-- Main JavaScript Engine (v2.36.13 Cache Busting) -->
+  <script src="/static/app.js?v=2.36.13"></script>
 </body>
 </html>

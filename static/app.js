@@ -3925,7 +3925,7 @@ function openMagicImport() {
   populateSelectDropdowns();
   const s = appState.settings || {};
   const prov = s.aiProvider || "gemini";
-  const model = s.aiModel || (prov === "gemini" ? "gemini-2.0-flash" : "default");
+  const model = s.aiModel && s.aiModel !== "gemini-2.0-flash" ? s.aiModel : (prov === "gemini" ? "gemini-1.5-flash" : "default");
   const hasKey = !!s.aiApiKey || prov === "ollama";
 
   const labelEl = document.getElementById("magic-provider-label");
@@ -4047,9 +4047,9 @@ function handleAiProviderChange() {
     }
     if (keyGroup) keyGroup.style.display = "block";
     if (baseGroup) baseGroup.style.display = "none";
-    defaultModel = "gemini-2.0-flash";
-    if (modelHint) modelHint.textContent = "Recommended: gemini-2.0-flash (fast & free tier)";
-    presets = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    defaultModel = "gemini-1.5-flash";
+    if (modelHint) modelHint.textContent = "Recommended: gemini-1.5-flash (fast, reliable & free tier)";
+    presets = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"];
     if (badge) { badge.textContent = "Google Gemini"; badge.style.color = "#0284c7"; badge.style.background = "rgba(14, 165, 233, 0.15)"; }
   } else if (provider === "openai") {
     if (lblKey) lblKey.textContent = "OpenAI API Key";
@@ -5318,7 +5318,7 @@ function openSettingsModal() {
   const aiKeyEl = document.getElementById("set-ai-apikey");
   if (aiKeyEl) aiKeyEl.value = s.aiApiKey || "";
   const aiModelEl = document.getElementById("set-ai-model");
-  if (aiModelEl) aiModelEl.value = s.aiModel || "gemini-2.0-flash";
+  if (aiModelEl) aiModelEl.value = (s.aiModel && s.aiModel !== "gemini-2.0-flash") ? s.aiModel : "gemini-1.5-flash";
   const aiBaseEl = document.getElementById("set-ai-baseurl");
   if (aiBaseEl) aiBaseEl.value = s.aiBaseUrl || "";
   handleAiProviderChange();

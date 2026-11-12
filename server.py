@@ -125,7 +125,7 @@ DEFAULT_SETTINGS = {
     "googlePhotosCount": 0,
     "aiProvider": "gemini",
     "aiApiKey": "",
-    "aiModel": "gemini-2.0-flash",
+    "aiModel": "gemini-1.5-flash",
     "aiBaseUrl": "",
 }
 
@@ -147,8 +147,8 @@ def load_db() -> Dict[str, Any]:
                         s["aiProvider"] = "gemini"
                     if "aiApiKey" not in s:
                         s["aiApiKey"] = ""
-                    if "aiModel" not in s:
-                        s["aiModel"] = "gemini-2.0-flash"
+                    if "aiModel" not in s or s["aiModel"] == "gemini-2.0-flash":
+                        s["aiModel"] = "gemini-1.5-flash"
                     if "aiBaseUrl" not in s:
                         s["aiBaseUrl"] = ""
                     save_db(data)
@@ -1452,41 +1452,63 @@ class AITestRequest(BaseModel):
     model: Optional[str] = ""
     baseUrl: Optional[str] = ""
 
-def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-2.0-flash") -> str:
+def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-1.5-flash") -> str:
     if not api_key:
         raise ValueError("Google Gemini API key is missing. Please set your key in Settings ⚙️.")
-    m = model.strip() or "gemini-2.0-flash"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": prompt}]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.1,
-            "responseMimeType": "application/json"
-        }
-    }
-    resp = requests.post(url, json=payload, timeout=35)
-    if resp.status_code != 200:
-        err_msg = resp.text
-        try:
-            err_json = resp.json()
-            err_msg = err_json.get("error", {}).get("message", resp.text)
-        except Exception:
-            pass
-        raise ValueError(f"Gemini API error ({resp.status_code}): {err_msg}")
+    m = model.strip() or "gemini-1.5-flash"
+    if m.startswith("models/"):
+        m = m[7:]
     
-    data = resp.json()
-    candidates = data.get("candidates", [])
-    if not candidates:
-        raise ValueError("Gemini returned no response candidates.")
-    parts = candidates[0].get("content", {}).get("parts", [])
-    if not parts:
-        raise ValueError("Gemini returned empty parts.")
-    return parts[0].get("text", "")
+    # Try requested model, with automatic fallback for 404s (e.g. 2.0-flash vs 2.0-flash-exp vs 1.5-flash)
+    models_to_try = [m]
+    if m == "gemini-2.0-flash":
+        models_to_try.append("gemini-2.0-flash-exp")
+    if "gemini-1.5-flash" not in models_to_try:
+        models_to_try.append("gemini-1.5-flash")
+    if "gemini-1.5-pro" not in models_to_try:
+        models_to_try.append("gemini-1.5-pro")
+
+    last_err = None
+    for target_model in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={api_key}"
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}]
+                }
+            ],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json"
+            }
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=35)
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts:
+                        return parts[0].get("text", "")
+            
+            err_msg = resp.text
+            try:
+                err_json = resp.json()
+                err_msg = err_json.get("error", {}).get("message", resp.text)
+            except Exception:
+                pass
+            last_err = f"Gemini API error ({resp.status_code}): {err_msg}"
+            
+            # If not a 404 (e.g. 400 Bad API key or 429 Quota), don't keep trying other models
+            if resp.status_code != 404:
+                break
+        except Exception as ex:
+            last_err = str(ex)
+            break
+            
+    raise ValueError(last_err or "Gemini API call failed")
 
 def call_openai_api(prompt: str, api_key: str, model: str = "gpt-4o-mini", base_url: str = "") -> str:
     base = (base_url or "").strip().rstrip("/") or "https://api.openai.com/v1"
@@ -1597,7 +1619,7 @@ def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> s
     if provider == "gemini":
         if not api_key:
             raise ValueError("Google Gemini API key not configured. Please add your Gemini key in Settings ⚙️.")
-        return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-2.0-flash")
+        return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-1.5-flash")
     elif provider == "openai":
         if not api_key:
             raise ValueError("OpenAI API key not configured. Please add your OpenAI key in Settings ⚙️.")
@@ -1612,7 +1634,7 @@ def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> s
         return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
     else:
         if api_key:
-            return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-2.0-flash")
+            return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-1.5-flash")
         return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
 
 def parse_ai_events_json(raw_answer: str) -> List[Dict[str, Any]]:
