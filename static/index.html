@@ -17,7 +17,7 @@
   <link rel="icon" type="image/svg+xml" href="/static/icon.svg" />
   <link rel="manifest" href="/static/manifest.json" />
 
-  <link rel="stylesheet" href="/static/styles.css?v=2.34.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.35.0" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -97,7 +97,11 @@
 
       <!-- Core Navigation Items -->
       <nav class="sidebar-nav">
-        <button class="nav-item active" data-tab="calendar" onclick="switchNav('calendar')" title="Calendar">
+        <button class="nav-item active" data-tab="home" onclick="switchNav('home')" title="Home Screen">
+          <span class="nav-icon">🏠</span>
+          <span class="nav-label">Home</span>
+        </button>
+        <button class="nav-item" data-tab="calendar" onclick="switchNav('calendar')" title="Calendar">
           <span class="nav-icon">📅</span>
           <span class="nav-label">Calendar</span>
         </button>
@@ -176,17 +180,65 @@
           </div>
 
           <!-- Primary Top-Right Actions -->
-          <div class="topbar-actions">
-            <button class="btn-hub magic" onclick="openMagicImport()" title="AI Schedule Extractor">
-              <span class="desktop-only-inline">🪄 Magic Import</span>
-              <span class="mobile-only-inline">🪄 Magic</span>
-            </button>
-            <button class="btn-hub primary" onclick="openNewEventModal()" title="Add New Event">
-              <span>+ New</span>
-            </button>
-            <button class="btn-hub ghost mobile-header-settings-btn" onclick="openSettingsModal()" title="Settings & Sync">
-              <span>⚙️</span>
-            </button>
+          <div class="topbar-actions" id="topbar-actions-container">
+            <!-- Dedicated Home Actions (Visible on Home Tab) -->
+            <div id="home-topbar-actions" style="display: flex; align-items: center; gap: 6px;">
+              <button type="button" class="btn-hub ghost home-timer-pill" id="btn-home-timer" onclick="openTimerModal()" title="Family Timers">
+                <span id="home-timer-label">⏱️ Timers</span>
+              </button>
+              <button type="button" class="btn-hub ghost" onclick="openCustomizeHomeModal()" title="Customize Home Panes">
+                <span>⚙️ Customize</span>
+              </button>
+              <div class="home-add-wrapper" style="position: relative;">
+                <button type="button" class="btn-hub primary" id="btn-home-add" onclick="toggleHomeAddMenu(event)" title="Add Event, Task, or List Item">
+                  <span>+ Add ▾</span>
+                </button>
+                <div id="home-add-dropdown" class="home-add-dropdown hidden">
+                  <button type="button" class="home-add-item" onclick="handleHomeAddAction('event')">
+                    <span class="home-add-icon">📅</span>
+                    <div class="home-add-text">
+                      <span class="home-add-main">New Event</span>
+                      <span class="home-add-sub">Add to family calendar</span>
+                    </div>
+                  </button>
+                  <button type="button" class="home-add-item" onclick="handleHomeAddAction('task')">
+                    <span class="home-add-icon">📋</span>
+                    <div class="home-add-text">
+                      <span class="home-add-main">New Task / Routine</span>
+                      <span class="home-add-sub">Habits & chores for kids</span>
+                    </div>
+                  </button>
+                  <button type="button" class="home-add-item" onclick="handleHomeAddAction('list')">
+                    <span class="home-add-icon">🛒</span>
+                    <div class="home-add-text">
+                      <span class="home-add-main">New List Item</span>
+                      <span class="home-add-sub">Groceries & shopping</span>
+                    </div>
+                  </button>
+                  <button type="button" class="home-add-item" onclick="handleHomeAddAction('timer')">
+                    <span class="home-add-icon">⏱️</span>
+                    <div class="home-add-text">
+                      <span class="home-add-main">Start Timer</span>
+                      <span class="home-add-sub">Screen time, clean up, teeth</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Standard Actions (Magic, + New, Settings) -->
+            <div id="standard-topbar-actions" style="display: none; align-items: center; gap: 6px;">
+              <button class="btn-hub magic" onclick="openMagicImport()" title="AI Schedule Extractor">
+                <span class="desktop-only-inline">🪄 Magic Import</span>
+                <span class="mobile-only-inline">🪄 Magic</span>
+              </button>
+              <button class="btn-hub primary" onclick="openNewEventModal()" title="Add New Event">
+                <span>+ New</span>
+              </button>
+              <button class="btn-hub ghost mobile-header-settings-btn" onclick="openSettingsModal()" title="Settings & Sync">
+                <span>⚙️</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -227,8 +279,71 @@
       <!-- Main Scrollable / Viewport Workspace Area -->
       <main class="workspace-area">
 
+        <!-- 0. HOME SCREEN (Skylight Overview: Calendar + Tasks + Lists) -->
+        <section id="panel-home" class="view-panel">
+          <div class="home-layout-grid" id="home-layout-grid">
+            <!-- 1. The Calendar Pane -->
+            <div class="home-pane-card home-calendar-pane" id="home-calendar-pane">
+              <div class="home-pane-header">
+                <div class="home-pane-header-left">
+                  <span class="home-pane-title">📅 Calendar</span>
+                  <span id="home-calendar-title-label" class="home-date-label">Week of Nov 12, 2026</span>
+                </div>
+                <div class="home-pane-header-right">
+                  <div class="view-mode-selector mini-selector" id="home-cal-view-selector">
+                    <button type="button" class="view-btn" data-home-view="schedule" onclick="setHomeCalendarView('schedule')">Schedule</button>
+                    <button type="button" class="view-btn" data-home-view="day" onclick="setHomeCalendarView('day')">Day</button>
+                    <button type="button" class="view-btn active" data-home-view="week" onclick="setHomeCalendarView('week')">Week</button>
+                    <button type="button" class="view-btn" data-home-view="month" onclick="setHomeCalendarView('month')">Month</button>
+                  </div>
+                </div>
+              </div>
+              <div class="home-calendar-mount" id="home-calendar-mount">
+                <!-- Mounted calendar view -->
+              </div>
+            </div>
+
+            <!-- 2. The Side Panes: Tasks and/or Lists -->
+            <div class="home-side-container" id="home-side-container">
+              <!-- The Tasks Pane -->
+              <div class="home-pane-card home-tasks-pane" id="home-tasks-pane">
+                <div class="home-pane-header">
+                  <div class="home-pane-header-left">
+                    <span class="home-pane-title">📋 Today's Tasks</span>
+                    <span id="home-tasks-count-badge" class="home-count-badge">0 left</span>
+                  </div>
+                  <div class="home-pane-header-right">
+                    <button type="button" class="btn-hub ghost mini-btn" onclick="openNewChoreModal()" title="Add Task">+ Task</button>
+                    <button type="button" class="btn-hub ghost mini-btn" onclick="switchNav('chores')" title="Open Tasks Tab">View All ›</button>
+                  </div>
+                </div>
+                <div class="home-tasks-scroll" id="home-tasks-carousel">
+                  <!-- Injected dynamically per profile -->
+                </div>
+              </div>
+
+              <!-- The Lists Pane -->
+              <div class="home-pane-card home-lists-pane" id="home-lists-pane">
+                <div class="home-pane-header">
+                  <div class="home-pane-header-left">
+                    <span class="home-pane-title">🛒 Family Lists</span>
+                    <span id="home-lists-count-badge" class="home-count-badge">0 items</span>
+                  </div>
+                  <div class="home-pane-header-right">
+                    <button type="button" class="btn-hub ghost mini-btn" onclick="openNewListModal()" title="Add List">+ List</button>
+                    <button type="button" class="btn-hub ghost mini-btn" onclick="switchNav('lists')" title="Open Lists Tab">View All ›</button>
+                  </div>
+                </div>
+                <div class="home-lists-scroll" id="home-lists-carousel">
+                  <!-- Injected dynamically per list -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- 1. CALENDAR VIEW PANEL -->
-        <section id="panel-calendar" class="view-panel">
+        <section id="panel-calendar" class="view-panel hidden">
           <div class="calendar-panel-wrapper">
             <div id="calendar-grid-mount" class="calendar-grid-container">
               <!-- Rendered dynamically (Week, Month, Day, 3-Day, Schedule) -->
@@ -1187,6 +1302,137 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
+  <!-- Modal: Family Timers (Skylight Home Screen Feature) -->
+  <div id="modal-timer" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 480px; width: 92%;">
+      <div class="modal-header">
+        <h2>⏱️ Family Timers</h2>
+        <button class="modal-close" onclick="closeModal('modal-timer')">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem;">
+        <!-- Active Timer Display (if running) -->
+        <div id="timer-active-section" class="timer-active-box hidden">
+          <div style="text-align: center;">
+            <div id="timer-active-digits" class="timer-digits">00:00</div>
+            <div id="timer-active-title" class="timer-active-label">Timer Running</div>
+          </div>
+          <div class="timer-active-controls">
+            <button type="button" class="btn-hub ghost" id="btn-timer-pause" onclick="toggleTimerPause()">⏸️ Pause</button>
+            <button type="button" class="btn-hub ghost" onclick="addTimerMinute()">+1 Min</button>
+            <button type="button" class="btn-hub danger" onclick="stopActiveTimer()">⏹️ Cancel</button>
+          </div>
+        </div>
+
+        <!-- Preset Quick Timers -->
+        <div>
+          <label style="font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 8px;">Quick Presets</label>
+          <div class="timer-presets-grid">
+            <button type="button" class="timer-preset-btn" onclick="quickStartTimer(2, '🪥 Brush Teeth')">
+              <span class="timer-preset-icon">🪥</span>
+              <span class="timer-preset-time">2 min</span>
+              <span class="timer-preset-name">Brush Teeth</span>
+            </button>
+            <button type="button" class="timer-preset-btn" onclick="quickStartTimer(5, '🧸 Clean Up')">
+              <span class="timer-preset-icon">🧸</span>
+              <span class="timer-preset-time">5 min</span>
+              <span class="timer-preset-name">Clean Up</span>
+            </button>
+            <button type="button" class="timer-preset-btn" onclick="quickStartTimer(10, '📱 Screen Time')">
+              <span class="timer-preset-icon">📱</span>
+              <span class="timer-preset-time">10 min</span>
+              <span class="timer-preset-name">Screen Time</span>
+            </button>
+            <button type="button" class="timer-preset-btn" onclick="quickStartTimer(15, '📚 Reading')">
+              <span class="timer-preset-icon">📚</span>
+              <span class="timer-preset-time">15 min</span>
+              <span class="timer-preset-name">Reading</span>
+            </button>
+            <button type="button" class="timer-preset-btn" onclick="quickStartTimer(20, '🍳 Chores')">
+              <span class="timer-preset-icon">🍳</span>
+              <span class="timer-preset-time">20 min</span>
+              <span class="timer-preset-name">Chores</span>
+            </button>
+            <button type="button" class="timer-preset-btn" onclick="quickStartTimer(30, '💤 Quiet Time')">
+              <span class="timer-preset-icon">💤</span>
+              <span class="timer-preset-time">30 min</span>
+              <span class="timer-preset-name">Quiet Time</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Timer Form -->
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <label style="font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 8px;">Custom Timer</label>
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+            <div style="flex: 1;">
+              <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">MINUTES</span>
+              <input type="number" id="timer-custom-min" min="0" max="180" value="10" style="width: 100%; font-size: 1.25rem; font-weight: 800; text-align: center; padding: 8px;" />
+            </div>
+            <span style="font-size: 1.5rem; font-weight: 800; margin-top: 14px;">:</span>
+            <div style="flex: 1;">
+              <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">SECONDS</span>
+              <input type="number" id="timer-custom-sec" min="0" max="59" value="00" style="width: 100%; font-size: 1.25rem; font-weight: 800; text-align: center; padding: 8px;" />
+            </div>
+          </div>
+          <div style="margin-bottom: 12px;">
+            <input type="text" id="timer-custom-label" placeholder="Timer label (e.g. Baking, Lego Time)..." style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);" />
+          </div>
+          <button type="button" class="btn-hub primary" style="width: 100%; padding: 11px;" onclick="startCustomTimer()">
+            ▶ Start Timer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Customize Home Screen Panes -->
+  <div id="modal-customize-home" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 480px; width: 92%;">
+      <div class="modal-header">
+        <h2>⚙️ Customize Home Screen</h2>
+        <button class="modal-close" onclick="closeModal('modal-customize-home')">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem;">
+        <p style="font-size: 0.88rem; color: var(--text-secondary); margin: 0; line-height: 1.45;">
+          Choose which panes to show alongside your calendar on the Home Screen.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-hover); border-radius: 10px; cursor: pointer;">
+            <input type="checkbox" id="cfg-home-tasks" checked style="width: 20px; height: 20px;" />
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 0.95rem;">📋 Today's Tasks Pane</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Show family members' daily routines and chores with quick check-off</div>
+            </div>
+          </label>
+
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-hover); border-radius: 10px; cursor: pointer;">
+            <input type="checkbox" id="cfg-home-lists" checked style="width: 20px; height: 20px;" />
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 0.95rem;">🛒 Family Lists Pane</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">Show grocery & to-do lists with quick check-off and inline item adding</div>
+            </div>
+          </label>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <label style="font-weight: 700; font-size: 0.85rem; display: block; margin-bottom: 8px;">Default Calendar View on Home</label>
+          <select id="cfg-home-cal-view" style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.9rem;">
+            <option value="schedule">Schedule (Agenda)</option>
+            <option value="day">Day View</option>
+            <option value="week" selected>Week View (Grid)</option>
+            <option value="month">Month View</option>
+          </select>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+          <button type="button" class="btn-hub ghost" onclick="closeModal('modal-customize-home')">Cancel</button>
+          <button type="button" class="btn-hub primary" onclick="saveCustomizeHome()">Save & Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Weather Forecast Details -->
   <div id="modal-weather" class="modal-overlay hidden">
     <div class="modal-card">
@@ -1717,7 +1963,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.33.0 Cache Busting) -->
-  <script src="/static/app.js?v=2.34.0"></script>
+  <!-- Main JavaScript Engine (v2.35.0 Cache Busting) -->
+  <script src="/static/app.js?v=2.35.0"></script>
 </body>
 </html>

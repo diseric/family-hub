@@ -3750,3 +3750,458 @@ body {
   display: inline-block;
 }
 
+/* ==========================================================================
+   Home Screen Overview (Calendar, Today's Tasks, Family Lists, Timers)
+   ========================================================================== */
+
+.home-layout-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+.home-layout-grid.tasks-hidden.lists-hidden {
+  grid-template-columns: 1fr;
+}
+
+@media (max-width: 960px) {
+  .home-layout-grid {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    height: auto;
+    gap: 16px;
+  }
+}
+
+.home-pane-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  min-height: 0;
+}
+
+.home-calendar-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.home-side-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  flex: 1;
+}
+
+.home-side-container.single-pane .home-pane-card {
+  flex: 1;
+}
+
+.home-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.home-pane-header-left,
+.home-pane-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-pane-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-date-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.home-count-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(14, 165, 233, 0.12);
+  color: var(--primary);
+}
+
+.home-calendar-mount {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 4px;
+}
+
+/* Horizontal scrolling carousels for profiles and lists */
+.home-tasks-scroll,
+.home-lists-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px;
+  flex: 1;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-tasks-scroll::-webkit-scrollbar,
+.home-lists-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.home-tasks-scroll::-webkit-scrollbar-thumb,
+.home-lists-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+/* Profile Task Card */
+.home-profile-card {
+  flex: 0 0 240px;
+  min-width: 240px;
+  max-width: 270px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  scroll-snap-align: start;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.home-profile-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2.5px solid var(--member-color, var(--primary));
+}
+
+.home-profile-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.home-profile-avatar {
+  font-size: 1.35rem;
+}
+
+.home-profile-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.home-profile-progress {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.home-profile-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: 175px;
+}
+
+.home-task-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.home-task-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--member-color, var(--primary));
+}
+
+.home-task-item.done {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.home-task-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 2px solid var(--member-color, var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.home-task-checkbox.checked {
+  background: var(--member-color, var(--primary));
+  color: #fff;
+}
+
+.home-task-text {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-task-stars {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  flex-shrink: 0;
+}
+
+/* List Card */
+.home-list-card {
+  flex: 0 0 240px;
+  min-width: 240px;
+  max-width: 270px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  scroll-snap-align: start;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.home-list-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.home-list-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.home-list-items-box {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: 135px;
+  margin-bottom: 8px;
+}
+
+.home-list-item-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8rem;
+  padding: 3px 0;
+}
+
+.home-list-item-row.checked span {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.home-list-add-box {
+  display: flex;
+  gap: 4px;
+}
+
+.home-list-add-input {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* Universal Add Dropdown */
+.home-add-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  width: 240px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+.home-add-dropdown.hidden {
+  display: none;
+}
+
+.home-add-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  width: 100%;
+}
+
+.home-add-item:hover {
+  background: var(--bg-hover);
+}
+
+.home-add-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.home-add-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-add-main {
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.home-add-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Timers Styling */
+.timer-presets-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.timer-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.timer-preset-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.timer-preset-icon {
+  font-size: 1.5rem;
+}
+
+.timer-preset-time {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--primary);
+}
+
+.timer-preset-name {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.timer-active-box {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border: 2px solid var(--primary);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.timer-digits {
+  font-size: 2.8rem;
+  font-weight: 900;
+  font-family: monospace;
+  letter-spacing: 2px;
+  color: var(--primary);
+}
+
+.timer-active-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.timer-active-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.home-timer-pill.running {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+  animation: timerPulse 2s infinite ease-in-out;
+}
+
+@keyframes timerPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(14, 165, 233, 0); }
+}
+

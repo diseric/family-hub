@@ -15,8 +15,9 @@ let appState = {
   photos: [],
   weather: {},
   activeMemberFilter: "all",
-  activeNav: "calendar",
+  activeNav: "home",
   calendarView: "week", // day, 3day, week, month, schedule
+  homeCalendarView: "week",
   currentDateOffset: 0,
   selectedDailyDate: null,
   splitScreen: false,
@@ -435,7 +436,7 @@ function switchNav(navKey) {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === navKey);
   });
 
-  const panels = ["calendar", "chores", "rewards", "lists", "meals", "photo-frame"];
+  const panels = ["home", "calendar", "chores", "rewards", "lists", "meals", "photo-frame"];
   for (const p of panels) {
     const el = document.getElementById(`panel-${p}`);
     if (el) el.classList.toggle("hidden", p !== navKey);
@@ -446,11 +447,19 @@ function switchNav(navKey) {
     calViews.style.display = navKey === "calendar" ? "inline-flex" : "none";
   }
 
+  const homeActions = document.getElementById("home-topbar-actions");
+  const stdActions = document.getElementById("standard-topbar-actions");
+  if (homeActions && stdActions) {
+    homeActions.style.display = navKey === "home" ? "flex" : "none";
+    stdActions.style.display = navKey === "home" ? "none" : "flex";
+  }
+
   renderActiveNav();
 }
 
 function renderActiveNav() {
-  if (appState.activeNav === "calendar") renderCalendar();
+  if (appState.activeNav === "home") renderHome();
+  else if (appState.activeNav === "calendar") renderCalendar();
   else if (appState.activeNav === "chores") renderChores();
   else if (appState.activeNav === "rewards") renderRewards();
   else if (appState.activeNav === "lists") renderLists();
@@ -1000,13 +1009,13 @@ function getBaseDate() {
   return d;
 }
 
-function renderCalendar() {
-  const mount = document.getElementById("calendar-grid-mount");
-  const titleLabel = document.getElementById("calendar-title-label");
+function renderCalendar(customMountId, customTitleId, customView) {
+  const mount = document.getElementById(customMountId || "calendar-grid-mount");
+  const titleLabel = document.getElementById(customTitleId || "calendar-title-label");
   if (!mount) return;
   mount.innerHTML = "";
 
-  const view = appState.calendarView;
+  const view = customView || (appState.activeNav === "home" ? (appState.homeCalendarView || "week") : appState.calendarView);
   const filteredEvents = getFilteredEvents();
 
   if (view === "week") {
@@ -5140,6 +5149,461 @@ async function finishSetupWizard() {
     }
   } catch (err) {
     alert("Error completing setup: " + err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 0. The Home Screen Engine (Skylight Overview: Calendar + Tasks + Lists)
+// ---------------------------------------------------------------------------
+
+function setHomeCalendarView(viewName) {
+  appState.homeCalendarView = viewName;
+  document.querySelectorAll("#home-cal-view-selector .view-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-home-view") === viewName);
+  });
+  renderCalendar("home-calendar-mount", "home-calendar-title-label", viewName);
+}
+
+function renderHome() {
+  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, showLists: true, calendarView: "week" };
+  const homeView = appState.homeCalendarView || cfg.calendarView || "week";
+
+  // Configure Grid & Pane Visibility
+  const grid = document.getElementById("home-layout-grid");
+  const sideContainer = document.getElementById("home-side-container");
+  const tasksPane = document.getElementById("home-tasks-pane");
+  const listsPane = document.getElementById("home-lists-pane");
+
+  const showTasks = cfg.showTasks !== false;
+  const showLists = cfg.showLists !== false;
+
+  if (tasksPane) tasksPane.classList.toggle("hidden", !showTasks);
+  if (listsPane) listsPane.classList.toggle("hidden", !showLists);
+
+  if (sideContainer) {
+    sideContainer.classList.toggle("hidden", !showTasks && !showLists);
+    sideContainer.classList.toggle("single-pane", (showTasks && !showLists) || (!showTasks && showLists));
+  }
+
+  if (grid) {
+    grid.classList.toggle("tasks-hidden", !showTasks);
+    grid.classList.toggle("lists-hidden", !showLists);
+  }
+
+  // Active view pill in Home Calendar selector
+  document.querySelectorAll("#home-cal-view-selector .view-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-home-view") === homeView);
+  });
+
+  // Render Calendar
+  renderCalendar("home-calendar-mount", "home-calendar-title-label", homeView);
+
+  // Render Tasks & Lists
+  if (showTasks) renderHomeTasks();
+  if (showLists) renderHomeLists();
+}
+
+function renderHomeTasks() {
+  const container = document.getElementById("home-tasks-carousel");
+  const countBadge = document.getElementById("home-tasks-count-badge");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const allMembers = (appState.members || []).filter((m) => m.id !== "m5");
+  const members = (appState.activeMemberFilter && appState.activeMemberFilter !== "all")
+    ? allMembers.filter((m) => m.id === appState.activeMemberFilter)
+    : allMembers;
+
+  let totalPending = 0;
+
+  for (const member of members) {
+    const memberChores = (appState.chores || []).filter((c) => {
+      return (c.memberId === member.id || c.memberId === "all") && isChoreActiveToday(c);
+    });
+
+    const pending = memberChores.filter((c) => !c.completed);
+    totalPending += pending.length;
+    const completedCount = memberChores.filter((c) => c.completed).length;
+
+    const card = document.createElement("div");
+    card.className = "home-profile-card";
+    card.style.setProperty("--member-color", member.color || "var(--primary)");
+
+    card.innerHTML = `
+      <div class="home-profile-card-header">
+        <div class="home-profile-info">
+          <span class="home-profile-avatar">${member.avatar || "👤"}</span>
+          <span class="home-profile-name">${escapeHtml(member.name)}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <span class="home-profile-progress">${completedCount}/${memberChores.length}</span>
+          <button type="button" class="btn-hub ghost mini-btn" style="font-size: 0.68rem; padding: 1px 6px;" onclick="openNewChoreForMember('${member.id}')" title="Add task for ${member.name}">+ Task</button>
+        </div>
+      </div>
+      <div class="home-profile-tasks-list">
+        ${memberChores.length === 0 ? `
+          <div style="text-align: center; padding: 1.5rem 0.5rem; color: var(--text-muted); font-size: 0.78rem;">
+            No tasks today ✨
+          </div>
+        ` : memberChores.map((chore) => `
+          <div class="home-task-item ${chore.completed ? "done" : ""}" onclick="toggleHomeChore('${chore.id}', event)">
+            <div class="home-task-checkbox ${chore.completed ? "checked" : ""}" title="Tap to mark done">
+              ${chore.completed ? "✓" : ""}
+            </div>
+            ${chore.icon ? `<span style="font-size: 0.95rem;">${chore.icon}</span>` : ""}
+            <span class="home-task-text" title="${escapeHtml(chore.title)}">${escapeHtml(chore.title)}</span>
+            <span class="home-task-stars">+${chore.points || 10}⭐</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+
+    container.appendChild(card);
+  }
+
+  if (countBadge) countBadge.textContent = `${totalPending} left`;
+}
+
+async function toggleHomeChore(choreId, e) {
+  if (e) e.stopPropagation();
+  try {
+    const res = await fetch(`/api/chores/${choreId}/toggle`, { method: "POST" });
+    const chore = (appState.chores || []).find((c) => c.id === choreId);
+    if (chore) {
+      chore.completed = !chore.completed;
+      if (chore.completed) {
+        playTimerAlarm();
+        if (typeof confetti === "function") {
+          confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+        }
+      }
+    }
+    await loadState();
+  } catch (err) {
+    console.error("Error toggling chore from Home:", err);
+  }
+}
+
+function renderHomeLists() {
+  const container = document.getElementById("home-lists-carousel");
+  const countBadge = document.getElementById("home-lists-count-badge");
+  if (!container) return;
+  container.innerHTML = "";
+
+  const lists = appState.lists || [];
+  let totalItems = 0;
+
+  for (const lst of lists) {
+    const items = lst.items || [];
+    const pendingItems = items.filter((i) => !i.checked);
+    totalItems += items.length;
+
+    const card = document.createElement("div");
+    card.className = "home-list-card";
+    card.innerHTML = `
+      <div class="home-list-card-header">
+        <span class="home-list-title">${escapeHtml(lst.title)}</span>
+        <span class="home-count-badge" style="font-size: 0.7rem;">${pendingItems.length} left</span>
+      </div>
+      <div class="home-list-items-box">
+        ${items.length === 0 ? `
+          <div style="text-align: center; padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.78rem;">
+            List is empty
+          </div>
+        ` : items.slice(0, 8).map((it) => `
+          <div class="home-list-item-row ${it.checked ? "checked" : ""}">
+            <input type="checkbox" ${it.checked ? "checked" : ""} style="width: 15px; height: 15px; cursor: pointer;" onchange="toggleHomeListItem('${lst.id}', '${it.id}', ${it.checked})" />
+            <span style="flex: 1; font-weight: 500;">${escapeHtml(it.text)}</span>
+          </div>
+        `).join("")}
+      </div>
+      <div class="home-list-add-box">
+        <input type="text" class="home-list-add-input" id="home-list-input-${lst.id}" placeholder="Add item..." />
+        <button type="button" class="btn-hub primary home-list-add-btn" onclick="addHomeListItem('${lst.id}')">Add</button>
+      </div>
+    `;
+
+    const input = card.querySelector(`#home-list-input-${lst.id}`);
+    if (input) {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") addHomeListItem(lst.id);
+      });
+    }
+
+    container.appendChild(card);
+  }
+
+  if (countBadge) countBadge.textContent = `${totalItems} items`;
+}
+
+async function toggleHomeListItem(listId, itemId, currentChecked) {
+  try {
+    await fetch(`/api/lists/${listId}/items/${itemId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ checked: !currentChecked })
+    });
+    await loadState();
+  } catch (err) {
+    console.error("Error toggling list item:", err);
+  }
+}
+
+async function addHomeListItem(listId) {
+  const input = document.getElementById(`home-list-input-${listId}`);
+  if (!input || !input.value.trim()) return;
+  const text = input.value.trim();
+  input.value = "";
+  const activeMem = appState.activeMemberFilter !== "all" ? getMember(appState.activeMemberFilter).name : "Kitchen Hub";
+
+  try {
+    await fetch(`/api/lists/${listId}/items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, addedBy: activeMem }),
+    });
+    await loadState();
+  } catch (err) {
+    console.error("Error adding list item:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Universal Add Menu Actions
+// ---------------------------------------------------------------------------
+function toggleHomeAddMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById("home-add-dropdown");
+  if (!menu) return;
+  menu.classList.toggle("hidden");
+}
+
+function handleHomeAddAction(action) {
+  const menu = document.getElementById("home-add-dropdown");
+  if (menu) menu.classList.add("hidden");
+
+  if (action === "event") {
+    openNewEventModal();
+  } else if (action === "task") {
+    openNewChoreModal();
+  } else if (action === "list") {
+    openNewListModal();
+  } else if (action === "timer") {
+    openTimerModal();
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const menu = document.getElementById("home-add-dropdown");
+  const btn = document.getElementById("btn-home-add");
+  if (menu && !menu.classList.contains("hidden") && !menu.contains(e.target) && (!btn || !btn.contains(e.target))) {
+    menu.classList.add("hidden");
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Family Timers Engine (Home Screen Feature)
+// ---------------------------------------------------------------------------
+let activeTimer = {
+  secondsLeft: 0,
+  totalSeconds: 0,
+  label: "",
+  intervalId: null,
+  isPaused: false
+};
+
+function openTimerModal() {
+  const activeBox = document.getElementById("timer-active-section");
+  if (activeBox) {
+    activeBox.classList.toggle("hidden", activeTimer.secondsLeft <= 0 && !activeTimer.intervalId);
+    if (activeTimer.secondsLeft > 0) {
+      updateActiveTimerDisplay();
+    }
+  }
+  openModal("modal-timer");
+}
+
+function quickStartTimer(minutes, label) {
+  startTimer(minutes * 60, label);
+  closeModal("modal-timer");
+  showToast(`⏱️ Started ${minutes} min timer for ${label}!`);
+}
+
+function startCustomTimer() {
+  const min = parseInt(document.getElementById("timer-custom-min").value, 10) || 0;
+  const sec = parseInt(document.getElementById("timer-custom-sec").value, 10) || 0;
+  const total = min * 60 + sec;
+  if (total <= 0) {
+    showToast("Please enter at least 1 second");
+    return;
+  }
+  const label = (document.getElementById("timer-custom-label").value.trim()) || "Custom Timer";
+  startTimer(total, label);
+  closeModal("modal-timer");
+  showToast(`⏱️ Started timer: ${label} (${min}m ${sec}s)`);
+}
+
+function startTimer(totalSeconds, label) {
+  if (activeTimer.intervalId) clearInterval(activeTimer.intervalId);
+
+  activeTimer.totalSeconds = totalSeconds;
+  activeTimer.secondsLeft = totalSeconds;
+  activeTimer.label = label || "Family Timer";
+  activeTimer.isPaused = false;
+
+  const timerBtn = document.getElementById("btn-home-timer");
+  if (timerBtn) timerBtn.classList.add("running");
+
+  updateActiveTimerDisplay();
+
+  activeTimer.intervalId = setInterval(() => {
+    if (activeTimer.isPaused) return;
+
+    activeTimer.secondsLeft--;
+    updateActiveTimerDisplay();
+
+    if (activeTimer.secondsLeft <= 0) {
+      clearInterval(activeTimer.intervalId);
+      activeTimer.intervalId = null;
+      onTimerFinished();
+    }
+  }, 1000);
+}
+
+function updateActiveTimerDisplay() {
+  const m = Math.floor(activeTimer.secondsLeft / 60);
+  const s = activeTimer.secondsLeft % 60;
+  const formatted = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+
+  const topLabel = document.getElementById("home-timer-label");
+  if (topLabel) {
+    if (activeTimer.secondsLeft > 0) {
+      topLabel.textContent = `⏱️ ${formatted} (${activeTimer.label})`;
+    } else {
+      topLabel.textContent = "⏱️ Timers";
+    }
+  }
+
+  const modalDigits = document.getElementById("timer-active-digits");
+  const modalTitle = document.getElementById("timer-active-title");
+  const pauseBtn = document.getElementById("btn-timer-pause");
+
+  if (modalDigits) modalDigits.textContent = formatted;
+  if (modalTitle) modalTitle.textContent = `${activeTimer.label} ${activeTimer.isPaused ? "(Paused)" : ""}`;
+  if (pauseBtn) pauseBtn.textContent = activeTimer.isPaused ? "▶️ Resume" : "⏸️ Pause";
+}
+
+function toggleTimerPause() {
+  activeTimer.isPaused = !activeTimer.isPaused;
+  updateActiveTimerDisplay();
+}
+
+function addTimerMinute() {
+  activeTimer.secondsLeft += 60;
+  activeTimer.totalSeconds += 60;
+  updateActiveTimerDisplay();
+}
+
+function stopActiveTimer() {
+  if (activeTimer.intervalId) clearInterval(activeTimer.intervalId);
+  activeTimer.intervalId = null;
+  activeTimer.secondsLeft = 0;
+  activeTimer.isPaused = false;
+
+  const timerBtn = document.getElementById("btn-home-timer");
+  if (timerBtn) timerBtn.classList.remove("running");
+
+  const topLabel = document.getElementById("home-timer-label");
+  if (topLabel) topLabel.textContent = "⏱️ Timers";
+
+  const activeBox = document.getElementById("timer-active-section");
+  if (activeBox) activeBox.classList.add("hidden");
+
+  showToast("Timer stopped");
+}
+
+function onTimerFinished() {
+  const timerBtn = document.getElementById("btn-home-timer");
+  if (timerBtn) timerBtn.classList.remove("running");
+
+  const topLabel = document.getElementById("home-timer-label");
+  if (topLabel) topLabel.textContent = "⏱️ Timers";
+
+  const activeBox = document.getElementById("timer-active-section");
+  if (activeBox) activeBox.classList.add("hidden");
+
+  playTimerAlarm();
+  if (typeof confetti === "function") {
+    confetti({ particleCount: 160, spread: 80, origin: { y: 0.5 } });
+  }
+
+  showAppAlert(`⏰ Time's Up!\n"${activeTimer.label}" has finished!`, {
+    title: "⏰ Timer Finished",
+    confirmText: "Awesome!"
+  });
+}
+
+function playTimerAlarm() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.16 + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.16);
+      osc.stop(ctx.currentTime + i * 0.16 + 0.45);
+    });
+  } catch (e) {
+    console.warn("Audio Context chime:", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Customize Home Screen Modal
+// ---------------------------------------------------------------------------
+function openCustomizeHomeModal() {
+  const cfg = (appState.settings && appState.settings.homeConfig) || { showTasks: true, showLists: true, calendarView: "week" };
+  const chkTasks = document.getElementById("cfg-home-tasks");
+  const chkLists = document.getElementById("cfg-home-lists");
+  const selView = document.getElementById("cfg-home-cal-view");
+
+  if (chkTasks) chkTasks.checked = cfg.showTasks !== false;
+  if (chkLists) chkLists.checked = cfg.showLists !== false;
+  if (selView) selView.value = cfg.calendarView || "week";
+
+  openModal("modal-customize-home");
+}
+
+async function saveCustomizeHome() {
+  const showTasks = document.getElementById("cfg-home-tasks").checked;
+  const showLists = document.getElementById("cfg-home-lists").checked;
+  const calendarView = document.getElementById("cfg-home-cal-view").value || "week";
+
+  if (!appState.settings) appState.settings = {};
+  appState.settings.homeConfig = {
+    showTasks,
+    showLists,
+    calendarView
+  };
+
+  try {
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(appState.settings),
+    });
+    closeModal("modal-customize-home");
+    renderHome();
+    showToast("Home Screen layout saved!");
+  } catch (err) {
+    console.error("Failed to save home customization:", err);
+    showToast("Error saving customization");
   }
 }
 
