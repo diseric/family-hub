@@ -2455,3 +2455,260 @@ body {
   color: #075985;
 }
 
+/* --------------------------------------------------------------------------
+   Rewards & Star Goals Hub
+   -------------------------------------------------------------------------- */
+.rewards-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rewards-filter-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.filter-pill.active {
+  background: var(--accent-gold);
+  border-color: var(--accent-gold);
+  color: #78350f;
+  font-weight: 700;
+}
+
+.reward-goal-card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  min-width: 0;
+}
+
+.reward-goal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-pop);
+}
+
+.reward-goal-card.ready-to-redeem {
+  border: 2px solid #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, var(--bg-surface) 100%);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25);
+  animation: rewardPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes rewardPulse {
+  0% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.45); }
+  100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.2); }
+}
+
+.reward-goal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.reward-goal-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.reward-goal-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.reward-goal-titles {
+  min-width: 0;
+  flex: 1;
+}
+
+.reward-goal-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.reward-goal-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.reward-cost-badge {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reward-progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--border-subtle);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  position: relative;
+}
+
+.reward-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  border-radius: var(--radius-pill);
+  transition: width 0.4s ease;
+}
+
+.reward-progress-labels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.btn-redeem {
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-redeem.active {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+.btn-redeem.active:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.45);
+}
+
+.btn-redeem.locked {
+  background: var(--bg-pill);
+  color: var(--text-muted);
+  cursor: default;
+  border: 1px dashed var(--border-subtle);
+}
+
+.reward-icon-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.icon-presets {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.icon-chip {
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  transition: transform 0.15s;
+}
+
+.icon-chip:hover {
+  transform: scale(1.15);
+  border-color: var(--primary);
+}
+
+.redemption-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  gap: 10px;
+}
+
+.redemption-history-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.redemption-history-avatar {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.redemption-history-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.redemption-history-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.redemption-history-cost {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+

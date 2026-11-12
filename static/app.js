@@ -4,6 +4,9 @@ let appState = {
   members: [],
   events: [],
   chores: [],
+  rewards: [],
+  rewardRedemptions: [],
+  activeRewardsFilter: "all",
   lists: [],
   meals: {},
   feeds: [],
@@ -55,6 +58,8 @@ async function init() {
       appState.members = data.members || [];
       appState.events = data.events || [];
       appState.chores = data.chores || [];
+      appState.rewards = data.rewards || [];
+      appState.rewardRedemptions = data.rewardRedemptions || [];
       appState.lists = data.lists || [];
       appState.meals = data.meals || {};
       appState.feeds = data.feeds || [];
@@ -95,6 +100,8 @@ async function loadState() {
     appState.members = data.members || [];
     appState.events = data.events || [];
     appState.chores = data.chores || [];
+    appState.rewards = data.rewards || [];
+    appState.rewardRedemptions = data.rewardRedemptions || [];
     appState.lists = data.lists || [];
     appState.meals = data.meals || {};
     appState.feeds = data.feeds || [];
@@ -162,7 +169,7 @@ function getMember(memberId) {
 }
 
 function populateSelectDropdowns() {
-  const selects = ["ev-member", "magic-member", "ch-member", "feed-member"];
+  const selects = ["ev-member", "magic-member", "ch-member", "feed-member", "reward-member-id"];
   for (const sId of selects) {
     const el = document.getElementById(sId);
     if (!el) continue;
@@ -171,6 +178,12 @@ function populateSelectDropdowns() {
       const allOpt = document.createElement("option");
       allOpt.value = "all";
       allOpt.textContent = "🏡 Entire Family (Shared)";
+      el.appendChild(allOpt);
+    }
+    if (sId === "reward-member-id") {
+      const allOpt = document.createElement("option");
+      allOpt.value = "all";
+      allOpt.textContent = "🏡 Entire Family (Shared Goal)";
       el.appendChild(allOpt);
     }
     for (const m of appState.members) {
@@ -274,7 +287,7 @@ function switchNav(navKey) {
     btn.classList.toggle("active", btn.getAttribute("data-tab") === navKey);
   });
 
-  const panels = ["calendar", "chores", "lists", "meals", "photo-frame"];
+  const panels = ["calendar", "chores", "rewards", "lists", "meals", "photo-frame"];
   for (const p of panels) {
     const el = document.getElementById(`panel-${p}`);
     if (el) el.classList.toggle("hidden", p !== navKey);
@@ -291,6 +304,7 @@ function switchNav(navKey) {
 function renderActiveNav() {
   if (appState.activeNav === "calendar") renderCalendar();
   else if (appState.activeNav === "chores") renderChores();
+  else if (appState.activeNav === "rewards") renderRewards();
   else if (appState.activeNav === "lists") renderLists();
   else if (appState.activeNav === "meals") renderMeals();
   else if (appState.activeNav === "photo-frame") renderPhotoFrame();
@@ -1536,6 +1550,394 @@ function triggerRewardConfetti(reward) {
 function closeReward() {
   const modal = document.getElementById("reward-modal");
   if (modal) modal.classList.add("hidden");
+}
+
+function showToast(message) {
+  let toast = document.getElementById("hub-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "hub-toast";
+    toast.style.cssText = "position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #f8fafc; padding: 10px 20px; border-radius: 30px; font-weight: 600; font-size: 0.9rem; z-index: 10000; box-shadow: 0 4px 16px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); transition: opacity 0.3s ease; opacity: 0; pointer-events: none;";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = "1";
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.opacity = "0";
+  }, 3200);
+}
+
+// ---------------------------------------------------------------------------
+// 2.5 Rewards & Star Goals Hub
+// ---------------------------------------------------------------------------
+function setRewardsFilter(filterKey) {
+  appState.activeRewardsFilter = filterKey;
+  document.querySelectorAll(".rewards-filter-pills .filter-pill").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-reward-filter") === filterKey);
+  });
+  renderRewards();
+}
+
+function renderRewards() {
+  const grid = document.getElementById("rewards-grid");
+  const lb = document.getElementById("rewards-leaderboard");
+  if (!grid) return;
+  grid.innerHTML = "";
+  if (lb) lb.innerHTML = "";
+
+  const rewards = appState.rewards || [];
+
+  // 1. Render Family Star Balance Leaderboard Cards
+  const sortedMembers = [...appState.members].sort((a, b) => (b.points || 0) - (a.points || 0));
+  for (const m of sortedMembers) {
+    if (m.id === "m5") continue;
+    const card = document.createElement("div");
+    card.className = "chores-leaderboard-card";
+    card.style.borderLeft = `4px solid ${m.color || "#0284c7"}`;
+    card.title = `Click to give or remove stars for ${m.name}`;
+    card.innerHTML = `
+      <span style="font-size: 2rem;">${m.avatar || "👤"}</span>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 700; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.name}</div>
+        <div style="color: var(--accent-gold); font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; gap: 4px;">
+          <span>${m.points || 0} ⭐</span>
+          <span style="font-size: 0.72rem; color: var(--text-muted); opacity: 0.8;" title="Adjust stars">✏️</span>
+        </div>
+      </div>
+    `;
+    card.onclick = () => openEditPointsModal(m.id);
+    lb.appendChild(card);
+  }
+
+  // Count ready to redeem
+  let readyCount = 0;
+  for (const m of appState.members) {
+    for (const r of rewards) {
+      if (r.memberId === "all" || r.memberId === m.id) {
+        if ((m.points || 0) >= (r.starCost || 0) && !r.completed) {
+          readyCount++;
+        }
+      }
+    }
+  }
+  const badgeReady = document.getElementById("ready-rewards-count");
+  if (badgeReady) badgeReady.textContent = readyCount;
+
+  // 2. Identify assigned family members to display (4 columns side-by-side)
+  let membersToDisplay = appState.activeMemberFilter === "all"
+    ? [...appState.members]
+    : appState.members.filter((m) => m.id === appState.activeMemberFilter);
+
+  if (membersToDisplay.length === 0) {
+    grid.innerHTML = `<div style="text-align: center; padding: 3rem; color: var(--text-muted); width: 100%;">No family members found. Add profiles in Settings!</div>`;
+    return;
+  }
+
+  if (membersToDisplay.length === 4) {
+    grid.style.gridTemplateColumns = "repeat(4, minmax(0, 1fr))";
+  } else {
+    grid.style.gridTemplateColumns = `repeat(${Math.max(1, membersToDisplay.length)}, minmax(0, 1fr))`;
+  }
+
+  for (const member of membersToDisplay) {
+    const col = document.createElement("div");
+    col.className = "member-tasks-column";
+    col.style.borderTop = `4px solid ${member.color || "var(--primary)"}`;
+
+    // Goals for this member (assigned to member OR assigned to all)
+    let memberGoals = rewards.filter((r) => r.memberId === "all" || r.memberId === member.id);
+
+    // Apply Filter (all, ready, inprogress)
+    if (appState.activeRewardsFilter === "ready") {
+      memberGoals = memberGoals.filter((r) => (member.points || 0) >= (r.starCost || 0) && !r.completed);
+    } else if (appState.activeRewardsFilter === "inprogress") {
+      memberGoals = memberGoals.filter((r) => (member.points || 0) < (r.starCost || 0) && !r.completed);
+    }
+
+    col.innerHTML = `
+      <div class="member-tasks-header">
+        <div class="member-tasks-info">
+          <span class="member-tasks-avatar">${member.avatar || "👤"}</span>
+          <div>
+            <div class="member-tasks-name">${member.name}</div>
+            <div class="member-tasks-progress">
+              <span class="member-points-pill" onclick="openEditPointsModal('${member.id}')" title="Adjust stars">${member.points || 0} ⭐ balance</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn-hub ghost mini-btn" onclick="openNewRewardForMember('${member.id}')" title="Add goal for ${member.name}">+ Goal</button>
+      </div>
+      <div class="member-subcategories-container" id="reward-list-${member.id}" style="gap: 8px;"></div>
+    `;
+
+    const listContainer = col.querySelector(`#reward-list-${member.id}`);
+
+    if (memberGoals.length === 0) {
+      listContainer.innerHTML = `
+        <div class="chore-empty-sub" style="padding: 1.25rem 0.5rem;">
+          <span>No reward goals ${appState.activeRewardsFilter === "all" ? "yet" : "matching filter"}</span>
+        </div>
+      `;
+    } else {
+      for (const reward of memberGoals) {
+        const currentStars = member.points || 0;
+        const starCost = reward.starCost || 50;
+        const isReady = currentStars >= starCost && !reward.completed;
+        const pct = Math.min(100, Math.round((currentStars / starCost) * 100));
+        const needed = Math.max(0, starCost - currentStars);
+        const isShared = reward.memberId === "all";
+
+        const card = document.createElement("div");
+        card.className = `reward-goal-card ${isReady ? "ready-to-redeem" : ""}`;
+        card.innerHTML = `
+          <div class="reward-goal-header">
+            <div class="reward-goal-info">
+              <span class="reward-goal-icon">${reward.icon || "🎁"}</span>
+              <div class="reward-goal-titles">
+                <div class="reward-goal-title">${reward.title}</div>
+                ${reward.description ? `<div class="reward-goal-desc">${reward.description}</div>` : ""}
+                ${isShared ? `<div class="chore-meta"><span style="color: #0284c7; font-weight: 600;">🏡 Shared Goal</span></div>` : ""}
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+              <span class="reward-cost-badge">${starCost} ⭐</span>
+              <button type="button" class="btn-chore-edit" onclick="openEditRewardModal('${reward.id}')" title="Edit goal">✏️</button>
+            </div>
+          </div>
+
+          <!-- Visual Progress Bar -->
+          <div style="display: flex; flex-direction: column; gap: 3px;">
+            <div class="reward-progress-track">
+              <div class="reward-progress-fill" style="width: ${pct}%; ${isReady ? 'background: linear-gradient(90deg, #10b981, #34d399);' : ''}"></div>
+            </div>
+            <div class="reward-progress-labels">
+              <span>${currentStars} / ${starCost} ⭐</span>
+              <span>${pct}%</span>
+            </div>
+          </div>
+
+          <!-- Redeem Button / Status -->
+          ${
+            isReady
+              ? `<button type="button" class="btn-redeem active" onclick="confirmRedeemReward('${reward.id}', '${member.id}')">
+                   <span>⭐</span> REDEEM REWARD!
+                 </button>`
+              : `<button type="button" class="btn-redeem locked" disabled>
+                   <span>🔒</span> Need ${needed} more ⭐
+                 </button>`
+          }
+        `;
+        listContainer.appendChild(card);
+      }
+    }
+
+    grid.appendChild(col);
+  }
+}
+
+function openNewRewardModal() {
+  document.getElementById("modal-reward-title").textContent = "+ Add Reward Goal";
+  document.getElementById("reward-id").value = "";
+  document.getElementById("reward-title").value = "";
+  document.getElementById("reward-icon").value = "🍦";
+  document.getElementById("reward-star-cost").value = 50;
+  populateSelectDropdowns();
+  document.getElementById("reward-member-id").value = "all";
+  document.getElementById("reward-autorenew").checked = true;
+  document.getElementById("reward-desc").value = "";
+  const delBtn = document.getElementById("btn-delete-reward");
+  if (delBtn) delBtn.style.display = "none";
+  openModal("modal-reward");
+}
+
+function openNewRewardForMember(memberId) {
+  openNewRewardModal();
+  document.getElementById("reward-member-id").value = memberId;
+}
+
+function openEditRewardModal(rewardId) {
+  const r = (appState.rewards || []).find((x) => x.id === rewardId);
+  if (!r) return;
+  document.getElementById("modal-reward-title").textContent = "Edit Reward Goal";
+  document.getElementById("reward-id").value = r.id;
+  document.getElementById("reward-title").value = r.title || "";
+  document.getElementById("reward-icon").value = r.icon || "🎁";
+  document.getElementById("reward-star-cost").value = r.starCost || 50;
+  populateSelectDropdowns();
+  document.getElementById("reward-member-id").value = r.memberId || "all";
+  document.getElementById("reward-autorenew").checked = r.autoRenew !== false;
+  document.getElementById("reward-desc").value = r.description || "";
+  const delBtn = document.getElementById("btn-delete-reward");
+  if (delBtn) delBtn.style.display = "inline-block";
+  openModal("modal-reward");
+}
+
+function selectRewardIcon(icon) {
+  const el = document.getElementById("reward-icon");
+  if (el) el.value = icon;
+}
+
+function setRewardCost(cost) {
+  const el = document.getElementById("reward-star-cost");
+  if (el) el.value = cost;
+}
+
+async function saveReward(e) {
+  e.preventDefault();
+  const rewId = document.getElementById("reward-id").value;
+  const payload = {
+    title: document.getElementById("reward-title").value.trim(),
+    icon: document.getElementById("reward-icon").value.trim() || "🎁",
+    starCost: parseInt(document.getElementById("reward-star-cost").value) || 50,
+    memberId: document.getElementById("reward-member-id").value,
+    autoRenew: document.getElementById("reward-autorenew").checked,
+    description: document.getElementById("reward-desc").value.trim()
+  };
+
+  try {
+    let res;
+    if (rewId) {
+      res = await fetch(`/api/rewards/${rewId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      res = await fetch("/api/rewards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+    }
+    const saved = await res.json();
+    if (rewId) {
+      const idx = (appState.rewards || []).findIndex((x) => x.id === rewId);
+      if (idx !== -1) appState.rewards[idx] = saved;
+    } else {
+      appState.rewards = appState.rewards || [];
+      appState.rewards.push(saved);
+    }
+    closeModal("modal-reward");
+    renderRewards();
+    showToast("Reward goal saved!");
+  } catch (err) {
+    console.error("Failed to save reward:", err);
+    showToast("Error saving reward goal");
+  }
+}
+
+async function deleteReward() {
+  const rewId = document.getElementById("reward-id").value;
+  if (!rewId) return;
+  const confirmed = await showAppConfirm("Are you sure you want to delete this reward goal?", {
+    title: "Delete Reward Goal?",
+    confirmText: "Delete",
+    isDanger: true,
+    icon: "🗑️"
+  });
+  if (!confirmed) return;
+
+  try {
+    await fetch(`/api/rewards/${rewId}`, { method: "DELETE" });
+    appState.rewards = (appState.rewards || []).filter((x) => x.id !== rewId);
+    closeModal("modal-reward");
+    renderRewards();
+    showToast("Reward goal deleted");
+  } catch (err) {
+    console.error("Failed to delete reward:", err);
+    showToast("Error deleting reward");
+  }
+}
+
+async function confirmRedeemReward(rewardId, memberId) {
+  const reward = (appState.rewards || []).find((x) => x.id === rewardId);
+  const member = appState.members.find((x) => x.id === memberId);
+  if (!reward || !member) return;
+
+  const currentPts = member.points || 0;
+  const newPts = Math.max(0, currentPts - reward.starCost);
+
+  const confirmed = await showAppConfirm(
+    `Redeem "${reward.title}" for ${member.name}? This will use ${reward.starCost} ⭐ from their star balance (${currentPts} ⭐ → ${newPts} ⭐).`,
+    {
+      title: `🎉 Redeem Reward?`,
+      confirmText: `Redeem for ${reward.starCost} ⭐`,
+      isDanger: false,
+      icon: "⭐"
+    }
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch(`/api/rewards/${rewardId}/redeem`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      showToast(err.detail || "Could not redeem reward");
+      return;
+    }
+    const data = await res.json();
+    member.points = data.member.points;
+    if (data.reward && !data.reward.autoRenew) {
+      const rIdx = (appState.rewards || []).findIndex((x) => x.id === rewardId);
+      if (rIdx !== -1) appState.rewards[rIdx] = data.reward;
+    }
+
+    // Trigger celebratory confetti
+    if (typeof confetti === "function") {
+      confetti({
+        particleCount: 160,
+        spread: 90,
+        origin: { y: 0.6 }
+      });
+    }
+
+    renderRewards();
+    if (appState.activeNav === "chores") renderChores();
+    showToast(`🎉 ${member.name} redeemed "${reward.title}"!`);
+  } catch (err) {
+    console.error("Redemption failed:", err);
+    showToast("Failed to redeem reward");
+  }
+}
+
+async function openRedemptionHistoryModal() {
+  const listEl = document.getElementById("redemptions-history-list");
+  if (!listEl) return;
+  listEl.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 1rem;">Loading history...</div>`;
+  openModal("modal-redemptions");
+
+  try {
+    const res = await fetch("/api/reward-redemptions");
+    const items = await res.json();
+    if (!items || items.length === 0) {
+      listEl.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No rewards redeemed yet. Keep completing chores to earn stars! ⭐</div>`;
+      return;
+    }
+    listEl.innerHTML = "";
+    for (const item of items) {
+      const dateStr = item.redeemedAt ? new Date(item.redeemedAt).toLocaleDateString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+      const div = document.createElement("div");
+      div.className = "redemption-history-item";
+      div.innerHTML = `
+        <div class="redemption-history-left">
+          <span class="redemption-history-avatar">${item.memberAvatar || "👤"}</span>
+          <div>
+            <div class="redemption-history-title">${item.rewardIcon || "🎁"} ${item.rewardTitle}</div>
+            <div class="redemption-history-meta">Redeemed by <strong>${item.memberName}</strong> • ${dateStr}</div>
+          </div>
+        </div>
+        <div class="redemption-history-cost">-${item.starCost} ⭐</div>
+      `;
+      listEl.appendChild(div);
+    }
+  } catch (err) {
+    listEl.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 1rem;">Failed to load history</div>`;
+  }
 }
 
 // ---------------------------------------------------------------------------

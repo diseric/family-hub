@@ -66,6 +66,45 @@ DEFAULT_MEALS = {
 
 DEFAULT_FEEDS = []
 
+DEFAULT_REWARDS = [
+    {
+        "id": "rew_1",
+        "title": "Ice Cream Parlor Trip",
+        "icon": "🍦",
+        "starCost": 50,
+        "memberId": "all",
+        "autoRenew": True,
+        "description": "Choose your favorite scoop with sprinkles at the ice cream shop!"
+    },
+    {
+        "id": "rew_2",
+        "title": "30 Min Extra Screen Time",
+        "icon": "🎮",
+        "starCost": 30,
+        "memberId": "all",
+        "autoRenew": True,
+        "description": "Bonus gaming or iPad playtime before dinner."
+    },
+    {
+        "id": "rew_3",
+        "title": "Family Movie Night Pick",
+        "icon": "🎬",
+        "starCost": 40,
+        "memberId": "all",
+        "autoRenew": True,
+        "description": "Pick Friday movie night film and snack for the whole family!"
+    },
+    {
+        "id": "rew_4",
+        "title": "New Toy or Book Prize",
+        "icon": "🎁",
+        "starCost": 100,
+        "memberId": "all",
+        "autoRenew": False,
+        "description": "Pick a special treat or toy during our weekend store trip."
+    }
+]
+
 DEFAULT_SETTINGS = {
     "deviceName": "Kitchen Family Hub 15\"",
     "displayMode": "calendar",  # calendar, split, photo_frame
@@ -92,7 +131,13 @@ def load_db() -> Dict[str, Any]:
     if STATE_FILE.exists():
         try:
             with open(STATE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if "rewards" not in data or not data["rewards"]:
+                    data["rewards"] = [r.copy() for r in DEFAULT_REWARDS]
+                    save_db(data)
+                if "reward_redemptions" not in data:
+                    data["reward_redemptions"] = []
+                return data
         except Exception as e:
             logger.error(f"Error loading state file: {e}")
     
@@ -101,6 +146,8 @@ def load_db() -> Dict[str, Any]:
         "members": DEFAULT_MEMBERS,
         "events": DEFAULT_EVENTS,
         "chores": DEFAULT_CHORES,
+        "rewards": [r.copy() for r in DEFAULT_REWARDS],
+        "reward_redemptions": [],
         "lists": DEFAULT_LISTS,
         "meals": DEFAULT_MEALS,
         "feeds": DEFAULT_FEEDS,
@@ -354,6 +401,8 @@ async def get_state():
         "members": db.get("members", []),
         "events": db.get("events", []),
         "chores": db.get("chores", []),
+        "rewards": db.get("rewards", []),
+        "rewardRedemptions": db.get("reward_redemptions", []),
         "lists": db.get("lists", []),
         "meals": db.get("meals", {}),
         "feeds": db.get("feeds", []),
@@ -459,6 +508,118 @@ def delete_chore(chore_id: str):
     db["chores"] = [c for c in db["chores"] if c.get("id") != chore_id]
     save_db(db)
     return {"ok": True}
+
+# --- Family Rewards & Star Goals ---
+class RewardModel(BaseModel):
+    id: Optional[str] = None
+    title: str
+    icon: Optional[str] = "🎁"
+    starCost: int = 50
+    memberId: Optional[str] = "all"
+    autoRenew: bool = True
+    description: Optional[str] = ""
+
+class RewardRedeemModel(BaseModel):
+    memberId: Optional[str] = None
+
+@app.get("/api/rewards")
+def get_rewards():
+    if "rewards" not in db or not db["rewards"]:
+        db["rewards"] = [r.copy() for r in DEFAULT_REWARDS]
+        save_db(db)
+    return db.get("rewards", [])
+
+@app.post("/api/rewards")
+def create_reward(rew: RewardModel):
+    new_id = rew.id or f"rew_{int(time.time()*1000)}"
+    item = rew.dict()
+    item["id"] = new_id
+    item["createdAt"] = datetime.now().isoformat()
+    db.setdefault("rewards", []).append(item)
+    save_db(db)
+    return item
+
+@app.put("/api/rewards/{reward_id}")
+def update_reward(reward_id: str, rew: RewardModel):
+    for i, r in enumerate(db.get("rewards", [])):
+        if r.get("id") == reward_id:
+            updated = rew.dict()
+            updated["id"] = reward_id
+            updated["createdAt"] = r.get("createdAt", datetime.now().isoformat())
+            db["rewards"][i] = updated
+            save_db(db)
+            return updated
+    raise HTTPException(status_code=404, detail="Reward not found")
+
+@app.delete("/api/rewards/{reward_id}")
+def delete_reward(reward_id: str):
+    db["rewards"] = [r for r in db.get("rewards", []) if r.get("id") != reward_id]
+    save_db(db)
+    return {"ok": True}
+
+@app.post("/api/rewards/{reward_id}/redeem")
+def redeem_reward(reward_id: str, payload: RewardRedeemModel = None):
+    reward = None
+    for r in db.get("rewards", []):
+        if r.get("id") == reward_id:
+            reward = r
+            break
+    if not reward:
+        raise HTTPException(status_code=404, detail="Reward not found")
+    
+    target_member_id = None
+    if payload and payload.memberId:
+        target_member_id = payload.memberId
+    elif reward.get("memberId") and reward["memberId"] != "all":
+        target_member_id = reward["memberId"]
+    else:
+        raise HTTPException(status_code=400, detail="Member ID is required to redeem reward")
+    
+    target_member = None
+    for m in db.get("members", []):
+        if m.get("id") == target_member_id:
+            target_member = m
+            break
+    if not target_member:
+        raise HTTPException(status_code=404, detail="Member not found")
+    
+    cost = int(reward.get("starCost", 50))
+    current_pts = int(target_member.get("points", 0))
+    if current_pts < cost:
+        raise HTTPException(status_code=400, detail=f"Insufficient stars: needs {cost} ⭐, has {current_pts} ⭐")
+    
+    # Deduct stars
+    target_member["points"] = current_pts - cost
+    
+    redemption = {
+        "id": f"red_{int(time.time()*1000)}",
+        "rewardId": reward["id"],
+        "rewardTitle": reward.get("title", "Reward"),
+        "rewardIcon": reward.get("icon", "🎁"),
+        "starCost": cost,
+        "memberId": target_member["id"],
+        "memberName": target_member.get("name", "Member"),
+        "memberAvatar": target_member.get("avatar", "⭐"),
+        "redeemedAt": datetime.now().isoformat()
+    }
+    db.setdefault("reward_redemptions", []).insert(0, redemption)
+    db["reward_redemptions"] = db["reward_redemptions"][:100]
+    
+    if not reward.get("autoRenew", True):
+        reward["completed"] = True
+        reward["completedAt"] = datetime.now().isoformat()
+        
+    save_db(db)
+    return {
+        "status": "ok",
+        "redemption": redemption,
+        "member": target_member,
+        "reward": reward
+    }
+
+@app.get("/api/reward-redemptions")
+def get_reward_redemptions():
+    return db.get("reward_redemptions", [])
 
 # --- To-Do & Grocery Lists ---
 class ListItemModel(BaseModel):
