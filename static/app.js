@@ -1048,9 +1048,32 @@ function navigateDate(delta) {
   renderCalendar();
 }
 
+// Universal Local Date Formatting Helpers (Prevents UTC day-shift bugs)
+function toLocalDateIso(d) {
+  if (!d) d = new Date();
+  if (typeof d === "string") {
+    const parts = d.split("T")[0].split("-");
+    if (parts.length === 3) return d.split("T")[0];
+    d = new Date(d);
+  }
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(isoStr) {
+  if (!isoStr) return new Date();
+  const parts = String(isoStr).split("T")[0].split("-").map(Number);
+  if (parts.length === 3) {
+    return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+  }
+  return new Date(isoStr);
+}
+
 function goToToday() {
   appState.currentDateOffset = 0;
-  appState.selectedDailyDate = new Date().toISOString().split("T")[0];
+  appState.selectedDailyDate = toLocalDateIso(new Date());
   renderCalendar();
 }
 
@@ -1152,6 +1175,7 @@ function renderCalendar(customMountId, customTitleId, customView) {
 function renderWeekView(mount, titleLabel, events) {
   mount.className = "calendar-grid week-grid";
   const curr = new Date();
+  curr.setHours(0, 0, 0, 0);
   curr.setDate(curr.getDate() + appState.currentDateOffset * 7);
   
   // Start on Monday of current week
@@ -1159,6 +1183,7 @@ function renderWeekView(mount, titleLabel, events) {
   const distanceToMonday = (dayOfWeek + 6) % 7;
   const monday = new Date(curr);
   monday.setDate(curr.getDate() - distanceToMonday);
+  monday.setHours(0, 0, 0, 0);
 
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
@@ -1166,12 +1191,13 @@ function renderWeekView(mount, titleLabel, events) {
     titleLabel.textContent = `${monday.toLocaleDateString([], { month: "short", day: "numeric" })} - ${sunday.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
   }
 
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = toLocalDateIso(new Date());
 
   for (let i = 0; i < 7; i++) {
     const colDate = new Date(monday);
     colDate.setDate(monday.getDate() + i);
-    const dateIso = colDate.toISOString().split("T")[0];
+    colDate.setHours(0, 0, 0, 0);
+    const dateIso = toLocalDateIso(colDate);
     const isToday = dateIso === todayIso;
 
     const col = document.createElement("div");
@@ -1235,11 +1261,11 @@ function openNewEventForDate(dateIso) {
 
 function navScheduleDays(offset) {
   if (!appState.selectedDailyDate) {
-    appState.selectedDailyDate = new Date().toISOString().split("T")[0];
+    appState.selectedDailyDate = toLocalDateIso(new Date());
   }
-  const d = new Date(appState.selectedDailyDate + "T00:00:00");
+  const d = parseLocalDate(appState.selectedDailyDate);
   d.setDate(d.getDate() + offset);
-  appState.selectedDailyDate = d.toISOString().split("T")[0];
+  appState.selectedDailyDate = toLocalDateIso(d);
   renderCalendar();
 }
 
@@ -1250,17 +1276,17 @@ function navDailyDay(offset) {
 
 function navMiniCalMonth(offset) {
   if (!appState.selectedDailyDate) {
-    appState.selectedDailyDate = new Date().toISOString().split("T")[0];
+    appState.selectedDailyDate = toLocalDateIso(new Date());
   }
-  const d = new Date(appState.selectedDailyDate + "T00:00:00");
+  const d = parseLocalDate(appState.selectedDailyDate);
   d.setMonth(d.getMonth() + offset);
-  appState.selectedDailyDate = d.toISOString().split("T")[0];
+  appState.selectedDailyDate = toLocalDateIso(d);
   renderCalendar();
 }
 
 function goToTodayDaily() {
   appState.currentDateOffset = 0;
-  appState.selectedDailyDate = new Date().toISOString().split("T")[0];
+  appState.selectedDailyDate = toLocalDateIso(new Date());
   renderCalendar();
 }
 
@@ -1272,9 +1298,10 @@ function renderSingleDayView(mount, titleLabel, events) {
   mount.innerHTML = "";
 
   const targetDate = new Date();
+  targetDate.setHours(0, 0, 0, 0);
   targetDate.setDate(targetDate.getDate() + appState.currentDateOffset);
-  const dateIso = targetDate.toISOString().split("T")[0];
-  const todayIso = new Date().toISOString().split("T")[0];
+  const dateIso = toLocalDateIso(targetDate);
+  const todayIso = toLocalDateIso(new Date());
   const isToday = dateIso === todayIso;
 
   const weekdayStr = targetDate.toLocaleDateString("en-US", { weekday: "long" });
@@ -1387,11 +1414,10 @@ function renderScheduleView(mount, titleLabel, events) {
   mount.innerHTML = "";
 
   if (!appState.selectedDailyDate) {
-    const today = new Date();
-    appState.selectedDailyDate = today.toISOString().split("T")[0];
+    appState.selectedDailyDate = toLocalDateIso(new Date());
   }
 
-  const selectedD = new Date(appState.selectedDailyDate + "T00:00:00");
+  const selectedD = parseLocalDate(appState.selectedDailyDate);
   const monthYearStr = selectedD.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   
   const endD = new Date(selectedD);
@@ -1460,7 +1486,7 @@ function renderScheduleView(mount, titleLabel, events) {
     daysGrid.appendChild(cell);
   }
 
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = toLocalDateIso(new Date());
 
   // Current month days
   for (let day = 1; day <= daysInMonth; day++) {
@@ -1531,7 +1557,8 @@ function renderScheduleView(mount, titleLabel, events) {
   for (let i = 0; i < 7; i++) {
     const curDate = new Date(selectedD);
     curDate.setDate(selectedD.getDate() + i);
-    const dateIso = curDate.toISOString().split("T")[0];
+    curDate.setHours(0, 0, 0, 0);
+    const dateIso = toLocalDateIso(curDate);
     const isToday = dateIso === todayIso;
 
     const weekdayName = curDate.toLocaleDateString("en-US", { weekday: "long" });
@@ -1609,8 +1636,9 @@ function renderDailyScheduleView(mount, titleLabel, events) {
 }
 
 function renderDayView(mount, titleLabel, events, daysCount = 1) {
-  mount.className = daysCount === 1 ? "calendar-grid" : "calendar-grid three-day-grid";
+  mount.className = daysCount === 1 ? "calendar-grid single-day-grid" : "calendar-grid three-day-grid";
   const start = new Date();
+  start.setHours(0, 0, 0, 0);
   start.setDate(start.getDate() + appState.currentDateOffset * daysCount);
 
   if (titleLabel) {
@@ -1623,11 +1651,14 @@ function renderDayView(mount, titleLabel, events, daysCount = 1) {
     }
   }
 
+  const todayIso = toLocalDateIso(new Date());
+
   for (let i = 0; i < daysCount; i++) {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
-    const dateIso = d.toISOString().split("T")[0];
-    const isToday = dateIso === new Date().toISOString().split("T")[0];
+    d.setHours(0, 0, 0, 0);
+    const dateIso = toLocalDateIso(d);
+    const isToday = dateIso === todayIso;
 
     const col = document.createElement("div");
     col.className = `week-col ${isToday ? "today" : ""}`;
@@ -1659,6 +1690,7 @@ function renderMonthView(mount, titleLabel, events) {
   mount.className = "calendar-grid month-grid";
   const d = new Date();
   d.setDate(1);
+  d.setHours(0, 0, 0, 0);
   d.setMonth(d.getMonth() + appState.currentDateOffset);
 
   if (titleLabel) {
@@ -1677,7 +1709,7 @@ function renderMonthView(mount, titleLabel, events) {
   const month = d.getMonth();
   const firstDayIndex = new Date(year, month, 1).getDay();
   const totalDays = new Date(year, month + 1, 0).getDate();
-  const todayIso = new Date().toISOString().split("T")[0];
+  const todayIso = toLocalDateIso(new Date());
 
   // Empty leading cells
   for (let i = 0; i < firstDayIndex; i++) {
@@ -1688,8 +1720,8 @@ function renderMonthView(mount, titleLabel, events) {
   }
 
   for (let day = 1; day <= totalDays; day++) {
-    const cellDate = new Date(year, month, day);
-    const dateIso = cellDate.toISOString().split("T")[0];
+    const cellDate = new Date(year, month, day, 0, 0, 0, 0);
+    const dateIso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const isToday = dateIso === todayIso;
 
     const cell = document.createElement("div");
@@ -1730,7 +1762,7 @@ function renderScheduleListView(mount, titleLabel, events) {
   }
 
   for (const [dt, evs] of Object.entries(groups)) {
-    const dObj = new Date(dt + "T00:00:00");
+    const dObj = parseLocalDate(dt);
     const grp = document.createElement("div");
     grp.className = "schedule-day-group";
     grp.innerHTML = `
@@ -4816,7 +4848,7 @@ function openNewEventModal() {
   if (btnSub) btnSub.textContent = "Save Event";
 
   const dt = document.getElementById("ev-date");
-  if (dt) dt.value = new Date().toISOString().split("T")[0];
+  if (dt) dt.value = toLocalDateIso(new Date());
 
   const tm = document.getElementById("ev-time");
   if (tm) tm.value = "09:00";
