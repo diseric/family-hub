@@ -3938,51 +3938,162 @@ function openMagicImport() {
   if (iconEl) {
     iconEl.textContent = prov === "gemini" ? "🌟" : prov === "openai" ? "⚡" : prov === "anthropic" ? "🧠" : "🦙";
   }
+  clearMagicPhoto();
+  const catSel = document.getElementById("magic-category-select");
+  if (catSel) catSel.value = "auto";
+  handleMagicCategoryChange();
   openModal("modal-magic");
 }
 
 let pendingMagicFile = null;
+let pendingMagicPhotoData = null;
+
+function handleMagicCategoryChange() {
+  const catSel = document.getElementById("magic-category-select");
+  const memberGroup = document.getElementById("magic-member-group");
+  const dayGroup = document.getElementById("magic-day-group");
+  if (!catSel) return;
+  const val = catSel.value;
+  if (dayGroup) {
+    dayGroup.style.display = (val === "recipe") ? "block" : "none";
+  }
+  if (memberGroup) {
+    memberGroup.style.display = (val === "list" || val === "recipe") ? "none" : "block";
+  }
+}
+
+function handleMagicCameraCapture(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  processMagicImageFile(file, "Camera Photo");
+}
 
 function handleMagicFileUpload(e) {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
-  pendingMagicFile = file;
-  const statusBox = document.getElementById("magic-status-box");
-  statusBox.style.display = "block";
-  statusBox.textContent = `Selected file: ${file.name} (${(file.size / 1024).toFixed(1)} KB). Tap "Extract & Populate" to parse.`;
-  if (file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      document.getElementById("magic-text").value = evt.target.result;
-    };
-    reader.readAsText(file);
+  
+  if (file.type.startsWith("image/") || file.name.match(/\.(jpg|jpeg|png|webp|gif|bmp|heic)$/i)) {
+    processMagicImageFile(file, file.name);
+  } else {
+    pendingMagicFile = file;
+    clearMagicPhoto();
+    const statusBox = document.getElementById("magic-status-box");
+    if (statusBox) {
+      statusBox.style.display = "block";
+      statusBox.textContent = `Selected file: ${file.name} (${(file.size / 1024).toFixed(1)} KB). Tap "Analyze & Organize" to import.`;
+    }
+    if (file.name.endsWith(".txt") || file.name.endsWith(".csv")) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const textEl = document.getElementById("magic-text");
+        if (textEl) textEl.value = evt.target.result;
+      };
+      reader.readAsText(file);
+    }
   }
+}
+
+function processMagicImageFile(file, label) {
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let w = img.width;
+      let h = img.height;
+      const maxDim = 1600;
+      if (w > maxDim || h > maxDim) {
+        if (w > h) {
+          h = Math.round((h * maxDim) / w);
+          w = maxDim;
+        } else {
+          w = Math.round((w * maxDim) / h);
+          h = maxDim;
+        }
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, w, h);
+      pendingMagicPhotoData = canvas.toDataURL("image/jpeg", 0.85);
+
+      const previewBox = document.getElementById("magic-photo-preview-box");
+      const previewImg = document.getElementById("magic-preview-img");
+      const titleEl = document.getElementById("magic-photo-title");
+      const sizeEl = document.getElementById("magic-photo-size");
+
+      if (previewBox && previewImg) {
+        previewImg.src = pendingMagicPhotoData;
+        if (titleEl) titleEl.textContent = label || "Photo Captured";
+        if (sizeEl) sizeEl.textContent = `${w}×${h} • Ready for AI visual analysis`;
+        previewBox.style.display = "flex";
+      }
+
+      const statusBox = document.getElementById("magic-status-box");
+      if (statusBox) {
+        statusBox.style.display = "block";
+        statusBox.textContent = `📸 Image ready! Tap "Analyze & Organize" to let AI classify and import.`;
+      }
+    };
+    img.src = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearMagicPhoto() {
+  pendingMagicPhotoData = null;
+  const previewBox = document.getElementById("magic-photo-preview-box");
+  const camInput = document.getElementById("magic-camera-input");
+  const fileInput = document.getElementById("magic-file-input");
+  if (previewBox) previewBox.style.display = "none";
+  if (camInput) camInput.value = "";
+  if (fileInput) fileInput.value = "";
+  const statusBox = document.getElementById("magic-status-box");
+  if (statusBox) statusBox.style.display = "none";
 }
 
 async function submitMagicImport(e) {
   e.preventDefault();
-  const text = document.getElementById("magic-text").value.trim();
-  const memberId = document.getElementById("magic-member").value;
+  const text = (document.getElementById("magic-text")?.value || "").trim();
+  const memberId = document.getElementById("magic-member")?.value || "m5";
+  const category = document.getElementById("magic-category-select")?.value || "auto";
+  const targetDay = document.getElementById("magic-target-day")?.value || "";
   const statusBox = document.getElementById("magic-status-box");
   const btn = document.getElementById("btn-magic-submit");
 
-  if (!text && !pendingMagicFile) {
-    alert("Please paste schedule text or choose a schedule file to import.");
+  if (!text && !pendingMagicFile && !pendingMagicPhotoData) {
+    alert("Please snap a photo with your camera, upload a file, or paste text to import.");
     return;
   }
 
   const s = appState.settings || {};
   const provName = (s.aiProvider || "gemini") === "gemini" ? "Google Gemini" : (s.aiProvider || "AI");
-  statusBox.style.display = "block";
-  statusBox.textContent = `Extracting schedule events with ${provName}...`;
-  btn.disabled = true;
+  if (statusBox) {
+    statusBox.style.display = "block";
+    statusBox.textContent = `🔍 Analyzing content with ${provName}...`;
+  }
+  if (btn) btn.disabled = true;
 
   try {
     let res;
-    if (pendingMagicFile && !text) {
+    if (pendingMagicPhotoData) {
+      res = await fetch("/api/magic-import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          memberId,
+          category,
+          targetDay,
+          imageData: pendingMagicPhotoData
+        })
+      });
+    } else if (pendingMagicFile && !text) {
       const fd = new FormData();
       fd.append("file", pendingMagicFile);
       fd.append("memberId", memberId);
+      fd.append("category", category);
+      fd.append("targetDay", targetDay);
       res = await fetch("/api/magic-import/file", {
         method: "POST",
         body: fd
@@ -3991,31 +4102,55 @@ async function submitMagicImport(e) {
       res = await fetch("/api/magic-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, memberId }),
+        body: JSON.stringify({
+          text,
+          memberId,
+          category,
+          targetDay
+        })
       });
     }
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Import failed");
 
-    statusBox.style.display = "none";
-    btn.disabled = false;
+    if (statusBox) statusBox.style.display = "none";
+    if (btn) btn.disabled = false;
+    clearMagicPhoto();
     pendingMagicFile = null;
-    document.getElementById("magic-file-input").value = "";
+    const textEl = document.getElementById("magic-text");
+    if (textEl) textEl.value = "";
     closeModal("modal-magic");
-    document.getElementById("magic-text").value = "";
 
     await loadState();
-    const aiSuccess = data.aiSuccess !== false;
-    const providerUsed = data.provider ? data.provider.toUpperCase() : provName;
-    if (aiSuccess) {
-      alert(`✨ Magic Import Complete! ${providerUsed} extracted and scheduled ${data.count} events to your calendar.`);
+
+    const cat = data.category || "events";
+    const msg = data.message || "Import complete!";
+    if (typeof showToast === "function") {
+      showToast(msg);
     } else {
-      alert(`📅 Magic Import Complete! Scheduled ${data.count} events to your calendar.`);
+      alert(`✨ ${msg}`);
+    }
+
+    if (typeof confetti === "function") {
+      try {
+        confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+      } catch (ex) {}
+    }
+
+    // Switch view to the target category
+    if (cat === "list" && typeof switchNav === "function") {
+      switchNav("lists");
+    } else if (cat === "recipe" && typeof switchNav === "function") {
+      switchNav("meals");
+    } else if (cat === "chores" && typeof switchNav === "function") {
+      switchNav("chores");
+    } else if (cat === "events" && typeof switchNav === "function") {
+      switchNav("calendar");
     }
   } catch (err) {
-    statusBox.textContent = "Error: " + err.message;
-    btn.disabled = false;
+    if (statusBox) statusBox.textContent = "Error: " + err.message;
+    if (btn) btn.disabled = false;
   }
 }
 

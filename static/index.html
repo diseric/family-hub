@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="/static/styles.css?v=2.36.14" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.36.15" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -654,11 +654,11 @@
     </div>
   </div>
 
-  <!-- Modal: Magic Import (AI Scheduling) -->
+  <!-- Modal: Magic Import (AI Multimodal Camera Scanner & Smart Classifier) -->
   <div id="modal-magic" class="modal-overlay hidden">
     <div class="modal-card" style="max-width: 680px;">
       <div class="modal-header" style="background: linear-gradient(135deg, rgba(124, 58, 237, 0.1), rgba(236, 72, 153, 0.05));">
-        <h2>🪄 Magic Import (AI Schedule Extraction)</h2>
+        <h2>🪄 Magic Import (Camera & Multi-Category AI)</h2>
         <button class="modal-close" onclick="closeModal('modal-magic')">✕</button>
       </div>
       <form id="form-magic" onsubmit="submitMagicImport(event)">
@@ -670,38 +670,88 @@
             </div>
             <button type="button" class="btn-hub ghost mini-btn" onclick="closeModal('modal-magic'); openSettingsModal();" style="font-size: 0.72rem; padding: 2px 8px;">⚙️ AI Settings</button>
           </div>
-          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
-            Paste raw text from school emails, sports schedules, or upload a PDF roster. AI will automatically extract dates, times, titles, and locations straight to your calendar!
+          <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.85rem;">
+            Snap a photo with your camera or paste/upload text. AI automatically detects and organizes into <strong>🛒 Groceries / Lists</strong>, <strong>🍳 Recipes & Meals</strong>, <strong>📅 Calendar Events</strong>, or <strong>🧹 Chores</strong>!
           </p>
-          <div class="form-group">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <label style="margin: 0;">Schedule Text or Document</label>
-              <div>
-                <input type="file" id="magic-file-input" accept=".txt,.csv,.pdf,.ics" style="display: none;" onchange="handleMagicFileUpload(event)" />
-                <button type="button" class="btn-hub ghost" style="padding: 4px 12px; font-size: 0.8rem;" onclick="document.getElementById('magic-file-input').click()">
-                  📄 Upload PDF / File
-                </button>
-              </div>
+
+          <!-- Input Action Bar: Camera Snap & File Upload -->
+          <div style="display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+            <!-- Camera Capture Input (Triggers Native Camera on iPad/iPhone/Android) -->
+            <input type="file" id="magic-camera-input" accept="image/*" capture="environment" style="display: none;" onchange="handleMagicCameraCapture(event)" />
+            <button type="button" class="btn-hub magic" style="padding: 7px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;" onclick="document.getElementById('magic-camera-input').click()">
+              📸 Take Photo / Camera
+            </button>
+
+            <!-- File / Document / Photo Upload -->
+            <input type="file" id="magic-file-input" accept="image/*,.pdf,.txt,.csv,.ics" style="display: none;" onchange="handleMagicFileUpload(event)" />
+            <button type="button" class="btn-hub ghost" style="padding: 7px 14px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;" onclick="document.getElementById('magic-file-input').click()">
+              📄 Upload File / Photo
+            </button>
+          </div>
+
+          <!-- Captured Photo Preview Card (if photo captured) -->
+          <div id="magic-photo-preview-box" style="display: none; margin-bottom: 12px; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; align-items: center; gap: 12px;">
+            <img id="magic-preview-img" style="max-width: 110px; max-height: 90px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color);" alt="Snapshot preview" />
+            <div style="flex: 1;">
+              <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 2px;" id="magic-photo-title">Photo Captured</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;" id="magic-photo-size">Ready for AI visual extraction</div>
+              <button type="button" class="btn-hub ghost mini-btn" onclick="clearMagicPhoto()" style="font-size: 0.72rem; padding: 3px 8px; color: #ef4444;">✕ Remove / Retake</button>
             </div>
-            <textarea id="magic-text" rows="8" placeholder="Paste schedule text or upload a PDF above...
+          </div>
+
+          <!-- Text / Notes Input -->
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="margin-bottom: 4px; font-size: 0.82rem; font-weight: 700;">Text, Notes, or Document Details</label>
+            <textarea id="magic-text" rows="5" placeholder="Paste schedule text, handwritten recipe, grocery list, or tasks...
 e.g.
-Saturday 10/14 - 9:00am Practice vs Hawks at City Park
-Sunday 10/15 - 1:30pm Championship Game vs Tigers at Memorial Stadium
-Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
+• 'Saturday 10/14 - 9:00am Soccer Practice at Memorial Park'
+• 'Groceries: milk, eggs, cheddar, sourdough bread, apples'
+• 'Tuscan Chicken recipe: chicken breasts, spinach, cream, garlic, sun-dried tomatoes'
+• 'Clean kids playroom, take out trash, feed the cat'"></textarea>
           </div>
-          <div class="form-group">
-            <label>Assign Extracted Events to Member</label>
-            <select id="magic-member">
-              <!-- Dynamically populated -->
-            </select>
+
+          <!-- Category Determination Selector & Member Assignment -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.82rem; font-weight: 700;">Destination Category</label>
+              <select id="magic-category-select" onchange="handleMagicCategoryChange()" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem;">
+                <option value="auto" selected>✨ Auto-Detect (AI decides)</option>
+                <option value="list">🛒 Grocery / To-Do List</option>
+                <option value="recipe">🍳 Meal / Recipe</option>
+                <option value="events">📅 Calendar Events</option>
+                <option value="chores">🧹 Chores / Tasks</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="magic-member-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.82rem; font-weight: 700;">Assign to Member</label>
+              <select id="magic-member" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem;">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+
+            <div class="form-group" id="magic-day-group" style="margin-bottom: 0; display: none;">
+              <label style="font-size: 0.82rem; font-weight: 700;">Meal Day (Optional)</label>
+              <select id="magic-target-day" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-size: 0.85rem;">
+                <option value="">Auto / Suggested</option>
+                <option value="Monday">Monday</option>
+                <option value="Tuesday">Tuesday</option>
+                <option value="Wednesday">Wednesday</option>
+                <option value="Thursday">Thursday</option>
+                <option value="Friday">Friday</option>
+                <option value="Saturday">Saturday</option>
+                <option value="Sunday">Sunday</option>
+              </select>
+            </div>
           </div>
-          <div id="magic-status-box" style="display: none; padding: 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); color: #0284c7; font-weight: 600;">
-            Extracting schedule events with AI on local server...
+
+          <div id="magic-status-box" style="display: none; padding: 12px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); color: #0284c7; font-weight: 600; font-size: 0.88rem;">
+            Analyzing content with AI...
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn-hub ghost" onclick="closeModal('modal-magic')">Cancel</button>
-          <button type="submit" id="btn-magic-submit" class="btn-hub magic">⚡ Extract & Populate Calendar</button>
+          <button type="submit" id="btn-magic-submit" class="btn-hub magic">⚡ Analyze & Organize</button>
         </div>
       </form>
     </div>
@@ -2094,7 +2144,7 @@ Monday 10/16 - 5:00pm Team Pizza Party at Round Table Pizza"></textarea>
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.36.14 Cache Busting) -->
-  <script src="/static/app.js?v=2.36.14"></script>
+  <!-- Main JavaScript Engine (v2.36.15 Cache Busting) -->
+  <script src="/static/app.js?v=2.36.15"></script>
 </body>
 </html>

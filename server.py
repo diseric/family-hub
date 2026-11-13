@@ -1452,7 +1452,7 @@ class AITestRequest(BaseModel):
     model: Optional[str] = ""
     baseUrl: Optional[str] = ""
 
-def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-3.8-flash") -> str:
+def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-3.8-flash", image_data: Optional[Dict[str, str]] = None) -> str:
     if not api_key:
         raise ValueError("Google Gemini API key is missing. Please set your key in Settings ⚙️.")
     m = model.strip() or "gemini-3.8-flash"
@@ -1468,11 +1468,20 @@ def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-3.8-flash") 
     last_err = None
     for target_model in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={api_key}"
+        parts = []
+        if image_data and image_data.get("data"):
+            parts.append({
+                "inlineData": {
+                    "mimeType": image_data.get("mimeType", "image/jpeg"),
+                    "data": image_data.get("data")
+                }
+            })
+        parts.append({"text": prompt})
         payload = {
             "contents": [
                 {
                     "role": "user",
-                    "parts": [{"text": prompt}]
+                    "parts": parts
                 }
             ],
             "generationConfig": {
@@ -1510,7 +1519,7 @@ def call_gemini_api(prompt: str, api_key: str, model: str = "gemini-3.8-flash") 
             
     raise ValueError(last_err or "Gemini API call failed")
 
-def call_openai_api(prompt: str, api_key: str, model: str = "gpt-4o-mini", base_url: str = "") -> str:
+def call_openai_api(prompt: str, api_key: str, model: str = "gpt-4o-mini", base_url: str = "", image_data: Optional[Dict[str, str]] = None) -> str:
     base = (base_url or "").strip().rstrip("/") or "https://api.openai.com/v1"
     url = f"{base}/chat/completions"
     headers = {"Content-Type": "application/json"}
@@ -1520,11 +1529,21 @@ def call_openai_api(prompt: str, api_key: str, model: str = "gpt-4o-mini", base_
         raise ValueError("OpenAI API key is missing. Please set your key in Settings ⚙️.")
     
     m = model.strip() or "gpt-4o-mini"
+    user_content: Any = prompt
+    if image_data and image_data.get("data"):
+        user_content = [
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:{image_data.get('mimeType', 'image/jpeg')};base64,{image_data['data']}"}
+            },
+            {"type": "text", "text": prompt}
+        ]
+
     payload = {
         "model": m,
         "messages": [
-            {"role": "system", "content": "You are a precise calendar schedule extraction assistant. Return valid raw JSON array only."},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": "You are a precise family hub organizer assistant. Return valid raw JSON only."},
+            {"role": "user", "content": user_content}
         ],
         "temperature": 0.1
     }
@@ -1552,7 +1571,7 @@ def call_openai_api(prompt: str, api_key: str, model: str = "gpt-4o-mini", base_
         raise ValueError("API returned no choices.")
     return choices[0].get("message", {}).get("content", "")
 
-def call_anthropic_api(prompt: str, api_key: str, model: str = "claude-3-5-haiku-20241022") -> str:
+def call_anthropic_api(prompt: str, api_key: str, model: str = "claude-3-5-haiku-20241022", image_data: Optional[Dict[str, str]] = None) -> str:
     if not api_key:
         raise ValueError("Anthropic API key is missing. Please set your key in Settings ⚙️.")
     url = "https://api.anthropic.com/v1/messages"
@@ -1562,10 +1581,24 @@ def call_anthropic_api(prompt: str, api_key: str, model: str = "claude-3-5-haiku
         "content-type": "application/json"
     }
     m = model.strip() or "claude-3-5-haiku-20241022"
+    user_content: Any = prompt
+    if image_data and image_data.get("data"):
+        user_content = [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": image_data.get("mimeType", "image/jpeg"),
+                    "data": image_data["data"]
+                }
+            },
+            {"type": "text", "text": prompt}
+        ]
+
     payload = {
         "model": m,
         "max_tokens": 4096,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": user_content}],
         "temperature": 0.1
     }
     resp = requests.post(url, headers=headers, json=payload, timeout=40)
@@ -1600,7 +1633,7 @@ def call_ollama_api(prompt: str, model: str = "qwen2.5-coder:14b", base_url: str
     data = resp.json()
     return data.get("response", "")
 
-def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> str:
+def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None, image_data: Optional[Dict[str, str]] = None) -> str:
     db = load_db()
     db_settings = db.get("settings", {})
     s = settings or {}
@@ -1621,22 +1654,22 @@ def call_ai_service(prompt: str, settings: Optional[Dict[str, Any]] = None) -> s
     if provider == "gemini":
         if not api_key:
             raise ValueError("Google Gemini API key not configured. Please add your Gemini key in Settings ⚙️.")
-        return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-3.8-flash")
+        return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-3.8-flash", image_data=image_data)
     elif provider == "openai":
         if not api_key:
             raise ValueError("OpenAI API key not configured. Please add your OpenAI key in Settings ⚙️.")
-        return call_openai_api(prompt, api_key=api_key, model=model or "gpt-4o-mini", base_url=base_url)
+        return call_openai_api(prompt, api_key=api_key, model=model or "gpt-4o-mini", base_url=base_url, image_data=image_data)
     elif provider == "anthropic":
         if not api_key:
             raise ValueError("Anthropic API key not configured. Please add your Anthropic key in Settings ⚙️.")
-        return call_anthropic_api(prompt, api_key=api_key, model=model or "claude-3-5-haiku-20241022")
+        return call_anthropic_api(prompt, api_key=api_key, model=model or "claude-3-5-haiku-20241022", image_data=image_data)
     elif provider == "custom":
-        return call_openai_api(prompt, api_key=api_key, model=model or "default", base_url=base_url)
+        return call_openai_api(prompt, api_key=api_key, model=model or "default", base_url=base_url, image_data=image_data)
     elif provider == "ollama":
         return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
     else:
         if api_key:
-            return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-3.8-flash")
+            return call_gemini_api(prompt, api_key=api_key, model=model or "gemini-3.8-flash", image_data=image_data)
         return call_ollama_api(prompt, model=model or "qwen2.5-coder:14b", base_url=base_url)
 
 def parse_ai_events_json(raw_answer: str) -> List[Dict[str, Any]]:
@@ -1706,130 +1739,417 @@ def test_ai_connection(req: AITestRequest):
             "detail": str(e)
         }
 
-# --- Magic Import (AI Scheduling) ---
+# --- Magic Import (Multimodal Camera & Multi-Category AI Engine) ---
 class MagicImportRequest(BaseModel):
-    text: str
-    memberId: str = "m5"
+    text: Optional[str] = ""
+    memberId: Optional[str] = "m5"
+    category: Optional[str] = "auto"   # auto, list, recipe, events, chores
+    targetDay: Optional[str] = ""      # Monday-Sunday for meals/recipes
+    imageData: Optional[str] = None    # Base64 data URL from camera/image
 
-@app.post("/api/magic-import")
-async def magic_import_schedule(req: MagicImportRequest):
-    input_text = req.text.strip()
-    if not input_text:
-        raise HTTPException(status_code=400, detail="Schedule text cannot be empty")
-    
-    prompt = f"""You are a precise calendar schedule extraction assistant. Extract all dates, event titles, start times, end times, and locations from the schedule text below.
-Today's date is: {date.today().isoformat()}.
-
-Return ONLY a JSON array of event objects matching this exact structure:
-[
-  {{
-    "title": "Soccer Game vs Tigers",
-    "date": "YYYY-MM-DD",
-    "time": "HH:MM",
-    "endTime": "HH:MM",
-    "location": "Memorial Park",
-    "notes": "Bring uniform"
-  }}
-]
-Rules:
-1. Always use 24-hour time HH:MM (e.g. 16:30 for 4:30 PM).
-2. If no year is specified, assume 2026.
-3. If no endTime is given, estimate 1 hour after start time.
-4. Output valid raw JSON only. Do not add markdown backticks, explanations or conversational text.
-
-Schedule Text:
-{input_text}
-"""
-    extracted_events = []
-    used_provider = db.get("settings", {}).get("aiProvider", "gemini")
-    ai_success = False
+def parse_magic_import_json(raw_answer: str) -> Dict[str, Any]:
+    clean = raw_answer.strip()
+    if clean.startswith("```"):
+        clean = re.sub(r'^```[a-zA-Z]*\n', '', clean)
+        clean = re.sub(r'\n```$', '', clean).strip()
 
     try:
-        raw_answer = call_ai_service(prompt, db.get("settings", {}))
-        extracted_events = parse_ai_events_json(raw_answer)
-        if extracted_events:
-            ai_success = True
-    except Exception as e:
-        logger.warning(f"AI schedule extraction fallback: {e}")
+        data = json.loads(clean)
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, list):
+            if data and isinstance(data[0], dict) and "date" in data[0]:
+                return {"category": "events", "events": data}
+            elif data and isinstance(data[0], str):
+                return {"category": "list", "targetList": "Groceries", "items": data}
+            elif data and isinstance(data[0], dict) and "title" in data[0]:
+                return {"category": "events", "events": data}
+    except Exception:
+        pass
 
-    if not extracted_events:
-        # Rule-based fallback parser for dense schedules
-        lines = [line.strip() for line in input_text.splitlines() if line.strip()]
-        for line in lines:
-            t_match = re.search(r'(\d{1,2}:\d{2}\s*(?:am|pm)?)', line, re.IGNORECASE)
-            time_val = "10:00"
-            if t_match:
-                raw_time = t_match.group(1).lower()
-                try:
-                    if "pm" in raw_time and not raw_time.startswith("12"):
-                        h, m = re.sub(r'[^\d:]', '', raw_time).split(":")
-                        time_val = f"{int(h)+12:02d}:{int(m):02d}"
-                    else:
-                        h, m = re.sub(r'[^\d:]', '', raw_time).split(":")
-                        time_val = f"{int(h):02d}:{int(m):02d}"
-                except Exception:
-                    time_val = "10:00"
-            
-            d_match = re.search(r'(\d{4}-\d{2}-\d{2})', line)
-            d_val = d_match.group(1) if d_match else today_str
-            
-            extracted_events.append({
-                "title": re.sub(r'(\d{1,2}:\d{2}\s*(?:am|pm)?|\d{4}-\d{2}-\d{2})', '', line).strip() or "Imported Event",
-                "date": d_val,
-                "time": time_val,
-                "endTime": "11:00",
-                "location": "Imported from document",
-                "notes": f"Magic Import via Family Hub AI ({used_provider})",
-            })
+    match = re.search(r'\{\s*"category"\s*:\s*"[^"]+".*\}', raw_answer, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except Exception:
+            pass
+
+    obj_match = re.search(r'\{.*\}', raw_answer, re.DOTALL)
+    if obj_match:
+        try:
+            parsed = json.loads(obj_match.group(0))
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+    arr_match = re.search(r'\[.*\]', raw_answer, re.DOTALL)
+    if arr_match:
+        try:
+            items = json.loads(arr_match.group(0))
+            if isinstance(items, list):
+                if items and isinstance(items[0], dict) and "date" in items[0]:
+                    return {"category": "events", "events": items}
+                return {"category": "list", "targetList": "Groceries", "items": items}
+        except Exception:
+            pass
+
+    lower = raw_answer.lower()
+    if any(k in lower for k in ["ingredient", "recipe", "tbsp", "tsp", "cups", "preheat"]):
+        lines = [l.strip("-* •1234567890.").strip() for l in raw_answer.splitlines() if l.strip()]
+        return {"category": "list", "targetList": "Groceries", "items": lines[:20]}
     
-    # Save newly imported events into DB
-    added = []
-    for item in extracted_events:
-        new_ev = {
-            "id": f"magic_{int(time.time()*1000)}_{len(added)}",
-            "title": item.get("title", "Imported Schedule Event"),
-            "date": item.get("date", today_str),
-            "time": item.get("time", "09:00"),
-            "endTime": item.get("endTime", "10:00"),
-            "memberId": req.memberId or "m5",
-            "category": "Magic Import",
-            "location": item.get("location", ""),
-            "notes": item.get("notes", "Auto-extracted by Family Hub AI"),
+    return {"category": "events", "events": []}
+
+async def process_magic_import(
+    text: str = "",
+    memberId: str = "m5",
+    category: str = "auto",
+    targetDay: str = "",
+    image_data: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
+    if not text.strip() and not image_data:
+        raise HTTPException(status_code=400, detail="Please provide text, snap a photo, or upload a document.")
+    
+    cat_instruction = ""
+    if category == "list":
+        cat_instruction = "IMPORTANT: The user specifically chose the 'list' category. Format the output as a grocery list or to-do checklist."
+    elif category == "recipe":
+        cat_instruction = "IMPORTANT: The user specifically chose the 'recipe' category. Format the output as a meal recipe with title, ingredients, and instructions."
+    elif category == "events":
+        cat_instruction = "IMPORTANT: The user specifically chose the 'events' category. Format the output as calendar schedule events with dates and times."
+    elif category == "chores":
+        cat_instruction = "IMPORTANT: The user specifically chose the 'chores' category. Format the output as family chores or tasks."
+
+    day_hint = f"Target meal day specified: {targetDay}." if targetDay else ""
+
+    prompt = f"""You are Family Hub's smart multi-purpose organizer assistant.
+Your job is to examine the provided input (text and/or image) and determine which category it belongs to:
+1. "list": A grocery list, supermarket shopping list, packing list, hardware store items, or to-do checklist.
+2. "recipe": A meal recipe, cooking directions, dinner idea, or restaurant menu.
+3. "events": Calendar schedule, sports games, practices, appointments, school calendar, flights, or dates/times.
+4. "chores": Housework, kid chore chart, cleaning duties, or star-based tasks.
+
+{cat_instruction}
+{day_hint}
+
+Today's date is: {date.today().isoformat()} ({date.today().strftime('%A')}).
+
+Analyze the content carefully and return ONLY a valid JSON object matching ONE of these exact structures:
+
+If the content is a grocery list, shopping items, or to-do checklist:
+{{
+  "category": "list",
+  "targetList": "Groceries", // Choose "Groceries" or "To-Do" or a descriptive list title
+  "title": "Grocery List",
+  "items": ["2% Milk", "1 dozen eggs", "Sourdough bread", "Honeycrisp apples"]
+}}
+
+If the content is a recipe or meal idea:
+{{
+  "category": "recipe",
+  "recipeTitle": "Creamy Tuscan Chicken",
+  "suggestedDay": "Wednesday", // Day of the week (Monday-Sunday) or ""
+  "mealType": "dinner", // "breakfast", "lunch", or "dinner"
+  "ingredients": ["1.5 lbs chicken breast", "2 cups baby spinach", "1 cup heavy cream", "1/2 cup sun-dried tomatoes", "3 cloves garlic"],
+  "instructions": "1. Sear chicken in skillet. 2. Sauté garlic and spinach. 3. Add heavy cream and simmer. 4. Serve over pasta.",
+  "addIngredientsToList": true
+}}
+
+If the content is a calendar schedule or events:
+{{
+  "category": "events",
+  "events": [
+    {{
+      "title": "Soccer Game vs Tigers",
+      "date": "YYYY-MM-DD",
+      "time": "15:00",
+      "endTime": "16:00",
+      "location": "City Park Field 2",
+      "notes": "Wear blue jersey"
+    }}
+  ]
+}}
+
+If the content is chores or housework:
+{{
+  "category": "chores",
+  "chores": [
+    {{
+      "title": "Take out trash & recycling",
+      "points": 5,
+      "memberId": "all"
+    }}
+  ]
+}}
+
+Rules:
+- For events: Always use 24-hour time HH:MM (e.g. 17:30). If year is omitted, assume 2026.
+- For recipes: Extract title, ingredients list, instructions, and mealType ("breakfast", "lunch", "dinner").
+- For lists: Separate distinct items cleanly into the "items" array.
+- Return raw JSON only with no markdown fences, no backticks, and no conversational prose.
+
+Input Text (if any):
+{text}
+"""
+    used_provider = db.get("settings", {}).get("aiProvider", "gemini")
+    parsed_result = None
+
+    try:
+        raw_answer = call_ai_service(prompt, settings=db.get("settings", {}), image_data=image_data)
+        parsed_result = parse_magic_import_json(raw_answer)
+    except Exception as e:
+        logger.warning(f"AI magic import error: {e}")
+        if text.strip() and not image_data:
+            parsed_result = {"category": "events", "events": []}
+        else:
+            raise HTTPException(status_code=500, detail=f"AI processing failed: {e}")
+
+    detected_cat = parsed_result.get("category", "events") if parsed_result else "events"
+    if category != "auto":
+        detected_cat = category
+
+    if detected_cat == "list":
+        target_name = parsed_result.get("targetList") or parsed_result.get("title") or "Groceries"
+        target_lower = target_name.lower()
+        matched_list = None
+        for lst in db.get("lists", []):
+            t = lst.get("title", "").lower()
+            if "grocery" in target_lower and "grocery" in t:
+                matched_list = lst
+                break
+            elif "to-do" in target_lower and ("to-do" in t or "todo" in t):
+                matched_list = lst
+                break
+            elif target_lower in t or t in target_lower:
+                matched_list = lst
+                break
+        if not matched_list:
+            if db.get("lists"):
+                matched_list = db["lists"][0]
+            else:
+                matched_list = {"id": f"l_{int(time.time()*1000)}", "title": "🛒 Grocery List", "items": []}
+                db.setdefault("lists", []).append(matched_list)
+
+        raw_items = parsed_result.get("items", [])
+        added_items = []
+        for it in raw_items:
+            it_text = it.get("text", "") if isinstance(it, dict) else str(it).strip()
+            if it_text:
+                new_item = {
+                    "id": f"li_{int(time.time()*1000)}_{len(added_items)}",
+                    "text": it_text,
+                    "checked": False,
+                    "addedBy": "Magic Import"
+                }
+                matched_list.setdefault("items", []).append(new_item)
+                added_items.append(new_item)
+        save_db(db)
+        return {
+            "status": "ok",
+            "category": "list",
+            "title": matched_list.get("title", "Grocery List"),
+            "count": len(added_items),
+            "items": added_items,
+            "message": f"Added {len(added_items)} items to {matched_list.get('title', 'List')}!",
+            "provider": used_provider
         }
-        db.setdefault("events", []).append(new_ev)
-        added.append(new_ev)
-    
-    save_db(db)
-    return {"status": "ok", "count": len(added), "events": added, "aiSuccess": ai_success, "provider": used_provider}
+
+    elif detected_cat == "recipe":
+        recipe_title = parsed_result.get("recipeTitle") or parsed_result.get("title") or "Special Recipe"
+        meal_type = (parsed_result.get("mealType") or "dinner").lower()
+        if meal_type not in ("breakfast", "lunch", "dinner"):
+            meal_type = "dinner"
+
+        valid_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        sugg_day = targetDay or parsed_result.get("suggestedDay", "").capitalize()
+        if sugg_day not in valid_days:
+            sugg_day = date.today().strftime("%A")
+
+        if "meals" not in db:
+            db["meals"] = {d: {"breakfast": "", "lunch": "", "dinner": ""} for d in valid_days}
+        db["meals"].setdefault(sugg_day, {"breakfast": "", "lunch": "", "dinner": ""})
+        db["meals"][sugg_day][meal_type] = recipe_title
+
+        # Add ingredients to grocery list if requested
+        ingredients = parsed_result.get("ingredients", [])
+        added_ingredients = 0
+        if ingredients and parsed_result.get("addIngredientsToList", True):
+            grocery_list = None
+            for lst in db.get("lists", []):
+                if "grocery" in lst.get("title", "").lower():
+                    grocery_list = lst
+                    break
+            if not grocery_list and db.get("lists"):
+                grocery_list = db["lists"][0]
+            if grocery_list:
+                for ing in ingredients:
+                    ing_text = str(ing).strip()
+                    if ing_text:
+                        grocery_list.setdefault("items", []).append({
+                            "id": f"li_{int(time.time()*1000)}_{added_ingredients}",
+                            "text": ing_text,
+                            "checked": False,
+                            "addedBy": f"Recipe: {recipe_title}"
+                        })
+                        added_ingredients += 1
+
+        save_db(db)
+        msg = f"Planned '{recipe_title}' for {sugg_day} {meal_type.title()}!"
+        if added_ingredients > 0:
+            msg += f" (Added {added_ingredients} ingredients to Grocery List)"
+        return {
+            "status": "ok",
+            "category": "recipe",
+            "title": recipe_title,
+            "day": sugg_day,
+            "mealType": meal_type,
+            "ingredientsCount": added_ingredients,
+            "instructions": parsed_result.get("instructions", ""),
+            "message": msg,
+            "provider": used_provider
+        }
+
+    elif detected_cat == "chores":
+        raw_chores = parsed_result.get("chores", [])
+        added_chores = []
+        for c in raw_chores:
+            c_title = c.get("title", "Chore Task").strip()
+            new_chore = {
+                "id": f"c_{int(time.time()*1000)}_{len(added_chores)}",
+                "title": c_title,
+                "memberId": c.get("memberId") or memberId or "all",
+                "points": int(c.get("points") or 5),
+                "completed": False,
+                "date": today_str
+            }
+            db.setdefault("chores", []).append(new_chore)
+            added_chores.append(new_chore)
+        save_db(db)
+        return {
+            "status": "ok",
+            "category": "chores",
+            "title": "Chores & Tasks",
+            "count": len(added_chores),
+            "chores": added_chores,
+            "message": f"Added {len(added_chores)} chores to Tasks!",
+            "provider": used_provider
+        }
+
+    else:
+        # Default: events
+        raw_events = parsed_result.get("events", [])
+        if not raw_events and text.strip():
+            lines = [line.strip() for line in text.splitlines() if line.strip()]
+            for line in lines:
+                raw_events.append({
+                    "title": line,
+                    "date": today_str,
+                    "time": "10:00",
+                    "endTime": "11:00",
+                    "location": "Imported Event"
+                })
+
+        added_events = []
+        for item in raw_events:
+            new_ev = {
+                "id": f"magic_{int(time.time()*1000)}_{len(added_events)}",
+                "title": item.get("title", "Imported Schedule Event"),
+                "date": item.get("date", today_str),
+                "time": item.get("time", "09:00"),
+                "endTime": item.get("endTime", "10:00"),
+                "memberId": memberId or "m5",
+                "category": "Magic Import",
+                "location": item.get("location", ""),
+                "notes": item.get("notes", "Auto-extracted by Family Hub AI"),
+            }
+            db.setdefault("events", []).append(new_ev)
+            added_events.append(new_ev)
+        save_db(db)
+        return {
+            "status": "ok",
+            "category": "events",
+            "title": "Calendar Events",
+            "count": len(added_events),
+            "events": added_events,
+            "message": f"Scheduled {len(added_events)} events to your calendar!",
+            "provider": used_provider
+        }
+
+@app.post("/api/magic-import")
+async def magic_import_endpoint(req: MagicImportRequest):
+    image_dict = None
+    if req.imageData:
+        try:
+            if "," in req.imageData:
+                header, b64 = req.imageData.split(",", 1)
+                mime = header.split(";")[0].replace("data:", "")
+            else:
+                mime = "image/jpeg"
+                b64 = req.imageData
+            image_dict = {"mimeType": mime, "data": b64}
+        except Exception as ex:
+            logger.warning(f"Error parsing image data: {ex}")
+
+    return await process_magic_import(
+        text=req.text or "",
+        memberId=req.memberId or "m5",
+        category=req.category or "auto",
+        targetDay=req.targetDay or "",
+        image_data=image_dict
+    )
 
 @app.post("/api/magic-import/file")
 async def magic_import_file(
     file: UploadFile = File(...),
-    memberId: str = Form("m5")
+    memberId: str = Form("m5"),
+    category: str = Form("auto"),
+    targetDay: str = Form("")
 ):
     content = await file.read()
-    filename = file.filename.lower() if file.filename else "schedule.txt"
-    extracted_text = ""
-    if filename.endswith(".pdf"):
+    filename = file.filename.lower() if file.filename else "file"
+    content_type = (file.content_type or "").lower()
+
+    if any(filename.endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic"]) or content_type.startswith("image/"):
+        mime = content_type if content_type.startswith("image/") else "image/jpeg"
+        b64 = base64.b64encode(content).decode("utf-8")
+        image_dict = {"mimeType": mime, "data": b64}
+        return await process_magic_import(
+            text="Extract and organize this image into the appropriate category",
+            memberId=memberId,
+            category=category,
+            targetDay=targetDay,
+            image_data=image_dict
+        )
+
+    if filename.endswith(".pdf") or content_type == "application/pdf":
         try:
             import io, pypdf
             reader = pypdf.PdfReader(io.BytesIO(content))
+            extracted_text = ""
             for page in reader.pages:
                 extracted_text += (page.extract_text() or "") + "\n"
         except Exception as e:
             logger.error(f"Failed to parse PDF: {e}")
             raise HTTPException(status_code=400, detail=f"PDF reading error: {e}")
-    else:
-        try:
-            extracted_text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            extracted_text = content.decode("latin-1", errors="ignore")
-            
-    if not extracted_text.strip():
-        raise HTTPException(status_code=400, detail="No readable text could be extracted from uploaded file")
-        
-    req = MagicImportRequest(text=extracted_text[:12000], memberId=memberId)
-    return await magic_import_schedule(req)
+        return await process_magic_import(
+            text=extracted_text[:15000],
+            memberId=memberId,
+            category=category,
+            targetDay=targetDay
+        )
+
+    try:
+        extracted_text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        extracted_text = content.decode("latin-1", errors="ignore")
+
+    return await process_magic_import(
+        text=extracted_text[:15000],
+        memberId=memberId,
+        category=category,
+        targetDay=targetDay
+    )
 
 async def background_sync_worker():
     await asyncio.sleep(5)

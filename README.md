@@ -71,11 +71,16 @@ An open-source, touch-optimized family organization hub designed for kitchen dis
 - **Ambient Screensaver**: Displays a clock, date, and weather overlay; taps wake the screen instantly.
 - **Daytime Screen Wake Lock**: Prevents wall tablets and iPads from sleeping during daytime active hours.
 
-### 🪄 Magic Import (AI Schedule Extractor)
-- **Multi-Provider AI Engine**: Powered by your choice of **Google Gemini** (default / recommended), **OpenAI** (`gpt-4o-mini`), **Anthropic Claude**, **Local Ollama**, or any **Custom OpenAI-compatible endpoint** (Groq, OpenRouter, DeepSeek).
-- **Automated Event Parsing**: Paste messy flyers, school newsletters, sports emails, camp schedules, or upload PDF rosters: AI automatically extracts event titles, dates, start/end times, and locations directly onto your family calendar.
-- **In-App API Key Management**: Configure and test your authentication keys directly in **Settings ⚙️** with a real-time **⚡ Test Connection** latency check and masked inputs for touchscreen security.
-- **Rule-Based Fallback**: Works even without an active AI key using an offline regex heuristic parser.
+### 🪄 Magic Import (Multimodal Camera & Multi-Category AI)
+- **📸 Camera & Photo Scanner**: Snap photos of handwritten notes, fridge paper lists, magazine recipe cards, whiteboard chore charts, or school schedules directly using your iPad, tablet, or phone camera.
+- **🎯 Smart Multi-Category Auto-Detection**: AI examines the text or photo and automatically routes data to the right category:
+  - **🛒 Grocery & To-Do Lists**: Extracts items into your Grocery List or checklist with unchecked boxes.
+  - **🍳 Meals & Recipes**: Automatically schedules the dinner/meal on your Meal Planner AND parses ingredients directly onto your Grocery List.
+  - **📅 Calendar Events**: Parses event titles, dates, start/end times, and locations onto your family calendar.
+  - **🧹 Chores & Tasks**: Adds tasks with points to your Chore Chart.
+- **Multi-Provider AI Vision Engine**: Powered by your choice of **Google Gemini** (default / recommended multimodal vision), **OpenAI** (`gpt-4o` / `gpt-4o-mini`), **Anthropic Claude**, **Local Ollama**, or any **Custom OpenAI-compatible endpoint**.
+- **In-App API Key Management**: Configure and test your authentication keys directly in **Settings ⚙️** with real-time **⚡ Test Connection** latency checks and masked inputs for touchscreen security.
+- **Offline Fallback**: Resilient offline parser ensures text schedules and lists work even without active network AI calls.
 
 ---
 
@@ -131,8 +136,8 @@ The first time you load the app, the **Guided Setup Wizard** will launch to conf
 4. Google Calendar iCal sync links
 5. Starter Lists & Chores
 
-### 5. Configure AI Schedule Extractor (Optional)
-Family Hub includes **🪄 Magic Import** powered by your preferred AI service:
+### 5. Configure AI Assistant & Magic Import (Optional)
+Family Hub includes **🪄 Magic Import** (Camera & Multi-Category Scanner) powered by your preferred AI service:
 1. Tap **⚙️ Settings** on the left navigation bar.
 2. Scroll down to **🤖 AI Assistant & Schedule Extractor**.
 3. Choose your provider:
