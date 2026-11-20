@@ -20,7 +20,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="/static/styles.css?v=2.36.16" />
+  <link rel="stylesheet" href="/static/styles.css?v=2.36.17" />
   <!-- Canvas Confetti for Reward Celebrations -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 </head>
@@ -431,6 +431,7 @@
               <p>Tap circular checkmarks to complete tasks and earn reward points!</p>
             </div>
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn-hub ghost" onclick="resetDailyChoresManually()" title="Reset daily recurring tasks so they can be accomplished again today (earned points are kept)">🔄 Reset Today</button>
               <button type="button" class="btn-hub ghost" onclick="openPresetRoutinesModal()" title="Add pre-set routines by age group (Ages 2-4, 5-8, 9+)">✨ Pre-set Routines</button>
               <button type="button" class="btn-hub primary" onclick="openNewChoreModal()">+ Add New Task</button>
             </div>
@@ -2144,7 +2145,7 @@ e.g.
     </div>
   </div>
 
-  <!-- Main JavaScript Engine (v2.36.16 Cache Busting) -->
-  <script src="/static/app.js?v=2.36.16"></script>
+  <!-- Main JavaScript Engine (v2.36.17 Cache Busting) -->
+  <script src="/static/app.js?v=2.36.17"></script>
 </body>
 </html>

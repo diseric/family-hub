@@ -221,8 +221,58 @@ def normalize_rewards_db(data: Dict[str, Any]) -> bool:
     data["rewards"] = cleaned
     return changed
 
+def get_local_today_str(db_obj: Optional[Dict[str, Any]] = None) -> str:
+    """Get the current date as YYYY-MM-DD in the user's configured local timezone."""
+    d = db_obj if db_obj is not None else (db if "db" in globals() else {})
+    tz_str = d.get("settings", {}).get("timezone", "America/Los_Angeles")
+    try:
+        tz = ZoneInfo(tz_str)
+        return datetime.now(tz).strftime("%Y-%m-%d")
+    except Exception:
+        return date.today().isoformat()
+
+def check_and_reset_daily_chores(db_state: Dict[str, Any], force: bool = False) -> int:
+    """
+    Checks all chores and resets daily routines and recurring tasks if completedDate
+    is from a previous day. Preserves points already awarded to members.
+    Returns the count of chores reset.
+    """
+    chores = db_state.get("chores", [])
+    if not chores:
+        return 0
+
+    local_today = get_local_today_str(db_state)
+    reset_count = 0
+
+    for c in chores:
+        if not c.get("completed"):
+            continue
+
+        freq = (c.get("frequency") or "Daily").lower()
+        is_routine = c.get("isRoutine", False) or bool(c.get("timeOfDay"))
+        is_one_time = ("need" in freq or "one" in freq or "time" in freq) and not is_routine
+
+        # As-needed / one-time tasks stay completed unless force reset
+        if is_one_time and not force:
+            continue
+
+        comp_date = c.get("completedDate")
+
+        # If forced, or completedDate is missing, or completedDate is not today:
+        if force or not comp_date or comp_date != local_today:
+            c["completed"] = False
+            c["lastCompletedDate"] = comp_date or local_today
+            c["lastCompletedBy"] = c.get("completedBy")
+            c["completedDate"] = None
+            c["completedBy"] = None
+            reset_count += 1
+
+    return reset_count
+
 db = load_db()
 if normalize_rewards_db(db):
+    save_db(db)
+if check_and_reset_daily_chores(db) > 0:
     save_db(db)
 
 def init_sample_photos():
@@ -455,6 +505,8 @@ def health():
 
 @app.get("/api/state")
 async def get_state():
+    if check_and_reset_daily_chores(db) > 0:
+        save_db(db)
     weather = await fetch_weather()
     return {
         "members": db.get("members", []),
@@ -524,13 +576,16 @@ class ChoreModel(BaseModel):
     icon: Optional[str] = ""
     isUpForGrabs: Optional[bool] = False
     completedBy: Optional[str] = None
+    completedDate: Optional[str] = None
+    lastCompletedDate: Optional[str] = None
+    lastCompletedBy: Optional[str] = None
 
 @app.post("/api/chores")
 def create_chore(ch: ChoreModel):
     new_id = ch.id or f"ch_{int(time.time()*1000)}"
     item = ch.dict()
     item["id"] = new_id
-    item["completedDate"] = today_str if item["completed"] else None
+    item["completedDate"] = get_local_today_str(db) if item["completed"] else None
     db["chores"].append(item)
     save_db(db)
     return item
@@ -543,7 +598,7 @@ def create_chores_batch(chores: List[ChoreModel]):
         new_id = ch.id or f"ch_{base_time}_{idx}"
         item = ch.dict()
         item["id"] = new_id
-        item["completedDate"] = today_str if item["completed"] else None
+        item["completedDate"] = get_local_today_str(db) if item["completed"] else None
         db["chores"].append(item)
         added.append(item)
     save_db(db)
@@ -558,7 +613,7 @@ def toggle_chore(chore_id: str, payload: Optional[Dict[str, Any]] = None):
             c["completed"] = not c.get("completed", False)
             pts = c.get("points", 10)
             if c["completed"]:
-                c["completedDate"] = date.today().isoformat()
+                c["completedDate"] = get_local_today_str(db)
                 claimant = claimant_req or c.get("completedBy") or c.get("memberId")
                 c["completedBy"] = claimant
                 for m in db["members"]:
@@ -579,6 +634,13 @@ def toggle_chore(chore_id: str, payload: Optional[Dict[str, Any]] = None):
             return {"chore": c, "reward": reward}
     raise HTTPException(status_code=404, detail="Chore not found")
 
+@app.post("/api/chores/reset-daily")
+def reset_daily_chores_endpoint(force: bool = False):
+    reset_count = check_and_reset_daily_chores(db, force=force)
+    if reset_count > 0:
+        save_db(db)
+    return {"ok": True, "resetCount": reset_count, "chores": db.get("chores", [])}
+
 @app.put("/api/chores/{chore_id}")
 def update_chore(chore_id: str, ch: ChoreModel):
     for i, c in enumerate(db["chores"]):
@@ -588,6 +650,8 @@ def update_chore(chore_id: str, ch: ChoreModel):
             updated["completed"] = c.get("completed", False)
             updated["completedDate"] = c.get("completedDate")
             updated["completedBy"] = c.get("completedBy")
+            updated["lastCompletedDate"] = c.get("lastCompletedDate")
+            updated["lastCompletedBy"] = c.get("lastCompletedBy")
             db["chores"][i] = updated
             save_db(db)
             return updated
@@ -2155,6 +2219,8 @@ async def background_sync_worker():
     await asyncio.sleep(5)
     while True:
         try:
+            if check_and_reset_daily_chores(db) > 0:
+                save_db(db)
             await sync_all_feeds()
         except Exception as e:
             logger.error(f"Background feed sync worker error: {e}")

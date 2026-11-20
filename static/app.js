@@ -90,8 +90,20 @@ async function init() {
 }
 
 function startClock() {
+  let lastKnownDateStr = toLocalDateIso(new Date());
+
   function update() {
     const now = new Date();
+    const currentDateStr = toLocalDateIso(now);
+    
+    // Auto-detect midnight date change to refresh daily tasks and calendar views
+    if (currentDateStr !== lastKnownDateStr) {
+      lastKnownDateStr = currentDateStr;
+      console.log("Midnight detected, refreshing daily tasks and calendar...");
+      loadState();
+      renderCalendar();
+    }
+
     const timeStr = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     const dateStr = now.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
     
@@ -770,7 +782,7 @@ function renderSplitChores() {
     ? (appState.chores || [])
     : (appState.chores || []).filter((c) => c.memberId === appState.activeMemberFilter || c.memberId === "all");
     
-  const pending = chores.filter((c) => !c.completed);
+  const pending = chores.filter((c) => !isChoreCompletedToday(c));
   if (countBadge) countBadge.textContent = `${pending.length} left`;
   
   if (chores.length === 0) {
@@ -808,34 +820,35 @@ function renderSplitChores() {
     `;
     subHeader.innerHTML = `
       <span>${sub.icon} ${sub.label}</span>
-      <span class="badge-count">${choresInSub.filter(c => !c.completed).length}</span>
+      <span class="badge-count">${choresInSub.filter(c => !isChoreCompletedToday(c)).length}</span>
     `;
     container.appendChild(subHeader);
 
     for (const chore of choresInSub) {
+      const isDone = isChoreCompletedToday(chore);
       const m = getMember(chore.memberId);
       const memberColor = m.color || "#0284c7";
       const item = document.createElement("div");
-      item.className = `split-chore-item ${chore.completed ? "done" : ""}`;
+      item.className = `split-chore-item ${isDone ? "done" : ""}`;
       item.style.cssText = `
         display: flex;
         align-items: center;
         gap: 10px;
         padding: 8px 10px;
-        background: ${chore.completed ? "var(--bg-card-alt)" : `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 40%)`};
+        background: ${isDone ? "var(--bg-card-alt)" : `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 40%)`};
         border-radius: var(--radius-md);
         border: 1px solid var(--border-subtle);
         border-left: 5px solid ${memberColor};
         transition: all 0.15s ease;
-        ${chore.completed ? "opacity: 0.55; text-decoration: line-through;" : ""}
+        ${isDone ? "opacity: 0.55; text-decoration: line-through;" : ""}
       `;
       item.innerHTML = `
-        <div class="split-chore-check" title="Tap to mark complete" style="
+        <div class="split-chore-check" title="${isDone ? 'Tap to mark incomplete' : 'Tap to mark complete'}" style="
           width: 24px;
           height: 24px;
           border-radius: 50%;
           border: 2px solid ${memberColor};
-          background: ${chore.completed ? memberColor : "transparent"};
+          background: ${isDone ? memberColor : "transparent"};
           color: white;
           display: flex;
           align-items: center;
@@ -844,7 +857,7 @@ function renderSplitChores() {
           font-weight: 700;
           flex-shrink: 0;
           cursor: pointer;
-        ">${chore.completed ? "✓" : ""}</div>
+        ">${isDone ? "✓" : ""}</div>
         <div class="split-chore-body" title="Tap to edit task" style="flex: 1; min-width: 0; cursor: pointer;">
           <div style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${chore.title}</div>
           <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; gap: 6px; align-items: center; margin-top: 2px; flex-wrap: wrap;">
@@ -1915,6 +1928,42 @@ function isChoreActiveToday(chore) {
   return chore.daysOfWeek.includes(todayShort);
 }
 
+function isChoreCompletedToday(chore) {
+  if (!chore || !chore.completed) return false;
+
+  // As-needed or one-time chores remain completed once checked off
+  const f = (chore.frequency || "Daily").toLowerCase();
+  const isOneTime = (f.includes("need") || f.includes("one") || f.includes("time")) && !chore.isRoutine;
+  if (isOneTime) return true;
+
+  // Recurring chores and routines must match today's local date
+  if (chore.completedDate) {
+    const todayIso = toLocalDateIso(new Date());
+    return chore.completedDate === todayIso;
+  }
+  return chore.completed;
+}
+
+async function resetDailyChoresManually() {
+  const confirmed = await showAppConfirm("Reset all daily tasks & routines to uncompleted for today so they can be accomplished again? (Points already earned are kept!)", {
+    title: "Reset Daily Tasks?",
+    icon: "🔄",
+    confirmText: "Reset Tasks",
+    isDanger: false,
+  });
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch("/api/chores/reset-daily?force=true", { method: "POST" });
+    const data = await res.json();
+    await loadState();
+    if (appState.splitScreen) renderSplitSidePane();
+    showToast(`🔄 Reset ${data.resetCount || 0} tasks for today!`);
+  } catch (err) {
+    alert("Error resetting tasks: " + err.message);
+  }
+}
+
 function setChoreType(type, isUserAction = false) {
   const isRoutine = type === "routine";
   const btnR = document.getElementById("type-btn-routine");
@@ -2070,7 +2119,7 @@ function renderUpForGrabsColumn(subcats) {
   const ufgChores = (appState.chores || []).filter((c) => {
     return (c.isUpForGrabs || c.memberId === "up_for_grabs") && isChoreActiveToday(c);
   });
-  const completedCount = ufgChores.filter((c) => c.completed).length;
+  const completedCount = ufgChores.filter((c) => isChoreCompletedToday(c)).length;
   const totalCount = ufgChores.length;
 
   const col = document.createElement("div");
@@ -2112,7 +2161,7 @@ function renderUpForGrabsColumn(subcats) {
       <div class="chore-subcategory-title" style="color: #b45309;">
         <span>${sub.icon} ${sub.label}</span>
         <span class="subcategory-badge" style="background: rgba(245, 158, 11, 0.15); color: #b45309;">
-          ${choresInSub.filter((c) => !c.completed).length} open
+          ${choresInSub.filter((c) => !isChoreCompletedToday(c)).length} open
         </span>
       </div>
       <div class="chore-subcategory-list"></div>
@@ -2128,25 +2177,26 @@ function renderUpForGrabsColumn(subcats) {
       `;
     } else {
       for (const chore of choresInSub) {
+        const isDone = isChoreCompletedToday(chore);
         const claimant = chore.completedBy ? getMember(chore.completedBy) : null;
 
         const card = document.createElement("div");
-        card.className = `chore-card up-for-grabs-card ${chore.completed ? "done" : ""}`;
+        card.className = `chore-card up-for-grabs-card ${isDone ? "done" : ""}`;
         card.style.borderLeft = "5px solid #f59e0b";
-        if (!chore.completed) {
+        if (!isDone) {
           card.style.background = "linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, var(--bg-surface) 45%)";
         }
 
         card.innerHTML = `
           <div class="chore-left">
-            <div class="chore-checkbox" title="${chore.completed ? 'Tap to unmark' : 'Tap to claim task'}" style="border-color: #f59e0b; ${chore.completed ? 'background-color: #f59e0b;' : ''}">
-              ${chore.completed ? "✓" : ""}
+            <div class="chore-checkbox" title="${isDone ? 'Tap to unmark' : 'Tap to claim task'}" style="border-color: #f59e0b; ${isDone ? 'background-color: #f59e0b;' : ''}">
+              ${isDone ? "✓" : ""}
             </div>
             ${chore.icon ? `<span class="chore-emoji" title="${escapeHtml(chore.title)}">${chore.icon}</span>` : `<span class="chore-emoji">⚡</span>`}
             <div class="chore-info" title="Tap to view / edit">
               <h3>${escapeHtml(chore.title)}</h3>
               <div class="chore-meta">
-                ${chore.completed && claimant ? `
+                ${isDone && claimant ? `
                   <span class="chore-member-tag" style="background: ${claimant.color || '#f59e0b'}20; color: ${claimant.color || '#f59e0b'}; border: 1px solid ${claimant.color || '#f59e0b'}40;">
                     ✓ Claimed by ${claimant.avatar || "👤"} ${escapeHtml(claimant.name)}
                   </span>
@@ -2170,7 +2220,7 @@ function renderUpForGrabsColumn(subcats) {
         const chk = card.querySelector(".chore-checkbox");
         chk.onclick = async (e) => {
           e.stopPropagation();
-          if (chore.completed) {
+          if (isDone) {
             try {
               await fetch(`/api/chores/${chore.id}/toggle`, { method: "POST" });
               await loadState();
@@ -2191,7 +2241,7 @@ function renderUpForGrabsColumn(subcats) {
         const choreInfo = card.querySelector(".chore-info");
         choreInfo.onclick = (e) => {
           e.stopPropagation();
-          if (!chore.completed) {
+          if (!isDone) {
             openClaimModal(chore);
           } else {
             openEditChoreModal(chore.id);
@@ -2350,7 +2400,7 @@ function renderChores() {
     const memberChores = (appState.chores || []).filter((c) => {
       return (c.memberId === member.id || c.memberId === "all") && !c.isUpForGrabs && c.memberId !== "up_for_grabs";
     });
-    const completedCount = memberChores.filter((c) => c.completed).length;
+    const completedCount = memberChores.filter((c) => isChoreCompletedToday(c)).length;
     const totalCount = memberChores.length;
 
     const col = document.createElement("div");
@@ -2396,7 +2446,7 @@ function renderChores() {
       subGroup.innerHTML = `
         <div class="chore-subcategory-title">
           <span>${sub.icon} ${sub.label}</span>
-          <span class="subcategory-badge">${choresInSub.filter(c => !c.completed).length} left</span>
+          <span class="subcategory-badge">${choresInSub.filter(c => !isChoreCompletedToday(c)).length} left</span>
         </div>
         <div class="chore-subcategory-list"></div>
       `;
@@ -2411,6 +2461,7 @@ function renderChores() {
         `;
       } else {
         for (const chore of choresInSub) {
+          const isDone = isChoreCompletedToday(chore);
           const isShared = chore.memberId === "all" && member.id !== "all";
           const assignedMember = (chore.memberId && chore.memberId !== "all") ? getMember(chore.memberId) : member;
           const memberColor = isShared ? "#0284c7" : (assignedMember.color || member.color || "#0284c7");
@@ -2418,9 +2469,9 @@ function renderChores() {
           const memberName = assignedMember.name || member.name || "Member";
 
           const card = document.createElement("div");
-          card.className = `chore-card ${chore.completed ? "done" : ""}`;
+          card.className = `chore-card ${isDone ? "done" : ""}`;
           card.style.borderLeft = `5px solid ${memberColor}`;
-          if (!chore.completed) {
+          if (!isDone) {
             card.style.background = `linear-gradient(90deg, ${memberColor}15 0%, var(--bg-surface) 45%)`;
           } else {
             card.style.borderLeftColor = `${memberColor}80`;
@@ -2428,7 +2479,7 @@ function renderChores() {
 
           card.innerHTML = `
             <div class="chore-left">
-              <div class="chore-checkbox" title="Tap to mark complete" style="border-color: ${memberColor}; ${chore.completed ? `background-color: ${memberColor}; border-color: ${memberColor};` : ''}">${chore.completed ? "✓" : ""}</div>
+              <div class="chore-checkbox" title="${isDone ? 'Tap to mark incomplete' : 'Tap to mark complete'}" style="border-color: ${memberColor}; ${isDone ? `background-color: ${memberColor}; border-color: ${memberColor};` : ''}">${isDone ? "✓" : ""}</div>
               ${chore.icon ? `<span class="chore-emoji" title="${chore.title}">${chore.icon}</span>` : ""}
               <div class="chore-info" title="Tap to edit task">
                 <h3>${chore.title}</h3>
@@ -6676,9 +6727,9 @@ function renderHomeTasks() {
     const ufgChores = (appState.chores || []).filter((c) => {
       return (c.isUpForGrabs || c.memberId === "up_for_grabs") && isChoreMatchingHomePeriod(c, period);
     });
-    const pendingUfg = ufgChores.filter((c) => !c.completed);
+    const pendingUfg = ufgChores.filter((c) => !isChoreCompletedToday(c));
     totalPending += pendingUfg.length;
-    const completedUfg = ufgChores.filter((c) => c.completed).length;
+    const completedUfg = ufgChores.filter((c) => isChoreCompletedToday(c)).length;
 
     const ufgCard = document.createElement("div");
     ufgCard.className = "home-profile-card home-ufg-card";
@@ -6701,16 +6752,17 @@ function renderHomeTasks() {
             ${ufgEmptyText}
           </div>
         ` : ufgChores.map((chore) => {
+          const isDone = isChoreCompletedToday(chore);
           const claimant = chore.completedBy ? getMember(chore.completedBy) : null;
           return `
-            <div class="home-task-item ${chore.completed ? "done" : ""}" onclick="handleHomeUfgChoreClick('${chore.id}', event)">
-              <div class="home-task-checkbox ${chore.completed ? "checked" : ""}" style="border-color: #f59e0b; ${chore.completed ? 'background-color: #f59e0b;' : ''}" title="Tap to claim or unmark">
-                ${chore.completed ? "✓" : ""}
+            <div class="home-task-item ${isDone ? "done" : ""}" onclick="handleHomeUfgChoreClick('${chore.id}', event)">
+              <div class="home-task-checkbox ${isDone ? "checked" : ""}" style="border-color: #f59e0b; ${isDone ? 'background-color: #f59e0b;' : ''}" title="Tap to claim or unmark">
+                ${isDone ? "✓" : ""}
               </div>
               <span style="font-size: 0.95rem;">${chore.icon || "⚡"}</span>
               <div style="display: flex; flex-direction: column; flex: 1; min-width: 0;">
                 <span class="home-task-text" title="${escapeHtml(chore.title)}">${escapeHtml(chore.title)}</span>
-                ${chore.completed && claimant ? `
+                ${isDone && claimant ? `
                   <span style="font-size: 0.68rem; color: #b45309; font-weight: 700;">Claimed by ${claimant.avatar} ${escapeHtml(claimant.name)}</span>
                 ` : `
                   <span style="font-size: 0.68rem; color: var(--text-muted);">First to finish earns stars</span>
@@ -6732,9 +6784,9 @@ function renderHomeTasks() {
       return (c.memberId === member.id || c.memberId === "all") && !c.isUpForGrabs && c.memberId !== "up_for_grabs" && isChoreMatchingHomePeriod(c, period);
     });
 
-    const pending = memberChores.filter((c) => !c.completed);
+    const pending = memberChores.filter((c) => !isChoreCompletedToday(c));
     totalPending += pending.length;
-    const completedCount = memberChores.filter((c) => c.completed).length;
+    const completedCount = memberChores.filter((c) => isChoreCompletedToday(c)).length;
 
     const card = document.createElement("div");
     card.className = "home-profile-card";
@@ -6756,16 +6808,19 @@ function renderHomeTasks() {
           <div style="text-align: center; padding: 1.5rem 0.5rem; color: var(--text-muted); font-size: 0.78rem;">
             ${emptyText}
           </div>
-        ` : memberChores.map((chore) => `
-          <div class="home-task-item ${chore.completed ? "done" : ""}" onclick="toggleHomeChore('${chore.id}', event)">
-            <div class="home-task-checkbox ${chore.completed ? "checked" : ""}" title="Tap to mark done">
-              ${chore.completed ? "✓" : ""}
+        ` : memberChores.map((chore) => {
+          const isDone = isChoreCompletedToday(chore);
+          return `
+            <div class="home-task-item ${isDone ? "done" : ""}" onclick="toggleHomeChore('${chore.id}', event)">
+              <div class="home-task-checkbox ${isDone ? "checked" : ""}" title="Tap to mark done">
+                ${isDone ? "✓" : ""}
+              </div>
+              ${chore.icon ? `<span style="font-size: 0.95rem;">${chore.icon}</span>` : ""}
+              <span class="home-task-text" title="${escapeHtml(chore.title)}">${escapeHtml(chore.title)}</span>
+              <span class="home-task-stars">+${chore.points || 10}⭐</span>
             </div>
-            ${chore.icon ? `<span style="font-size: 0.95rem;">${chore.icon}</span>` : ""}
-            <span class="home-task-text" title="${escapeHtml(chore.title)}">${escapeHtml(chore.title)}</span>
-            <span class="home-task-stars">+${chore.points || 10}⭐</span>
-          </div>
-        `).join("")}
+          `;
+        }).join("")}
       </div>
     `;
 
@@ -6779,7 +6834,7 @@ function handleHomeUfgChoreClick(choreId, e) {
   if (e) e.stopPropagation();
   const chore = (appState.chores || []).find((c) => c.id === choreId);
   if (!chore) return;
-  if (chore.completed) {
+  if (isChoreCompletedToday(chore)) {
     toggleHomeChore(choreId, e);
   } else {
     openClaimModal(chore);
